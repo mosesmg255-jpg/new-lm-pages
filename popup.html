@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="utils/security.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Notification</title>
+    
+    <!-- Links to shared project styling -->
+    <link rel="stylesheet" href="style/style.css">
+    <script src="popup.js"></script>
+
+</head>
+<body>
+    <div class="popup-box">
+        <h2 id="popup-title" style="color: red;">Notification !!!</h2>
+        <p id="error-message">...User Already Exist... <br><br> Clik ok to go back to register account page<br> Click cancel to go back to  ladding page </p> 
+        
+        <div class="btn-group">
+            <button class="btn-ok" onclick="goToCreateAccount()">OK</button>
+            <button class="btn-cancel" onclick="goToHome()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Externalized control engine logic -->
+    
+</body>
+</html>

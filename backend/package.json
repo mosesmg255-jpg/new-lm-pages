@@ -1,0 +1,25 @@
+{
+  "name": "lm-backend-mongodb",
+  "version": "1.0.0",
+  "description": "MongoDB API backend for LM Project (members/loans/repayments)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "mongoose": "^8.5.2",
+    "morgan": "^1.11.0",
+    "multer": "^2.2.0",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.22.5",
+    "openai": "^4.0.0",
+    "sequelize": "^6.35.0",
+    "winston": "^3.19.0"
+  }
+}

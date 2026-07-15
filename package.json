@@ -1,0 +1,27 @@
+{
+  "name": "lm-project",
+  "version": "1.0.0",
+  "description": "Loan Management System",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "backend:test": "node backend/deep_integration_test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "multer": "^2.2.0",
+    "mysql2": "^3.22.5",
+    "openai": "^4.0.0",
+    "sequelize": "^6.35.0",
+    "winston": "^3.19.0"
+  }
+}

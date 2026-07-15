@@ -1,0 +1,1 @@
+const fs = require('fs'); const pages = ['about', 'services', 'contact', 'faq']; pages.forEach(p => { const file = (p === 'contact' ? 'contactus.html' : p + '.html'); let c = fs.readFileSync(file, 'utf8'); c = c.replace(/class="active"/g, ''); const tag = 'id="nav-' + p + '"'; c = c.replace(new RegExp(tag), 'class="active" ' + tag); fs.writeFileSync(file, c); });

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script src="utils/security.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Portal | Loan & Money Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style/member.css">
+</head>
+
+<body>
+
+<!-- 
+     AUTH BLUR GATE - Covers entire portal until verified login
+     JS in member.js evaluates session on DOMContentLoaded and
+     calls dissolveAuthGate() to remove it for approved members.
+ -->
+<div id="authBlurGate" role="dialog" aria-modal="true" aria-label="Authentication required">
+    <div class="blur-gate-card">
+        <i class="fas fa-lock blur-gate-icon"></i>
+        <h2>Access Restricted</h2>
+        <p>
+            This portal is secured. Please sign in with your approved
+            membership credentials to access the dashboard and services.
+        </p>
+        <a href="#" class="blur-gate-btn" id="gateLoginBtn"
+           onclick="openAuthPortal(event,'authSection', 'loginForm')">
+            <i class="fas fa-sign-in-alt"></i>&nbsp; Sign In to Portal
+        </a>
+        <a href="#" class="blur-gate-btn-secondary" id="gateRegisterBtn"
+           onclick="openAuthPortal(event,'authSection', 'registerForm')">
+            <i class="fas fa-user-plus"></i>&nbsp; New Member? Register Here
+        </a>
+        <div class="blur-gate-badge">
+            <i class="fas fa-shield-alt"></i>
+            End-to-end encrypted &bull; Session token verified &bull; Admin-approved access only
+        </div>
+    </div>
+</div>
+
+
+    <header class="top-header">
+        <div class="header-left">
+            <button class="hamburger-btn" id="menuToggleBtn" title="Toggle Navigation Menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="logo-area">
+                <i class="fas fa-wallet text-primary"></i>
+                <span>MONEY<span>HUB</span></span>
+            </div>
+        </div>
+        <div class="header-right" style="display: flex; align-items: center; gap: 10px;">
+            <!-- Dark Mode Toggle -->
+            <button class="hamburger-btn" id="themeToggleBtn" title="Toggle Dark/Light Mode" onclick="toggleMemberTheme()" style="border-radius: 8px; transition: all 0.3s ease;">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
+            <div class="user-profile-badge" id="userBadge" style="display: none;">
+                <i class="fas fa-user-circle text-primary"></i>
+                <span id="badgeUsername">Member</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="app-container">
+
+        <nav class="sidebar" id="sidebarMenu">
+            <ul class="nav-links">
+                <li><a href="#" class="nav-item active" data-target="dashboardSection"><i class="fas fa-chart-pie"></i>
+                        Dashboard</a></li>
+                <li><a href="#" class="nav-item" data-target="authSection" id="navAuthLink"><i
+                            class="fas fa-sign-in-alt"></i> Access Portal</a></li>
+                <li><a href="#" class="nav-item" data-target="takeLoanSection"><i class="fas fa-hand-holding-usd"></i>
+                        Request Loan</a></li>
+                <li><a href="#" class="nav-item" data-target="payLoanSection"><i class="fas fa-receipt"></i>
+                        Repayments</a></li>
+                <li><a href="#" class="nav-item" data-target="meetingsSection"><i class="fas fa-bolt"></i>
+                        Activities</a></li>
+                <li><a href="#" class="nav-item" data-target="reportsSection"><i class="fas fa-file-invoice-dollar"></i> Live Ledger</a></li>
+                <li><a href="#" class="nav-item" data-target="contributionsSection"><i class="fas fa-piggy-bank"></i> Contributions / Savings</a></li>
+                <li><a href="#" class="nav-item" data-target="expensesSection"><i class="fas fa-file-invoice"></i> Expense Claims</a></li>
+                <li><a href="#" class="nav-item" data-target="notificationsSection"><i class="fas fa-bell"></i> Notifications</a></li>
+                <li><a href="#" class="nav-item" data-target="contactSection"><i class="fas fa-headset"></i> Contact Admin</a></li>
+                <li><a href="#" class="nav-item" data-target="settingsSection"><i class="fas fa-sliders-h"></i> System
+                        Settings</a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <p><i class="fas fa-headset"></i> Official Desk:</p>
+                <a href="tel:0741943207" class="call-link"><i class="fas fa-phone-alt"></i> 0741943207</a>
+                <span class="handler">officialmugomoses</span>
+            </div>
+        </nav>
+
+        <main class="main-content">
+
+            <div class="alert-banner warning" id="approvalPendingBanner" style="display: none;">
+                <div class="banner-icon"><i class="fas fa-clock"></i></div>
+                <div class="banner-body">
+                    <h4>Account Pending Verification</h4>
+                    <p>Your access request has been securely transmitted to the Admin Portal (home.html). You will be
+                        granted system functionality once approved.</p>
+                </div>
+            </div>
+
+            <section id="authSection" class="content-section" style="display: none;">
+                <div class="auth-wrapper">
+                    <div class="auth-card">
+                        <h3><i class="fas fa-lock"></i> Account Authentication</h3>
+                        <form id="loginForm" onsubmit="handleMemberLogin(event)">
+                            <div class="form-group">
+                                <label for="loginIdentity">Email Address</label>
+                                <input type="email" id="loginIdentity" name="email" autocomplete="email" inputmode="email" required placeholder="Enter your email address">
+                            </div>
+                            <div class="form-group">
+                                <label for="loginPassword">Password</label>
+                                <div style="position: relative;">
+                                    <input type="password" id="loginPassword" name="password" autocomplete="new-password" required placeholder="********" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
+                                    <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="const loginPwd = document.getElementById('loginPassword'); if(loginPwd.type==='password'){loginPwd.type='text'; this.className='fas fa-eye-slash';}else{loginPwd.type='password'; this.className='fas fa-eye';}"></i>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Verify & Open Session</button>
+                            <div style="text-align: center; margin-top: 15px;">
+                                <button type="button" onclick="showRecoveryUI(event)" style="width: 100%; padding: 12px; margin-top: 10px; background: #ff9800; color: #fff; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,152,0,0.3);"><i class="fas fa-shield-alt"></i> FORGOT PASSWORD / RECOVER ACCOUNT</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="auth-card">
+                        <h3><i class="fas fa-user-plus"></i> Join Membership</h3>
+                        <form id="registerForm" onsubmit="handleMemberRegister(event)">
+                            <div class="form-group">
+                                <label for="regName">Full Legal Name</label>
+                                <input type="text" id="regName" required placeholder="Name">
+                            </div>
+                            <div class="form-group">
+                                <label for="regEmail">Email Address</label>
+                                <input type="email" id="regEmail" name="email" autocomplete="email" required placeholder="name@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="regPhone">Mobile Phone Number</label>
+                                <input type="tel" id="regPhone" required placeholder="07********">
+                            </div>
+                            <div class="form-group">
+                                <label for="regPassword">Security Password</label>
+                                <div style="position: relative;">
+                                    <input type="password" id="regPassword" autocomplete="new-password" required placeholder="Create secure password" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
+                                    <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="const regPwd = document.getElementById('regPassword'); if(regPwd.type==='password'){regPwd.type='text'; this.className='fas fa-eye-slash';}else{regPwd.type='password'; this.className='fas fa-eye';}"></i>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="regPin">4-Digit Security PIN (For Transactions)</label>
+                                <div style="position: relative;">
+                                    <input type="password" id="regPin" autocomplete="new-password" required maxlength="4" pattern="[0-9]{4}" placeholder="e.g. 1234" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
+                                    <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="const pinField = document.getElementById('regPin'); if(pinField.type==='password'){pinField.type='text'; this.className='fas fa-eye-slash';}else{pinField.type='password'; this.className='fas fa-eye';}"></i>
+                                </div>
+                                <small style="color:#aaa;">You will need this PIN to request loans or make payments.</small>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-block">Submit Membership File</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Password Recovery Modal (Hidden by default) -->
+                <div id="recoveryModal" class="auth-wrapper" style="display: none; margin-top: 20px;">
+                    <div class="auth-card" style="width: 100%; max-width: 450px; margin: 0 auto; border-top: 4px solid var(--orange);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin: 0;"><i class="fas fa-shield-alt text-orange"></i> Secure Account Recovery</h3>
+                            <button onclick="hideRecoveryUI()" style="background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 16px;"><i class="fas fa-times"></i></button>
+                        </div>
+                        
+                        <!-- Step 1: Request Password Reset -->
+                        <div id="recoveryStep1">
+                            <p style="font-size: 13px; color: var(--text-light); margin-bottom: 15px;">Enter your registered email address. We will generate a secure reset link to verify your identity.</p>
+                            <form onsubmit="requestPasswordReset(event)">
+                                <div class="form-group">
+                                    <label for="recoveryEmail">Registered Email Address</label>
+                                    <input type="email" id="recoveryEmail" name="email" autocomplete="email" required placeholder="Enter your account email">
+                                </div>
+                                <button type="submit" id="btnRequestReset" class="btn btn-primary btn-block" style="background: #0077ff; border-color: #0077ff; font-weight: bold; margin-top: 10px;">Send Password Reset Link</button>
+                            </form>
+                            
+                            <!-- Area to show simulated email link -->
+                            <div id="simulatedEmailBox" style="display: none; margin-top: 15px; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107; font-size: 12px; word-break: break-all;">
+                                <strong>Simulated Email:</strong><br>
+                                Click this link to reset your password: <br>
+                                <a href="#" id="simulatedEmailLink" style="font-weight: bold; color: var(--primary);"></a>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Password Reset (Visible if token present) -->
+                        <div id="recoveryStep3" style="display: none;">
+                            <div class="alert-banner" style="background: rgba(76,175,80,0.1); border-left: 4px solid var(--success); padding: 10px; margin-bottom: 15px;">
+                                <p style="margin: 0; font-size: 13px; color: var(--success);"><i class="fas fa-check-circle"></i> Token verified. Please enter your new password below.</p>
+                            </div>
+                            <form onsubmit="submitAIVerifiedRecovery(event)">
+                                <div class="form-group">
+                                    <label for="recoveryNewPassword">Create New Secure Password</label>
+                                    <div style="position: relative;">
+                                        <input type="password" id="recoveryNewPassword" autocomplete="new-password" required placeholder="Enter new password" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
+                                        <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="const memberRecPwd = document.getElementById('recoveryNewPassword'); if(memberRecPwd.type==='password'){memberRecPwd.type='text'; this.className='fas fa-eye-slash';}else{memberRecPwd.type='password'; this.className='fas fa-eye';}"></i>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-block">Update Password</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="dashboardSection" class="content-section">
+                <div class="dashboard-header">
+                    <h2>Operational Dashboard</h2>
+                    <p>Real-time metrics, synchronized dynamic ledgers, and loan statuses.</p>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="tile-card summary-blue">
+                        <div class="tile-body">
+                            <span class="tile-title">Loans Taken</span>
+                            <h2 class="tile-value" id="tileLoansTaken">Ksh 0.00</h2>
+                        </div>
+                        <div class="tile-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                    </div>
+                    <div class="tile-card summary-green">
+                        <div class="tile-body">
+                            <span class="tile-title">Loans Repaid</span>
+                            <h2 class="tile-value" id="tileLoansPaid">Ksh 0.00</h2>
+                        </div>
+                        <div class="tile-icon"><i class="fas fa-cloud-download-alt"></i></div>
+                    </div>
+                    <div class="tile-card summary-orange">
+                        <div class="tile-body">
+                            <span class="tile-title">Active Outstandings</span>
+                            <h2 class="tile-value" id="tileActiveLoans">0</h2>
+                        </div>
+                        <div class="tile-icon"><i class="fas fa-exclamation-circle"></i></div>
+                    </div>
+                    <div class="tile-card summary-purple">
+                        <div class="tile-body">
+                            <span class="tile-title">Activities Attended</span>
+                            <h2 class="tile-value" id="tileMeetingsJoined">0</h2>
+                        </div>
+                        <div class="tile-icon"><i class="fas fa-handshake"></i></div>
+                    </div>
+                    <div class="tile-card summary-red">
+                        <div class="tile-body">
+                            <span class="tile-title">Groups Vacated</span>
+                            <h2 class="tile-value" id="tileGroupsLeft">0</h2>
+                        </div>
+                        <div class="tile-icon"><i class="fas fa-door-open"></i></div>
+                    </div>
+                    <div class="tile-card summary-teal">
+                        <div class="tile-body">
+                            <span class="tile-title">Registered Pool</span>
+                            <h2 class="tile-value" id="tileTotalMembers">0</h2>
+                        </div>
+                        <div class="tile-icon"><i class="fas fa-users-cog"></i></div>
+                    </div>
+                </div>
+
+                <!-- Repayment Progress Bar -->
+                <div class="progress-panel" style="background: var(--bg-dark-panel); border: 1px solid var(--bg-dark-accent); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0;">Repayment Progress</h3>
+                        <span id="repaymentProgressText" style="font-weight: bold; color: var(--primary);">0% Paid Off</span>
+                    </div>
+                    <div style="width: 100%; background: #222; border-radius: 10px; height: 16px; overflow: hidden; border: 1px solid #333;">
+                        <div id="repaymentProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #f44336, #4caf50); transition: width 0.8s ease;"></div>
+                    </div>
+                    <p style="font-size: 13px; color: #888; margin-top: 10px;">Progress is based on total loans taken versus total amount successfully repaid.</p>
+                </div>
+
+                <div class="dashboard-double-column">
+                    <div class="panel-card">
+                        <h3><i class="fas fa-bell text-orange"></i> Live System Updates</h3>
+                        <p class="subtitle text-muted">Showing meeting updates and loan notifications exclusively.</p>
+                        <hr>
+                        <div class="notification-stream" id="memberNotificationFeed"></div>
+                    </div>
+
+                    <div class="panel-card">
+                        <h3><i class="fas fa-user-shield text-primary"></i> Your Admin Officer</h3>
+                        <p class="subtitle text-muted" id="adminContactHint">Loading your assigned officer...</p>
+                        <hr>
+                        <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;">
+                            <div style="display: flex; align-items: center; gap: 14px; background: rgba(0,224,255,0.06); border-radius: 10px; padding: 12px 16px; border: 1px solid rgba(0,224,255,0.15);">
+                                <i class="fas fa-id-badge" style="font-size: 1.4rem; color: var(--primary); min-width: 24px;"></i>
+                                <div>
+                                    <div style="font-size: 11px; text-transform: uppercase; opacity: 0.6; letter-spacing: 0.5px;">Full Name</div>
+                                    <div id="adminNameDisplay" style="font-size: 15px; font-weight: 700; color: var(--primary);">Loading...</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 14px; background: rgba(76,175,80,0.07); border-radius: 10px; padding: 12px 16px; border: 1px solid rgba(76,175,80,0.2);">
+                                <i class="fas fa-phone-alt" style="font-size: 1.4rem; color: #4caf50; min-width: 24px;"></i>
+                                <div>
+                                    <div style="font-size: 11px; text-transform: uppercase; opacity: 0.6; letter-spacing: 0.5px;">Phone / Mobile</div>
+                                    <div id="adminPhoneDisplay" style="font-size: 15px; font-weight: 700; color: #4caf50;">Loading...</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 14px; background: rgba(255,152,0,0.07); border-radius: 10px; padding: 12px 16px; border: 1px solid rgba(255,152,0,0.2);">
+                                <i class="fas fa-envelope" style="font-size: 1.4rem; color: #ff9800; min-width: 24px;"></i>
+                                <div>
+                                    <div style="font-size: 11px; text-transform: uppercase; opacity: 0.6; letter-spacing: 0.5px;">Email Address</div>
+                                    <div id="adminEmailDisplay" style="font-size: 14px; font-weight: 600; color: #ff9800; word-break: break-all;">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- end dashboard-double-column -->
+            </section><!-- end dashboardSection -->
+
+            <section id="takeLoanSection" class="content-section" style="display: none;">
+                <div class="panel-card max-width-md">
+                    <h3><i class="fas fa-hand-holding-usd text-primary"></i> Form: Capital Borrowing Application</h3>
+                    <hr>
+                    <form id="takeLoanForm" onsubmit="processLoanApplication(event)">
+                        <div class="form-group">
+                            <label>Principal Amount Required (Ksh)</label>
+                            <input type="number" id="loanAmount" min="500" required placeholder="e.g. 25000">
+                        </div>
+                        <div class="form-group">
+                            <label>Amortization Window (Months)</label>
+                            <input type="number" id="loanDuration" min="1" max="36" required placeholder="e.g. 12">
+                        </div>
+                        <div class="form-group">
+                            <label>Assigned Annual Interest Rate (%)</label>
+                            <input type="number" id="loanInterest" value="12" readonly>
+                        </div>
+                        <button type="submit" class="btn btn-primary ActionRestricted">File Loan Request</button>
+                    </form>
+                </div>
+            </section>
+
+            <section id="payLoanSection" class="content-section" style="display: none;">
+                <div class="panel-card max-width-md">
+                    <h3><i class="fas fa-receipt text-success"></i> Settlement Ledger Portal</h3>
+                    <hr>
+                    <form id="payLoanForm" onsubmit="processLoanSettlement(event)">
+                        <div class="form-group">
+                            <label>Select Target Outbound Loan File</label>
+                            <select id="payLoanSelect" required>
+                                <option value="">-- No active outstanding balances detected --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Repayment Installment (Ksh)</label>
+                            <input type="number" id="payAmount" min="100" required placeholder="Specify payment value">
+                        </div>
+                        <div class="form-group">
+                            <label>Payment Channel</label>
+                            <div class="radio-group-container">
+                                <label class="radio-label"><input type="radio" name="payMethod" value="M-Pesa" checked>
+                                    Mobile Money (M-Pesa)</label>
+                                <label class="radio-label"><input type="radio" name="payMethod" value="Bank">
+                                    Institution Wire Transfer</label>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success ActionRestricted">Process Remittance</button>
+                    </form>
+                </div>
+            </section>
+
+            <section id="meetingsSection" class="content-section" style="display: none;">
+                <div class="panel-card">
+                    <h3><i class="fas fa-bolt text-purple"></i> Member Activities</h3>
+                    <p class="subtitle text-muted">Select an activity below to get started.</p>
+                    <hr>
+
+                    <!-- Activity Cards Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 22px; margin-top: 20px;">
+
+                        <!-- 1. Send Email to Admin -->
+                        <div style="background: linear-gradient(135deg, rgba(255,152,0,0.12), rgba(255,152,0,0.04)); border: 1px solid rgba(255,152,0,0.35); border-radius: 16px; padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 32px rgba(255,152,0,0.2)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <div style="width: 52px; height: 52px; border-radius: 12px; background: rgba(255,152,0,0.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                    <i class="fas fa-envelope" style="font-size: 1.5rem; color: #ff9800;"></i>
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0 0 4px; font-size: 1.05rem; color: #ff9800;">Send Email to Admin</h4>
+                                    <p style="margin: 0; font-size: 12px; color: #888;">Compose and send a direct email message to your assigned administrator.</p>
+                                </div>
+                            </div>
+                            <form id="activityEmailForm" onsubmit="sendActivityEmailToAdmin(event)" style="display: flex; flex-direction: column; gap: 10px;">
+                                <input type="text" id="actEmailSubject" placeholder="Subject" required style="padding: 9px 13px; border-radius: 8px; border: 1px solid rgba(255,152,0,0.3); background: rgba(255,255,255,0.04); color: inherit; font-size: 13px;">
+                                <textarea id="actEmailBody" rows="3" placeholder="Write your message..." required style="padding: 9px 13px; border-radius: 8px; border: 1px solid rgba(255,152,0,0.3); background: rgba(255,255,255,0.04); color: inherit; font-size: 13px; resize: vertical;"></textarea>
+                                <button type="submit" style="padding: 10px; border-radius: 8px; border: none; background: #ff9800; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#e68900';" onmouseout="this.style.background='#ff9800';"><i class="fas fa-paper-plane"></i> Send Email</button>
+                            </form>
+                            <div id="actEmailStatus" style="font-size: 12px; min-height: 16px;"></div>
+                        </div>
+
+                        <!-- 2. Print Ledger & Savings -->
+                        <div style="background: linear-gradient(135deg, rgba(0,224,255,0.10), rgba(0,224,255,0.03)); border: 1px solid rgba(0,224,255,0.3); border-radius: 16px; padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 32px rgba(0,224,255,0.15)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <div style="width: 52px; height: 52px; border-radius: 12px; background: rgba(0,224,255,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                    <i class="fas fa-print" style="font-size: 1.5rem; color: #00e0ff;"></i>
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0 0 4px; font-size: 1.05rem; color: #00e0ff;">Print Ledger &amp; Savings</h4>
+                                    <p style="margin: 0; font-size: 12px; color: #888;">Generate a printable statement of your transactions and savings records.</p>
+                                </div>
+                            </div>
+                            <p style="font-size: 13px; color: #aaa; margin: 0;">Your ledger includes all loan records, repayments, contributions, and current savings balance.</p>
+                            <div style="display: flex; gap: 10px;">
+                                <button type="button" onclick="printMemberLedger()" style="flex: 1; padding: 10px; border-radius: 8px; border: none; background: #00bcd4; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#0097a7';" onmouseout="this.style.background='#00bcd4';"><i class="fas fa-file-invoice-dollar"></i> Print Ledger</button>
+                                <button type="button" onclick="printMemberSavings()" style="flex: 1; padding: 10px; border-radius: 8px; border: none; background: #4caf50; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#388e3c';" onmouseout="this.style.background='#4caf50';"><i class="fas fa-piggy-bank"></i> Print Savings</button>
+                            </div>
+                        </div>
+
+                        <!-- 3. Join Meeting Online -->
+                        <div style="background: linear-gradient(135deg, rgba(156,39,176,0.12), rgba(156,39,176,0.04)); border: 1px solid rgba(156,39,176,0.35); border-radius: 16px; padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 32px rgba(156,39,176,0.2)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <div style="width: 52px; height: 52px; border-radius: 12px; background: rgba(156,39,176,0.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                    <i class="fas fa-video" style="font-size: 1.5rem; color: #ce93d8;"></i>
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0 0 4px; font-size: 1.05rem; color: #ce93d8;">Join Meeting Online</h4>
+                                    <p style="margin: 0; font-size: 12px; color: #888;">Admin sends the meeting link. Click below to join when the link is available.</p>
+                                </div>
+                            </div>
+                            <div id="meetingLinkBox" style="background: rgba(255,255,255,0.04); border: 1px dashed rgba(156,39,176,0.4); border-radius: 10px; padding: 14px; text-align: center;">
+                                <i class="fas fa-satellite-dish" style="font-size: 1.8rem; color: #9c27b0; margin-bottom: 8px;"></i>
+                                <p id="meetingLinkText" style="margin: 0; font-size: 13px; color: #aaa;">No meeting link sent by admin yet. Check back later or contact your admin.</p>
+                                <a id="meetingJoinBtn" href="#" target="_blank" rel="noopener" style="display: none; margin-top: 12px; padding: 10px 24px; border-radius: 8px; background: #9c27b0; color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='#7b1fa2';" onmouseout="this.style.background='#9c27b0';"><i class="fas fa-video"></i> Join Meeting Now</a>
+                            </div>
+                            <p style="font-size: 11px; color: #666; margin: 0; text-align: center;">Meeting links are posted by the Admin. You will receive a notification when a link is available.</p>
+                        </div>
+
+                    </div><!-- end activity grid -->
+                </div>
+            </section>
+
+            <section id="reportsSection" class="content-section" style="display: none;">
+                <div class="panel-card">
+                    <h3><i class="fas fa-file-invoice-dollar text-teal"></i> Ledger Records & Personal Transcripts</h3>
+                    <hr>
+                    <div class="table-responsive">
+                        <table class="data-table-element">
+                            <thead>
+                                <tr>
+                                    <th>Transaction ID</th>
+                                    <th>Classification</th>
+                                    <th>Volume Matrix</th>
+                                    <th>Timestamp Record</th>
+                                    <th>Verification Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="memberReportTableBody">
+                                <tr>
+                                    <td colspan="5" style="text-align: center;" class="text-muted">No historical
+                                        transactions logged in current workspace session.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="contributionsSection" class="content-section" style="display: none;">
+                <div class="panel-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3><i class="fas fa-piggy-bank text-success"></i> My Contributions & Savings</h3>
+                        <button class="btn btn-primary" onclick="openPaymentModal()"><i class="fas fa-plus"></i> Record Payment</button>
+                    </div>
+                    <hr>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Payment Method</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="contributionsListBody">
+                                <tr><td colspan="4" style="text-align: center;" class="text-muted">Loading contributions...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="expensesSection" class="content-section" style="display: none;">
+                <div class="panel-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3><i class="fas fa-file-invoice text-warning"></i> My Expense Claims</h3>
+                        <button class="btn btn-primary" onclick="openExpenseModal()"><i class="fas fa-plus"></i> Submit Expense</button>
+                    </div>
+                    <hr>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expensesListBody">
+                                <tr><td colspan="4" style="text-align: center;" class="text-muted">Loading expense claims...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="notificationsSection" class="content-section" style="display: none;">
+                <div class="panel-card">
+                    <h3><i class="fas fa-bell text-primary"></i> System Notifications & Logs</h3>
+                    <p class="subtitle text-muted">All automated system alerts and notifications.</p>
+                    <hr>
+                    <div class="notification-stream" id="memberNotificationFeedExtended">
+                        <div class="text-muted" style="text-align:center; padding:2rem;">Loading logs...</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="contactSection" class="content-section" style="display: none;">
+                <div class="panel-card max-width-md">
+                    <h3><i class="fas fa-comments text-primary"></i> Internal Communications</h3>
+                    <p class="subtitle text-muted">Direct WhatsApp line to your assigned administrator.</p>
+                    <div class="chat-outer-box" style="min-height: 400px; margin-top: 15px;">
+                        <div class="chat-header">
+                            <span>Admin WhatsApp Contact</span>
+                            <small id="adminContactHint">Loading admin details...</small>
+                        </div>
+                        <div class="chat-history-window" id="chatWindow" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;">
+                            <div style="font-size: 48px; margin-bottom: 15px;"></div>
+                            <div id="adminDetailsDisplay" style="width: 100%;">
+                                <p style="color: #94a3b8; margin-bottom: 10px;">Admin Contact Information</p>
+                                <div style="background: rgba(56, 189, 248, 0.1); padding: 15px; border-radius: 8px; border: 1px solid #38bdf8; margin: 10px 0;">
+                                    <p style="margin: 5px 0;"><strong>Name:</strong> <span id="adminNameDisplay">Loading...</span></p>
+                                    <p style="margin: 5px 0;"><strong>Phone:</strong> <span id="adminPhoneDisplay">Loading...</span></p>
+                                    <p style="margin: 5px 0;"><strong>Email:</strong> <span id="adminEmailDisplay">Loading...</span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <form id="chatForm" class="member-message-form" onsubmit="openWhatsAppChatWithAdmin(event)">
+                            <div class="member-message-field">
+                                <label for="chatFullName">Full Name</label>
+                                <input id="chatFullName" type="text" placeholder="Your full name" autocomplete="name">
+                            </div>
+                            <div class="member-message-field">
+                                <label for="chatEmail">Email Address</label>
+                                <input id="chatEmail" type="email" placeholder="your@email.com" autocomplete="email">
+                            </div>
+                            <div class="member-message-field">
+                                <label for="chatSubject">Subject</label>
+                                <input id="chatSubject" type="text" placeholder="What's this about?" required>
+                            </div>
+                            <div class="member-message-field">
+                                <label for="chatMessageInput">Message</label>
+                                <textarea id="chatMessageInput" rows="5" placeholder="Write your message here..." required></textarea>
+                            </div>
+                            <button type="submit" class="member-message-submit">Send Message</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <section id="settingsSection" class="content-section" style="display: none;">
+                <div class="panel-card max-width-md">
+                    <h3><i class="fas fa-sliders-h text-muted"></i> Workspace Parameters</h3>
+                    <hr>
+                    <div class="form-group">
+                        <label class="toggle-switch-wrapper">
+                            <input type="checkbox" id="settingSimulatedDelay" checked>
+                            <span class="custom-toggle-slider"></span>
+                            <span>Enforce Back-end Roundtrip Simulation Delays</span>
+                        </label>
+                    </div>
+                    <button class="btn btn-danger" onclick="executeSystemReset()"><i class="fas fa-trash-alt"></i> Flush
+                        Local Cache State</button>
+                </div>
+            </section>
+
+        </main>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script>
+        (function(){
+            emailjs.init({ publicKey: "TlH6osvAnSZ29aZ0W" });
+        })();
+    </script>
+    <!-- Background Decoration -->
+    <div class="bg-shape shape1"></div>
+    <div class="bg-shape shape2"></div>
+
+    <!-- Security PIN Modal -->
+    <div id="securityPinModal" class="auth-wrapper" style="display: none; position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; backdrop-filter: blur(10px);">
+        <div class="auth-card" style="max-width: 350px; text-align: center;">
+            <i class="fas fa-shield-alt" style="font-size: 3rem; color: #f44336; margin-bottom: 20px;"></i>
+            <h3>Transaction Security</h3>
+            <p style="color: #aaa; font-size: 14px; margin-bottom: 20px;">Please enter your 4-digit Security PIN to verify this financial request.</p>
+            <input type="password" id="transactionPinInput" autocomplete="new-password" maxlength="4" pattern="[0-9]{4}" placeholder="****" style="text-align: center; font-size: 24px; letter-spacing: 8px; margin-bottom: 20px;">
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn btn-secondary btn-block" onclick="cancelTransactionPin()">Cancel</button>
+                <button type="button" class="btn btn-primary btn-block" onclick="confirmTransactionPin()">Verify</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Entry Modal -->
+    <div id="paymentModal" class="auth-wrapper" style="display: none; position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; backdrop-filter: blur(10px);">
+        <div class="auth-card" style="max-width: 450px;">
+            <h3 style="margin-top: 0;">Manual Dues & Contribution Entry</h3>
+            <form id="paymentForm" onsubmit="submitPayment(event)" enctype="multipart/form-data">
+                <div class="form-group" style="position: relative;">
+                    <label>Member Search (Predictive)</label>
+                    <input type="text" id="paymentMemberSearch" placeholder="Type name..." oninput="filterMemberSearch(this.value)" autocomplete="off">
+                    <input type="hidden" id="paymentMemberId" required>
+                    <div id="memberSearchDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-dark-panel); border: 1px solid var(--bg-dark-accent); max-height: 150px; overflow-y: auto; z-index: 1000;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Amount (Numeric > 0)</label>
+                    <input type="number" id="paymentAmount" step="0.01" min="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select id="paymentMethod" required>
+                        <option value="">-- Select Method --</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Digital Wallet">Digital Wallet</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Receipt File (Optional, .pdf, .jpeg, .png)</label>
+                    <input type="file" id="paymentReceipt" accept=".pdf, .jpeg, .jpg, .png">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary btn-block" onclick="document.getElementById('paymentModal').style.display='none'">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-block">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Expense Claim Modal -->
+    <div id="expenseModal" class="auth-wrapper" style="display: none; position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; backdrop-filter: blur(10px);">
+        <div class="auth-card" style="max-width: 450px;">
+            <h3 style="margin-top: 0;">New Expense Voucher Submission</h3>
+            <form id="expenseForm" onsubmit="submitExpense(event)" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Category/Line Item</label>
+                    <select id="expenseCategory" required>
+                        <option value="">-- Select Category --</option>
+                        <option value="Office Supplies">Office Supplies</option>
+                        <option value="Event Logistics">Event Logistics</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Refreshments">Refreshments</option>
+                        <option value="Other Operations">Other Operations</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Amount (Numeric)</label>
+                    <input type="number" id="expenseAmount" step="0.01" min="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Receipt File (Optional, Max 10MB)</label>
+                    <input type="file" id="expenseReceipt" accept="*/*" onchange="validateExpenseReceipt(this)">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary btn-block" onclick="document.getElementById('expenseModal').style.display='none'">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-block">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JS Inclusions -->
+    <script src="member.js?v=2.1"></script>
+</body>
+
+</html>

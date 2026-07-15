@@ -1,0 +1,16 @@
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Environment files (sensitive)
+.env
+.env.local
+
+# VS Code
+.vscode/
+
+# Backup folder
+.backup/

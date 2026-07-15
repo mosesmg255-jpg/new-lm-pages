@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="utils/security.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Service Interrupted</title>
+    
+      <link rel="stylesheet" href="style/invalidcredentials.css">
+    <script src="dbfailserror.js"></script>
+       
+</head>
+<body>
+
+    <div class="error-card">
+        <div class="icon-container"></div>
+        <h2>Database Connection Refused</h2>
+        <p>The system was unable to establish successful  connection with <strong>loanmanagement</strong> data repository.</p>
+        
+        <div class="instruction-box">
+            <strong>How to resolve this issue:</strong>
+            <ul>
+                <li>Your database is hosted on <strong>Railway</strong> — no local setup is needed.</li>
+                <li>Check your internet connection and try refreshing the page.</li>
+                <li>If the problem persists, visit the <strong>Railway Dashboard</strong> to ensure the MySQL service is running.</li>
+            </ul>
+        </div>
+        
+        <button class="btn-retry" onclick="retryLoginConnection()" ><a style="text-decoration: underline;color: rgb(31, 93, 164);">Click to refresh</a> >>> or >>> <a href="laddingpage.html"> EXIT</a></button>
+    </div>
+
+  
+      
+</body>
+</html>

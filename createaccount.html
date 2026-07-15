@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script src="utils/security.js"></script>
+  <meta charset="UTF-8">
+  <title>Create Account </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style/createaccount.css">
+</head>
+
+<body>
+
+  <div class="register-card">
+    <h1>Create Admin Account</h1>
+    <p class="subtitle">Feel free to create your account, all rights preserved.</p>
+
+    <form id="registerForm" action="/api/auth/register" method="POST">
+      <label for="adminName">Full Name</label>
+      <input type="text" id="adminName" name="adminName" placeholder="e.g. sam munesh" required>
+
+      <label for="adminEmail">Email Address</label>
+      <input type="email" id="adminEmail" name="adminEmail" autocomplete="email" placeholder="name@example.com"
+        required>
+
+      <label for="adminPhone">Phone Number (optional)</label>
+      <input type="tel" id="adminPhone" name="adminPhone" placeholder="e.g. 254712345678 or 0712345678">
+
+      <label for="adminPassword">Password</label>
+      <input type="password" id="adminPassword" name="adminPassword" autocomplete="false" placeholder="Minimum 6 characters" minlength="6"
+        required>
+
+      <label for="adminConfirm">Confirm Password</label>
+      <input type="password" id="adminConfirm" name="adminConfirm" placeholder="Repeat your password" minlength="6"
+        required>
+
+      <button type="submit" name="register" class="action-btn">Register Account</button>
+    </form>
+
+    <div class="footer-links">
+      <a href="login.html">&larr; Back to sign-in</a>
+    </div>
+  </div>
+
+  <script src="createaccount.js"></script>
+</body>
+
+</html>

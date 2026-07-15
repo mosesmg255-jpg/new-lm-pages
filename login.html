@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script src="utils/security.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Money Management System - Login</title>\
+
+  <!-- Link to external CSS for login page styling -->
+  <link rel="stylesheet" href="style/login.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+</head>
+
+<body>
+  <div class="login-container">
+    <div class="left-panel">
+      <p class="LMS">LOAN MANAGEMENT SYSTEM</p>
+    </div>
+    <div class="right-panel">
+      <div class="logo">
+        <h1>BEST MANAGEMENT SYSTEM</h1>
+      </div>
+
+      <!-- Form points directly to local login.php -->
+      <form action="/api/auth/login" method="POST">
+        <div class="form-inputs">
+          <label for="email">Email or Username</label>
+          <input type="text" id="email" name="identifier" autocomplete="username" placeholder="Email or Username"
+            required>
+
+          <label for="password">Password</label>
+          <div style="position: relative;">
+            <input type="password" id="password" name="password" autocomplete="new-password" placeholder="Password"
+              required style="width:100%; box-sizing:border-box; padding-right: 40px;">
+            <i class="fas fa-eye" style="position:absolute; right:10px; top:12px; color:#aaa; cursor:pointer;"
+              onclick="const pwd = document.getElementById('password'); if(pwd.type==='password'){pwd.type='text'; this.className='fas fa-eye-slash';}else{pwd.type='password'; this.className='fas fa-eye';}"></i>
+          </div>
+
+          <button type="submit" class="btn btn-login">LOGIN</button>
+        </div>
+      </form>
+
+      <!-- Functional interaction buttons handled by login.js -->
+      <button type="button" class="btn btn-create" onclick="goToCreateAccount()">CREATE ACCOUNT</button>
+      <button type="button" class="btn btn-exit" onclick="showRecoveryUI(event)"
+        style="background: #ff9800; border-color: #ff9800; color: #fff;">FORGOT PASSWORD / RECOVER ACCOUNT</button>
+
+      <!-- Password Recovery Modal (Hidden by default) -->
+      <div id="recoveryModal" style="display: none; margin-top: 20px; border-top: 2px solid #ccc; padding-top: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h3 style="margin: 0; color: #fff;">Secure Account Recovery</h3>
+          <button type="button" onclick="hideRecoveryUI()"
+            style="background: none; border: none; cursor: pointer; font-size: 16px; color: #ccc;"></button>
+        </div>
+
+        <div id="recoveryStep1">
+          <p style="font-size: 13px; margin-bottom: 10px; color: #ccc;">Enter your registered email address to verify
+            identity.</p>
+          <div class="form-inputs" style="margin-bottom: 10px;">
+                        <input type="email" id="recoveryEmail" name="email" autocomplete="email" required placeholder="Enter your account email"
+              style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; background: rgba(255,255,255,0.12); color: #fff;">
+            <button type="button" id="btnRequestReset" class="btn" onclick="requestPasswordReset(event)"
+              style="width: 100%; margin-top: 10px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; font-weight: 600;">Send
+              Password Reset Link</button>
+          </div>
+
+        </div>
+
+        <div id="recoveryStep3" style="display: none;">
+          <p style="color: green; font-size: 13px; margin-bottom: 10px;">Token verified. Enter new password.</p>
+          <div class="form-inputs">
+            <div style="position: relative; margin-bottom: 10px;">
+              <input type="password" id="recoveryNewPassword" required placeholder="Enter new password"
+                style="width: 100%; padding: 10px; padding-right: 40px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; background: rgba(255,255,255,0.12); color: #fff; box-sizing:border-box;">
+              <i class="fas fa-eye" style="position:absolute; right:10px; top:12px; color:#aaa; cursor:pointer;"
+                onclick="const recPwd = document.getElementById('recoveryNewPassword'); if(recPwd.type==='password'){recPwd.type='text'; this.className='fas fa-eye-slash';}else{recPwd.type='password'; this.className='fas fa-eye';}"></i>
+            </div>
+            <button type="button" class="btn btn-create" onclick="submitAIVerifiedRecovery(event)"
+              style="width: 100%;">Update Password</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script>
+      (function () {
+        emailjs.init({ publicKey: "TlH6osvAnSZ29aZ0W" });
+      })();
+    </script>
+    <script src="login.js"></script>
+</body>
+
+</html>

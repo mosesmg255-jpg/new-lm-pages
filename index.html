@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script src="utils/security.js"></script>
+  <meta charset="UTF-8">
+  <title>Eldoret Chama Table-Banking Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description"
+    content="Eldoret Chama Table-Banking Admin Portal - Loan Management, Member Registry, Treasurer Console">
+  <link rel="stylesheet" href="style/home.css">
+  <link rel="stylesheet" href="style/designTokens.css">
+  <script src="home-listeners.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+  <div class="top-header" style="display: flex; justify-content: space-between; align-items: center; padding-right: 20px;">
+    <div class="header-title-wrap">
+      <button type="button" class="sidebar-toggle" onclick="toggleSidebarNav()" aria-label="Toggle navigation" aria-expanded="false">Menu</button>
+      <h1 class="header-desktop-title">TREASURER LOAN & MONEY MANAGEMENT SYSTEM</h1>
+      <h1 class="header-mobile-title" style="display: none;">TLMS ADMIN</h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <!-- Bell Alert -->
+      <div style="position:relative; cursor: pointer;">
+        <i class="fas fa-bell text-warning" style="font-size: 1.5rem;" onclick="const d = document.getElementById('adminAlertDropdown'); d.style.display = d.style.display === 'none' ? 'block' : 'none';"></i>
+        <span id="adminAlertBadge" style="position:absolute; top:-5px; right:-10px; background:#f44336; color:white; border-radius:50%; padding:2px 6px; font-size:10px; font-weight:bold; display:none;">0</span>
+        <div id="adminAlertDropdown" style="display:none; position:absolute; top:35px; right:-10px; background:var(--bg-dark-panel); border:1px solid rgba(0,224,255,0.3); padding:10px; border-radius:8px; width:280px; z-index:100; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
+          <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">Recent Alerts</h4>
+          <div id="adminAlertList" style="max-height: 200px; overflow-y: auto; font-size: 12px; color: #ccc;">No new alerts.</div>
+        </div>
+      </div>
+      <!-- Admin Account Icon -->
+      <div id="adminAccountWidget" style="display:flex; align-items:center; gap:10px; background:rgba(0,224,255,0.08); border:1px solid rgba(0,224,255,0.25); border-radius:30px; padding:6px 14px 6px 8px; cursor:pointer;" onclick="toggleAdminDropdown()">
+        <div style="width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#00e0ff,#0077ff); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:bold; color:#000;">
+          <i class="fas fa-user-shield" style="font-size:14px;"></i>
+        </div>
+        <div class="admin-text-wrap" style="line-height:1.2;">
+          <div style="font-size:11px; opacity:0.65; text-transform:uppercase; letter-spacing:0.5px;">Administrator</div>
+          <div id="adminDisplayName" style="font-size:13px; font-weight:700; color:#00e0ff;">Admin</div>
+        </div>
+        <span id="navPendingBadge" style="background:#f44336; color:#fff; border-radius:12px; padding:2px 8px; font-size:11px; font-weight:bold; display:none; margin-left:4px;">0 Pending</span>
+      </div>
+      <div id="adminAccountDropdown" style="display:none; position:absolute; top:70px; right:20px; background:var(--bg-dark-panel); border:1px solid rgba(0,224,255,0.3); padding:12px; border-radius:10px; width:220px; z-index:200; box-shadow:0 10px 30px rgba(0,0,0,0.9);">
+        <div style="font-size:12px; opacity:0.6; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px;">Signed in as Admin</div>
+        <button class="action-btn" style="width:100%; font-size:12px; background:#0077ff; margin-bottom:6px;" onclick="showSection('members'); document.getElementById('adminAccountDropdown').style.display='none';"> Pending Approvals</button>
+        <button class="action-btn" style="width:100%; font-size:12px; background:#f44336;" onclick="promptDisableBlur(); document.getElementById('adminAccountDropdown').style.display='none';"> Block Screen Blur</button>
+      </div>
+      <button class="action-btn header-act-btn" style="background:#f44336; font-size: 12px; padding: 8px 16px; margin: 0;" onclick="promptDisableBlur()">Block Screen Blur</button>
+      <button type="button" class="action-btn home-access-portal-btn header-act-btn" style="background:#ff9800; font-size: 12px; padding: 8px 16px; margin: 0;" onclick="window.location.href='member.html#access'">Access Portal</button>
+    </div>
+  </div>
+
+  <div class="sidebar-nav" id="sidebarNav">
+    <button type="button" class="nav-btn-node home-access-portal-btn" onclick="window.location.href='member.html#access'">Access Portal</button>
+    <button type="button" class="nav-btn-node" style="background:#f44336; color:white; font-weight:700; border:none; margin-bottom:15px;" onclick="promptDisableBlur()">Block Screen Blur</button>
+    <button class="nav-btn-node active" id="navMembersBtn" onclick="showSection('members')" style="position:relative;">Members Management
+      <span id="sidebarPendingBadge" style="position:absolute; top:4px; right:8px; background:#f44336; color:#fff; border-radius:10px; padding:1px 7px; font-size:10px; font-weight:bold; display:none;">0</span>
+    </button>
+    <button class="nav-btn-node" onclick="showSection('loans')">Loans Dashboard</button>
+    <button class="nav-btn-node sec-btn" onclick="showSection('secretaryHub')">Treasurer Console</button>
+    <button class="nav-btn-node" onclick="showSection('repayments')">Repayments Ledger</button>
+    <button class="nav-btn-node" onclick="showSection('notifications')">System Logs</button>
+    <button class="nav-btn-node" onclick="showSection('automation')">AUTOMATION</button>
+    <button class="nav-btn-node" onclick="showSection('controlSector')">Control Sector</button>
+    <button class="nav-btn-node" style="background: linear-gradient(45deg, #9c27b0, #e91e63);"
+      onclick="showSection('corporatePortal')">Corporate Portal</button>
+    <button class="nav-btn-node" onclick="showSection('settings')">Settings</button>
+  </div>
+
+  <div class="main-content-wrapper">
+
+    <!--
+         SECTION 1: MEMBERS MANAGEMENT
+     -->
+    <div id="members" class="section">
+      <!-- Admin Analytics Chart -->
+      <canvas id="adminAnalyticsChart" style="max-height: 250px; margin-bottom: 30px; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; border: 1px solid rgba(0,224,255,0.1);"></canvas>
+
+      <h2>Member Registration Pool</h2>
+      <input type="text" id="memberName" placeholder="Full Name">
+      <input type="email" id="memberEmail" name="email" autocomplete="email" placeholder="Email Address">
+      <input type="text" id="memberPhone" placeholder="Phone Number">
+      <input type="password" id="memberPassword" placeholder="Password">
+      <button class="action-btn" onclick="registerMember()">Register New Member</button>
+
+      <div class="dashboard-grid-row">
+        <div>
+          <div class="approval-panel"
+            style="margin-top:20px; padding:16px; background: rgba(0,224,255,0.08); border-radius:12px; border:1px solid rgba(0,224,255,0.15);">
+            <h3 style="display:flex; justify-content:space-between; align-items:center; gap:8px;">Approval Queue (New Signups &amp; Account Verification)
+              <span style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+                <button class="action-btn" style="background:#0077ff; font-size:11px; padding:6px 10px;" onclick="loadVerificationDashboard()"> Refresh Pools</button>
+                <button class="action-btn" style="background:#009688; font-size:11px; padding:6px 10px;" onclick="exportPoolToCSV('pendingApprovalsTable','pending')"> Export</button>
+              </span>
+            </h3>
+            <div id="pendingApprovals" style="margin-bottom: 15px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h4 style="margin-top:0; color:#00e0ff;">Pending Verification Queue</h4>
+                <button class="action-btn" style="background: #4caf50; font-size: 11px; padding: 5px 10px; margin: 0;" onclick="bulkApproveMembers()">Bulk Approve Selected</button>
+              </div>
+              <div style="overflow-x: auto; width: 100%;">
+                <table id="pendingApprovalsTable" style="width:100%; border-collapse:collapse; margin-top:10px; min-width: 600px;">
+                <thead>
+                  <tr>
+                    <th style="width:5%;"><input type="checkbox" id="selectAllPending" onclick="toggleAllPendingMembers(this.checked);"></th>
+                    <th style="width:8%">ID</th>
+                    <th style="width:30%">Member</th>
+                    <th style="width:30%">Contact</th>
+                    <th style="width:12%">Status</th>
+                    <th style="width:15%">Decision</th>
+                  </tr>
+                </thead>
+                <tbody id="pendingApprovalsTableBody">
+                  <tr>
+                    <td colspan="5" style="opacity:0.6; font-style:italic; padding:10px;">Loading pending members...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="approval-panel"
+            style="margin-top:20px; padding:16px; background: rgba(244,67,54,0.08); border-radius:12px; border:1px solid rgba(244,67,54,0.18);">
+            <h3 style="color:#f44336; margin-top:0; display:flex; justify-content:space-between; align-items:center;">
+              <span>Denied / Flagged Accounts Pool</span>
+              <span style="display:flex; gap:8px;">
+                <button class="action-btn" style="background:#009688; font-size:11px; padding:6px 10px;" onclick="exportPoolToCSV('deniedMembersTable','denied')"> Export</button>
+              </span>
+            </h3>
+            <table id="deniedMembersTable" style="width:100%; border-collapse:collapse; margin-top:10px;">
+              <thead>
+                <tr>
+                  <th style="width:35%;">Name</th>
+                  <th style="width:35%;">Email</th>
+                  <th style="width:20%;">Phone</th>
+                  <th style="width:10%;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="deniedMembersTableBody">
+                <tr>
+                  <td colspan="4" style="opacity:0.6; font-style:italic; padding:10px;">Loading denied members...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin-top:24px; display:flex; justify-content:space-between; align-items:center;">
+        <span>Approved Members Pool (Verified Access)</span>
+        <span style="display:flex; gap:8px;">
+          <button class="action-btn" style="background:#009688; font-size:11px; padding:6px 10px;" onclick="exportPoolToCSV('approvedMembersTable','approved')"> Export</button>
+        </span>
+      </h3>
+      <table id="approvedMembersTable" style="width:100%; border-collapse:collapse; margin-top:10px;">
+        <thead>
+          <tr>
+            <th style="width:8%">ID</th>
+            <th style="width:32%">Member</th>
+            <th style="width:25%">Contact</th>
+            <th style="width:10%">Status</th>
+            <th style="width:13%">Security PIN</th>
+            <th style="width:12%">Decision</th>
+          </tr>
+        </thead>
+        <tbody id="approvedMembersTableBody">
+          <tr>
+            <td colspan="6" style="opacity:0.6; font-style:italic; padding:10px;">Loading approved members...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!--
+         SECTION 2: LOANS DASHBOARD
+     -->
+    <div id="loans" class="section" style="display:none;">
+      <h2>Loans Administration</h2>
+      <p>Configure individual loan statuses and check parameters during live meetings:</p>
+
+      <div class="hub-module-card" style="margin-bottom:18px;">
+        <h3>Direct Loan Assignment</h3>
+        <div class="grid-inputs" style="grid-template-columns: 2fr 1fr 1fr; gap: 10px;">
+          <div>
+            <label style="font-size:12px; opacity:0.8; font-weight:bold;">Assign To Member</label>
+            <select id="loanAssigneeSelector" style="margin-bottom:0;" onchange="handleLoanAssigneeChange()">
+              <option value="">-- Choose an Approved Member --</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; opacity:0.8; font-weight:bold;">Security PIN</label>
+            <input type="text" id="loanAssignPin" readonly placeholder="Auto-fetched" style="margin-bottom:0; background:rgba(255,255,255,0.05); color:#81c784; font-weight:bold; text-align:center;">
+          </div>
+          <div>
+            <label style="font-size:12px; opacity:0.8; font-weight:bold;">Loan Amount (KES)</label>
+            <input type="number" id="loanAssignAmount" placeholder="e.g. 15000" style="margin-bottom:0;">
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <button class="action-btn" style="width:100%; background:#4caf50;" onclick="executeDirectLoanAssignment()">
+            Execute Direct Loan Assignment
+          </button>
+        </div>
+      </div>
+
+      <table id="loansTable">
+        <thead>
+          <tr>
+            <th style="width:5%;">#</th>
+            <th style="width:25%;">Member Details</th>
+            <th style="width:15%;">Selection</th>
+            <th style="width:30%;">Loan Status Rules &amp; Actions</th>
+            <th class="loan-header-menu">
+              <div class="menu-dropdown">
+                <select class="menu-dropdown-select" onchange="executeMainMenuAction(this)">
+                  <option value="" selected disabled> Main Menu</option>
+                  <option value="selectAll">1. Select All Members</option>
+                  <option value="deselectAll">2. Deselect All Members</option>
+                  <option value="deleteAll">3. Delete All Members</option>
+                  <option value="viewDeleted">4. View Deleted Members</option>
+                  <option value="viewUpdated">5. View Updated Tracker</option>
+                </select>
+              </div>
+            </th>
+            <th class="loan-header-action">
+              <div class="button-group" style="justify-content:flex-end; width:100%;">
+                <button class="btn-del small" onclick="deleteSelectedMembers()"> Delete Selected</button>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="loansTableBody"></tbody>
+      </table>
+    </div>
+
+    <!--
+         SECTION 3: TREASURER CONSOLE (Items 1-7)
+     -->
+    <div id="secretaryHub" class="section" style="display:none;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Treasurer Console</h2>
+        <button class="action-btn" style="background: #0077ff; padding: 6px 12px; font-size: 12px;" onclick="exportTableToCSV('memberReportTableBody', 'Treasurer_Console_Ledger.csv')"><i class="fas fa-file-csv"></i> Export as CSV</button>
+      </div>
+
+      <!-- Subsidiary Scope Selector -->
+      <div style="margin-bottom:20px; background:rgba(0,224,255,0.1); padding:15px; border-radius:8px;">
+        <div
+          style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+          <span style="font-weight:bold; color:#00e0ff;"> Active Chama Project / Sub-Group Context:</span>
+          <div style="display:flex; gap:5px; align-items:center;">
+            <select id="subsidiaryScope" style="width:auto; margin-bottom:0;"
+              onchange="handleSubsidiarySwitch()"></select>
+            <button class="btn-del" style="padding:10px 15px; font-weight:bold;" onclick="deleteCurrentSubsidiary()"
+              title="Delete selected context">x</button>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="text" id="newSubsidiaryInput" placeholder="Enter new chama cycle name..."
+            style="margin-bottom:0; flex-grow:1;">
+          <button class="action-btn" style="background:#4caf50; white-space:nowrap;" onclick="addNewSubsidiary()">+ Add
+            Branch</button>
+        </div>
+      </div>
+
+      <!--  AUTHORIZATION & RECONCILIATION QUEUE  -->
+      <div class="hub-module-card" id="authorizationQueuePanel" style="border: 1px solid #4caf50; background: rgba(76,175,80,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3 style="margin: 0;">Authorization & Reconciliation Queue</h3>
+          <button class="action-btn" style="background: #555; padding: 5px 12px; font-size: 11px;" onclick="loadAuthorizationQueue()"> Refresh</button>
+        </div>
+
+        <!-- Pending Contributions Sub-panel -->
+        <div style="margin-bottom: 25px;">
+          <h4 style="color: #4caf50; border-bottom: 1px solid rgba(76,175,80,0.3); padding-bottom: 8px; margin-bottom: 12px;">
+             Pending Member Contributions (Dues & Payments)
+          </h4>
+          <div id="contributionsQueueLoading" style="color:#aaa; font-size:13px; font-style:italic;">Loading...</div>
+          <table id="contributionsQueueTable" style="width:100%; border-collapse:collapse; display:none;">
+            <thead>
+              <tr style="text-align: left; font-size: 13px; border-bottom: 1px solid #333;">
+                <th style="padding: 8px 6px;">ID</th>
+                <th style="padding: 8px 6px;">Member</th>
+                <th style="padding: 8px 6px;">Amount (Ksh)</th>
+                <th style="padding: 8px 6px;">Method</th>
+                <th style="padding: 8px 6px;">Receipt</th>
+                <th style="padding: 8px 6px;">Status</th>
+                <th style="padding: 8px 6px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="contributionsQueueBody"></tbody>
+          </table>
+          <p id="contributionsQueueEmpty" style="color:#888; font-size:13px; display:none;">No pending contributions in queue.</p>
+        </div>
+
+        <!-- Pending Expense Claims Sub-panel -->
+        <div>
+          <h4 style="color: #0077ff; border-bottom: 1px solid rgba(0,119,255,0.3); padding-bottom: 8px; margin-bottom: 12px;">
+             Pending Expense Claim Vouchers
+          </h4>
+          <div id="expensesQueueLoading" style="color:#aaa; font-size:13px; font-style:italic;">Loading...</div>
+          <table id="expensesQueueTable" style="width:100%; border-collapse:collapse; display:none;">
+            <thead>
+              <tr style="text-align: left; font-size: 13px; border-bottom: 1px solid #333;">
+                <th style="padding: 8px 6px;">ID</th>
+                <th style="padding: 8px 6px;">Category</th>
+                <th style="padding: 8px 6px;">Amount (Ksh)</th>
+                <th style="padding: 8px 6px;">Receipt</th>
+                <th style="padding: 8px 6px;">Status</th>
+                <th style="padding: 8px 6px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="expensesQueueBody"></tbody>
+          </table>
+          <p id="expensesQueueEmpty" style="color:#888; font-size:13px; display:none;">No pending expense claims in queue.</p>
+        </div>
+      </div>
+
+      <!-- 1. Role-Based Access Control -->
+      <div class="hub-module-card">
+        <h3>1. Role-Based Access Control Simulation</h3>
+        <p>Switch roles to test view privileges and object verification metrics across the platform:</p>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+          <button class="action-btn" onclick="setAuthRole('Treasurer')">Set Role: Treasurer</button>
+          <button class="action-btn" style="background:#9c27b0;" onclick="setAuthRole('Chama Chairman')">Set Role:
+            Chairman</button>
+          <button class="action-btn" style="background:#ff9800;" onclick="setAuthRole('Secretary')">Set Role:
+            Secretary</button>
+          <button class="action-btn" style="background:#e91e63;" onclick="setAuthRole('Auditor')">Set Role:
+            Auditor</button>
+        </div>
+        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; font-size:14px;">
+          Active System Token Profile: <span id="activeRoleBadge" class="badge badge-sec">Treasurer</span>
+          <span style="margin-left:20px; opacity:0.7;">System Ledger Status: <strong
+              id="vaultClearanceTxt">Granted</strong></span>
+        </div>
+      </div>
+
+      <!-- 2. Live Meeting Agenda Workspace -->
+      <div class="hub-module-card">
+        <h3>2. Live Meeting Agenda Workspace (Drag-and-Drop)</h3>
+        <p>Bind member loan packages into live evaluation tracks during meetings:</p>
+        <div class="drag-container">
+          <div class="drag-box" id="documentPool" ondragover="allowDrop(event)" ondragenter="handleDragEnter(event, 'documentPool')"
+            ondragleave="handleDragLeave(event, 'documentPool')" ondrop="handleDocumentDrop(event, 'pool')"></div>
+          <div class="drag-box" id="agendaTimeline" ondragover="allowDrop(event)" ondragenter="handleDragEnter(event, 'agendaTimeline')"
+            ondragleave="handleDragLeave(event, 'agendaTimeline')" ondrop="handleDocumentDrop(event, 'agenda')"></div>
+        </div>
+
+        <h4 style="margin-top:20px; color:#81c784;">Live Group Approval Voting Portal</h4>
+        <div
+          style="background:rgba(0,0,0,0.25); padding:15px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <strong id="resolutionTitle">Chama Rule Enforcement Framework</strong>
+            <div style="font-size:12px; opacity:0.7; margin-top:4px;" id="resolutionStatusSummary">Awaiting meeting vote
+              records for requested micro-finance loans...</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-db" onclick="castResolutionVote('Approve')">Approve</button>
+            <button class="btn-del" style="background:#ff9800;" onclick="castResolutionVote('Abstain')">Abstain</button>
+            <button class="btn-del" onclick="castResolutionVote('Reject')">Reject</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Statutory Enforcement Engine -->
+      <div class="hub-module-card">
+        <h3>3. Statutory Enforcement Engine &amp; Auto-Form Generator</h3>
+        <div class="split-pane">
+          <div>
+            <div class="compliance-alert" id="complianceNoticeBox">
+               <strong>Validation Status:</strong> Choose a member record below to trigger the policy verification
+              mechanism.
+            </div>
+            <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Target Chama Member ID</label>
+            <select id="complianceMemberSelect" onchange="syncComplianceFormView()">
+              <option value="">-- Select Active Member Profile --</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:11px; text-transform:uppercase; margin-bottom:6px; color:#81c784; font-weight:bold;">
+              Chama Official Registry Compilation Sheet</div>
+            <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+              <button class="action-btn" style="background:#009688; padding:6px 10px; font-size:13px;" onclick="downloadRegistry()"> Download</button>
+              <button class="action-btn" style="background:#00e0ff; color:#000; padding:6px 10px; font-size:13px;" onclick="shareRegistry()"> Share</button>
+              <button class="action-btn" style="background:#555; padding:6px 10px; font-size:13px;" onclick="copyRegistryToClipboard()"> Copy</button>
+            </div>
+            <div class="pdf-preview-box" id="pdfPreviewContainer"></div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- 3b. Meeting Minutes Draft Generator -->
+      <div class="hub-module-card" style="border:1px solid rgba(156,39,176,0.3); background:rgba(156,39,176,0.04);">
+        <h3 style="color:#ce93d8;">3b. Meeting Minutes Draft Generator</h3>
+        <p style="font-size:12px; color:#aaa; margin-bottom:16px;">Fill in the meeting details and generate a formatted chama minutes document.</p>
+        <div class="split-pane">
+          <div>
+            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:14px;">              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Meeting Date</label><input type="date" id="minutesMeetingDate" placeholder="Select meeting date" style="margin-bottom:0;"></div>
+              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Next Meeting Date</label><input type="date" id="minutesNextMeetingDate" placeholder="Select next meeting date" style="margin-bottom:0;"></div>
+              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Meeting Title / Type</label><input type="text" id="minutesMeetingTitle" placeholder="e.g. Monthly General Meeting" style="margin-bottom:0;"></div>
+              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Meeting Venue</label><input type="text" id="minutesVenue" placeholder="e.g. Community Hall, Eldoret" style="margin-bottom:0;"></div>
+              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Chairperson</label><input type="text" id="minutesChairperson" placeholder="e.g. Chairperson full name" style="margin-bottom:0;"></div>
+              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Secretary</label><input type="text" id="minutesSecretary" placeholder="e.g. Secretary full name" style="margin-bottom:0;"></div>
+              <div style="grid-column:1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Members Present</label><textarea id="minutesAttendees" placeholder="e.g. John Kamau, Mary Achieng, Peter Mwangi" style="min-height:70px; margin-bottom:0; font-size:13px;"></textarea></div>
+              <div style="grid-column:1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Agenda Items</label><textarea id="minutesAgenda" placeholder="e.g. Loan approvals, savings review, new member admissions" style="min-height:70px; margin-bottom:0; font-size:13px;"></textarea></div>
+              <div style="grid-column:1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Discussions and Decisions Made</label><textarea id="minutesDecisions" placeholder="e.g. Treasurer reported balance; loan request approved; contribution amount reviewed" style="min-height:90px; margin-bottom:0; font-size:13px;"></textarea></div>
+              <div style="grid-column:1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Action Items and Assignments</label><textarea id="minutesActionItems" placeholder="e.g. Treasurer to disburse approved loans; secretary to circulate next meeting notice" style="min-height:70px; margin-bottom:0; font-size:13px;"></textarea></div>
+            </div>
+            <button class="action-btn" style="background:linear-gradient(45deg,#7b1fa2,#ce93d8); color:#fff; width:100%; padding:10px 20px; font-size:13px; font-weight:bold; overflow:auto;" onclick="generateMeetingMinutes()">Generate Minutes</button>
+          </div>
+          <div>
+            <div style="font-size:11px; text-transform:uppercase; margin-bottom:6px; color:#ce93d8; font-weight:bold;">Generated Minutes Preview</div>
+            <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+              <button class="action-btn" id="minutesDownloadBtn" style="background:#009688; padding:6px 10px; font-size:13px; display:none; overflow:auto;" onclick="downloadMeetingMinutes()">Download</button>
+              <button class="action-btn" id="minutesShareBtn" style="background:#0077ff; padding:6px 10px; font-size:13px; display:none; overflow:auto;" onclick="shareMeetingMinutesEmail()">Share Email</button>
+              <span id="minutesStatusBadge" style="font-size:11px; color:#aaa;">No minutes generated yet.</span>
+            </div>
+            <div id="minutesPreviewContainer" class="pdf-preview-box" style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(156,39,176,0.25); border-radius:10px; padding:24px; font-family:'Courier New', monospace; font-size:13px; line-height:1.8; color:#e0e0e0; white-space:pre-wrap; max-height:500px; overflow-y:auto; width:100%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Secure Document Vault Cross-Search -->
+      <div class="hub-module-card">
+        <h3>4. Secure Document Vault Cross-Search Engine</h3>
+        <p>Contextual search engine executing parameters checks across name logs, balances, and savings metrics:</p>
+        <input type="text" id="vaultSearchInput" oninput="executeVaultSearch()"
+          placeholder="Search variables across active registries (e.g. typing member names, amounts, statuses)...">
+        <div id="vaultSearchResults"
+          style="background:rgba(0,0,0,0.2); border-radius:6px; max-height:200px; overflow-y:auto;"></div>
+      </div>
+
+      <!-- 5. Group Capital Share Table -->
+      <div class="hub-module-card">
+        <h3>5. Group Capital Share Table Matrix</h3>
+        <p>Live graphical illustration of group savings stake ratios derived from individual contribution metrics:</p>
+        <div class="cap-bar" id="dynamicCapBar"></div>
+        <div id="capLabelsContainer"
+          style="display:flex; flex-wrap:wrap; justify-content:space-between; font-size:12px; margin-top:8px; gap:10px;">
+        </div>
+      </div>
+
+      <!-- 6. Core Financial Ledger Modification Controllers -->
+      <div class="hub-module-card">
+        <h3>6. Core Financial Ledger Modification Controllers</h3>
+        <select id="secContactDropdown" onchange="updateContactLink()">
+          <option value="">-- Choose an Active Member --</option>
+        </select>
+        <div id="contactLinkContainer" style="margin-bottom:15px;"></div>
+
+        <select id="secTxDropdown" onchange="handleTxDropdownChange()">
+          <option value="">-- Choose an Active Member --</option>
+        </select>
+
+        <div class="grid-inputs">
+          <div>
+            <label style="font-size:13px; color:#00e0ff;">Post Loan Liability Amount (KES)</label>
+            <input type="number" id="secLoanAmount" placeholder="e.g. 15000">
+            <button class="action-btn" style="width:100%; background:#4caf50;" onclick="submitLoanTx()">Update Loan
+              &amp; Log Balance</button>
+          </div>
+          <div>
+            <label style="font-size:13px; color:#81c784;">Post Capital Savings Footprint (KES)</label>
+            <input type="number" id="secSavingsAmount" placeholder="e.g. 5000" oninput="calculateSecEligibility()">
+            <button class="action-btn" style="width:100%; background:#81c784; color:#000;"
+              onclick="submitSavingsTx()">Update Savings &amp; Log Balance</button>
+          </div>
+        </div>
+
+        <div class="calc-result" style="margin-top:15px;">
+          <strong>Automated Policy Ceiling (Strict 3x Savings Limit rule):</strong>
+          <span id="secEligibilityOutput">KES 0.00</span>
+        </div>
+      </div>
+
+      <!-- 7. Real-Time Member Communication Dispatcher -->
+      <div class="hub-module-card">
+        <h3>7. Real-Time Member Communication Dispatcher</h3>
+        <form class="realtime-member-form" onsubmit="sendEmail(event)">
+          <div class="realtime-member-target" id="realtimeMemberTarget">Choose an active member above</div>
+          <label for="realtimeMemberName">Full Name</label>
+          <input type="text" id="realtimeMemberName" placeholder="Your full name" autocomplete="name">
+          <label for="realtimeMemberEmail">Email Address</label>
+          <input type="email" id="realtimeMemberEmail" placeholder="your@email.com" autocomplete="email">
+          <label for="realtimeMemberSubject">Subject</label>
+          <input type="text" id="realtimeMemberSubject" placeholder="What's this about?" required>
+          <label for="realtimeMemberMessage">Message</label>
+          <textarea id="realtimeMemberMessage" rows="5" placeholder="Write your message here..." required></textarea>
+          <button type="submit" class="realtime-member-submit">Send Message</button>
+        </form>
+      </div>
+
+      <!-- 8. Chama Risk Portfolio & Financial Analytics -->
+      <div class="hub-module-card">
+        <h3>8. Chama Risk Portfolio &amp; Financial Analytics Matrix</h3>
+        <div
+          style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-top:15px;">
+          <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border-top:3px solid #00e0ff;">
+            <span style="font-size:12px; text-transform:uppercase; opacity:0.7;">Aggregate Outstanding Debts</span>
+            <div id="hubTotalLoans" style="font-size:24px; font-weight:bold; margin-top:5px;">KES 0.00</div>
+          </div>
+          <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border-top:3px solid #81c784;">
+            <span style="font-size:12px; text-transform:uppercase; opacity:0.7;">Total Combined Savings Capital</span>
+            <div id="hubTotalSavings" style="font-size:24px; font-weight:bold; margin-top:5px;">KES 0.00</div>
+          </div>
+          <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border-top:3px solid #ff9800;">
+            <span style="font-size:12px; text-transform:uppercase; opacity:0.7;">Chama Stability Factor</span>
+            <div id="hubRiskFactor" style="font-size:24px; font-weight:bold; margin-top:5px;">Stable</div>
+          </div>
+        </div>
+      </div>
+
+      <!--
+           9. MAIN SAFEGUARD - Treasurer Financial Oversight System
+       -->
+      <div class="hub-module-card" id="mainSafeguardWrapper"
+        style="margin-top:10px; border:1px solid rgba(233,30,99,0.25); background:rgba(233,30,99,0.04);">
+        <button class="safeguard-trigger-btn" onclick="toggleSafeguardPanel()" id="safeguardTriggerBtn">
+           Main Safeguard - Financial Oversight System
+        </button>
+
+        <div id="safeguardPanel" class="safeguard-panel" style="display:none;">
+
+          <!-- Panel Header -->
+          <div class="safeguard-panel-header">
+            <h3> Main Safeguard Control Center</h3>
+            <p>Comprehensive financial oversight, compliance monitoring, and strategic planning dashboard for treasury
+              operations.</p>
+          </div>
+
+          <!-- Summary Stats Row -->
+          <div style="padding:16px 24px 0;">
+            <div class="sg-stats-row" id="sgStatsRow">
+              <div class="sg-stat-tile" style="border-color:#e91e63;"><span class="sg-stat-lbl">Total
+                  Budgets</span><span class="sg-stat-val" id="sgStatBudgets" style="color:#e91e63;">-</span></div>
+              <div class="sg-stat-tile" style="border-color:#ff5722;"><span class="sg-stat-lbl">Funding
+                  Sources</span><span class="sg-stat-val" id="sgStatFunding" style="color:#ff5722;">-</span></div>
+              <div class="sg-stat-tile" style="border-color:#ff9800;"><span class="sg-stat-lbl">Transactions</span><span
+                  class="sg-stat-val" id="sgStatTxns" style="color:#ff9800;">-</span></div>
+              <div class="sg-stat-tile" style="border-color:#f44336;"><span class="sg-stat-lbl">Audit Flags</span><span
+                  class="sg-stat-val" id="sgStatFlags" style="color:#f44336;">-</span></div>
+              <div class="sg-stat-tile" style="border-color:#4caf50;"><span class="sg-stat-lbl">Total Assets</span><span
+                  class="sg-stat-val" id="sgStatAssets" style="color:#4caf50;">-</span></div>
+              <div class="sg-stat-tile" style="border-color:#9c27b0;"><span class="sg-stat-lbl">Expired
+                  Insurance</span><span class="sg-stat-val" id="sgStatExpIns" style="color:#ff9800;">-</span></div>
+            </div>
+          </div>
+
+          <!-- Tab Navigation -->
+          <div class="safeguard-tabs" id="safeguardTabs">
+            <button class="safeguard-tab-btn active" id="sgTabBtn_oversight"
+              onclick="switchSafeguardTab('oversight')"> Financial Oversight</button>
+            <button class="safeguard-tab-btn" id="sgTabBtn_funding" onclick="switchSafeguardTab('funding')"> Funding
+              Monitor</button>
+            <button class="safeguard-tab-btn" id="sgTabBtn_planning" onclick="switchSafeguardTab('planning')">
+              Planning & Budgeting</button>
+            <button class="safeguard-tab-btn" id="sgTabBtn_reporting" onclick="switchSafeguardTab('reporting')">
+              Reporting Toolkit</button>
+            <button class="safeguard-tab-btn" id="sgTabBtn_banking" onclick="switchSafeguardTab('banking')"> Banking
+              Controls</button>
+            <button class="safeguard-tab-btn" id="sgTabBtn_assets" onclick="switchSafeguardTab('assets')"> Fixed
+              Assets</button>
+          </div>
+
+          <!--  TAB 1: FINANCIAL OVERSIGHT  -->
+          <div id="sgTab_oversight" class="safeguard-tab-content active">
+
+            <!-- Budgets & Accounts -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Interactive Budgets & Accounts</h4>
+              <div class="sg-form-row">
+                <div><label>Budget Name</label><input type="text" id="sgBudgetName"
+                    placeholder="e.g. Q3 Operations Budget"></div>
+                <div><label>Category</label>
+                  <select id="sgBudgetCategory">
+                    <option value="Operating">Operating</option>
+                    <option value="Capital">Capital</option>
+                    <option value="Project">Project</option>
+                    <option value="Reserve">Reserve</option>
+                    <option value="Contingency">Contingency</option>
+                  </select>
+                </div>
+                <div><label>Fiscal Year</label><input type="number" id="sgBudgetYear" placeholder="2026" value="2026">
+                </div>
+                <div><label>Allocated Budget (KES)</label><input type="number" id="sgBudgetAllocated" placeholder="0.00"
+                    oninput="sgUpdateBudgetVariance()"></div>
+                <div><label>Actual Spend (KES)</label><input type="number" id="sgBudgetSpend" placeholder="0.00"
+                    oninput="sgUpdateBudgetVariance()"></div>
+                <div><label>Projected Income (KES)</label><input type="number" id="sgBudgetIncome" placeholder="0.00">
+                </div>
+              </div>
+              <div
+                style="display:flex; gap:12px; align-items:center; margin-bottom:12px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; font-size:12px;">
+                <span>Live Variance:</span>
+                <strong id="sgBudgetVarianceDisplay" style="color:#81c784;">KES 0.00 (0.00%)</strong>
+              </div>
+              <button class="sg-submit-btn primary" onclick="saveSafeguardBudget()">Save Budget Entry</button>
+              <div class="sg-scroll-area" id="sgBudgetsTable" style="margin-top:14px;">
+                <p style="opacity:0.5; font-style:italic; font-size:12px; padding:8px;">No budget entries yet. Add one
+                  above.</p>
+              </div>
+            </div>
+
+            <!-- Staff Liaison Hub -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Staff Liaison Communications Hub</h4>
+              <div class="sg-form-row">
+                <div><label>Staff Name</label><input type="text" id="sgStaffName" placeholder="e.g. Jane Kimani"></div>
+                <div><label>Email</label><input type="email" id="sgStaffEmail" name="email" autocomplete="email" placeholder="jane@org.co.ke"></div>
+                <div><label>Subject</label><input type="text" id="sgStaffSubject"
+                    placeholder="Financial correspondence subject"></div>
+                <div><label>Severity</label>
+                  <select id="sgStaffSeverity">
+                    <option value="Low">Low</option>
+                    <option value="Medium" selected>Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+              <div style="margin-bottom:10px;"><label
+                  style="font-size:11px;color:#ff5722;font-weight:600;text-transform:uppercase;">Details</label>
+                <textarea id="sgStaffDetails" placeholder="Detailed notes on this financial correspondence..."
+                  style="min-height:60px;font-size:12px;margin-top:4px;"></textarea>
+              </div>
+              <button class="sg-submit-btn primary" onclick="sgLogStaffNote()">Log Communication</button>
+              <div class="sg-scroll-area" id="sgStaffLogs" style="margin-top:12px;">
+                <p style="opacity:0.5;font-style:italic;font-size:12px;padding:8px;">No staff notes yet.</p>
+              </div>
+            </div>
+
+            <!-- Systems & Controls Audit Checklist -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Systems & Controls Audit Checklist</h4>
+              <div id="sgAuditChecklist" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <label
+                  style="display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.15);border-radius:8px;font-size:12px;cursor:pointer;"><input
+                    type="checkbox" id="sgChk1" style="width:auto;margin:0;" onchange="updateAuditScore()"> Financial
+                  record-keeping system active</label>
+                <label
+                  style="display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.15);border-radius:8px;font-size:12px;cursor:pointer;"><input
+                    type="checkbox" id="sgChk2" style="width:auto;margin:0;" onchange="updateAuditScore()"> Dual
+                  authorization for payments enforced</label>
+                <label
+                  style="display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.15);border-radius:8px;font-size:12px;cursor:pointer;"><input
+                    type="checkbox" id="sgChk3" style="width:auto;margin:0;" onchange="updateAuditScore()"> Monthly bank
+                  reconciliation completed</label>
+                <label
+                  style="display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.15);border-radius:8px;font-size:12px;cursor:pointer;"><input
+                    type="checkbox" id="sgChk4" style="width:auto;margin:0;" onchange="updateAuditScore()"> Funder
+                  reporting deadlines met</label>
+                <label
+                  style="display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.15);border-radius:8px;font-size:12px;cursor:pointer;"><input
+                    type="checkbox" id="sgChk5" style="width:auto;margin:0;" onchange="updateAuditScore()"> Petty cash
+                  controls validated</label>
+                <label
+                  style="display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.15);border-radius:8px;font-size:12px;cursor:pointer;"><input
+                    type="checkbox" id="sgChk6" style="width:auto;margin:0;" onchange="updateAuditScore()"> Receipt
+                  documentation complete</label>
+                <label
+                  style="display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.15);border-radius:8px;font-size:12px;cursor:pointer;"><input
+                    type="checkbox" id="sgChk7" style="width:auto;margin:0;" onchange="updateAuditScore()"> Annual audit
+                  preparation done</label>
+                <label
+                  style="display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,0,0,0.15);border-radius:8px;font-size:12px;cursor:pointer;"><input
+                    type="checkbox" id="sgChk8" style="width:auto;margin:0;" onchange="updateAuditScore()"> Segregation
+                  of duties enforced</label>
+              </div>
+              <div style="margin-top:14px;display:flex;align-items:center;gap:12px;">
+                <span style="font-size:12px;font-weight:600;white-space:nowrap;">Audit Score:</span>
+                <div class="sg-compliance-bar" style="flex:1;height:12px;">
+                  <div id="sgAuditScoreBar" class="sg-compliance-bar-fill"
+                    style="width:0%;background:linear-gradient(90deg,#f44336,#ff9800,#4caf50);height:100%;"></div>
+                </div>
+                <span id="sgAuditScoreText"
+                  style="font-weight:800;font-size:16px;min-width:42px;text-align:right;">0%</span>
+              </div>
+            </div>
+
+            <!-- Legislation Compliance Status -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Legislation Compliance Rankings</h4>
+              <div id="sgLegislationStatus">
+                <div style="margin-bottom:12px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+                    <span>Companies Act &amp; Cooperative Societies Act</span><span class="sg-badge compliant">95%
+                      Compliant</span>
+                  </div>
+                  <div class="sg-compliance-bar">
+                    <div class="sg-compliance-bar-fill" style="width:95%;background:#4caf50;"></div>
+                  </div>
+                </div>
+                <div style="margin-bottom:12px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>Kenya
+                      Revenue Authority (KRA) Tax Obligations</span><span class="sg-badge compliant">88%
+                      Compliant</span></div>
+                  <div class="sg-compliance-bar">
+                    <div class="sg-compliance-bar-fill" style="width:88%;background:#81c784;"></div>
+                  </div>
+                </div>
+                <div style="margin-bottom:12px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>NGO
+                      Co-ordination Board Requirements</span><span class="sg-badge pending">60% Pending</span></div>
+                  <div class="sg-compliance-bar">
+                    <div class="sg-compliance-bar-fill" style="width:60%;background:#ff9800;"></div>
+                  </div>
+                </div>
+                <div style="margin-bottom:12px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>Data
+                      Protection Act (DPA 2019)</span><span class="sg-badge review">45% Under Review</span></div>
+                  <div class="sg-compliance-bar">
+                    <div class="sg-compliance-bar-fill" style="width:45%;background:#9c27b0;"></div>
+                  </div>
+                </div>
+                <div style="margin-bottom:4px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+                    <span>Anti-Money Laundering (AML) Controls</span><span class="sg-badge compliant">100%
+                      Compliant</span>
+                  </div>
+                  <div class="sg-compliance-bar">
+                    <div class="sg-compliance-bar-fill" style="width:100%;background:#00e0ff;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!--  TAB 2: FUNDING & FUNDRAISING MONITOR  -->
+          <div id="sgTab_funding" class="safeguard-tab-content">
+
+            <!-- Fundraising Strategy Playground -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Fundraising Strategy Playground</h4>
+              <div class="sg-form-row">
+                <div><label>Source Name</label><input type="text" id="sgFundName" placeholder="e.g. Annual Gala Dinner">
+                </div>
+                <div><label>Source Type</label>
+                  <select id="sgFundType">
+                    <option value="Grant">Grant</option>
+                    <option value="Donation">Donation</option>
+                    <option value="Fundraising">Fundraising</option>
+                    <option value="Sales_Revenue">Sales Revenue</option>
+                    <option value="Membership_Fee">Membership Fee</option>
+                    <option value="Investment_Return">Investment Return</option>
+                  </select>
+                </div>
+                <div><label>Funder Body</label><input type="text" id="sgFundBody"
+                    placeholder="e.g. USAID, County Council"></div>
+                <div><label>Amount Awarded (KES)</label><input type="number" id="sgFundAwarded" placeholder="0.00">
+                </div>
+                <div><label>Campaign Target (KES)</label><input type="number" id="sgFundTarget" placeholder="0.00"
+                    oninput="sgUpdateFundProgress()"></div>
+                <div><label>Amount Received (KES)</label><input type="number" id="sgFundReceived" placeholder="0.00"
+                    oninput="sgUpdateFundProgress()"></div>
+              </div>
+              <div
+                style="margin-bottom:12px;display:flex;align-items:center;gap:12px;background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;">
+                <span style="font-size:12px;">Campaign Progress:</span>
+                <div class="sg-compliance-bar" style="flex:1;height:10px;">
+                  <div id="sgFundProgressBar" class="sg-compliance-bar-fill"
+                    style="width:0%;background:linear-gradient(90deg,#e91e63,#ff9800);height:100%;"></div>
+                </div>
+                <span id="sgFundProgressPct"
+                  style="font-weight:800;font-size:14px;min-width:40px;text-align:right;">0%</span>
+              </div>
+              <button class="sg-submit-btn primary" onclick="addFundingSource()">Register Funding Source</button>
+            </div>
+
+            <!-- Funder Conditions Checker -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Funder Conditions Checker - Automated Alerts</h4>
+              <div id="sgFunderAlerts">
+                <p style="opacity:0.5;font-style:italic;font-size:12px;padding:8px;">Conditions will be analyzed after
+                  loading funding sources.</p>
+              </div>
+            </div>
+
+            <!-- Legislative Guardrails -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Legislative Guardrails &amp; Validation</h4>
+              <div id="sgLegislativeGuardrails">
+                <div class="sg-alert success"><span></span><span>All active fundraising campaigns are operating within
+                    current legislative boundaries. Validation complete.</span></div>
+                <div class="sg-alert info"><span>i</span><span>Sales &amp; Fundraising Act compliance check: Scheduled
+                    for next quarter review.</span></div>
+              </div>
+            </div>
+
+            <!-- Funding Inflow Reporting Dashboard -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Funding Inflow Reporting Dashboard</h4>
+              <div class="sg-scroll-area" id="sgFundingTable">
+                <p style="opacity:0.5;font-style:italic;font-size:12px;padding:8px;">Loading funding sources...</p>
+              </div>
+              <div class="sg-chart-container" style="margin-top:14px;">
+                <div style="font-size:11px;text-transform:uppercase;color:#ff5722;font-weight:700;margin-bottom:8px;">
+                  Funding Inflow by Source Type</div>
+                <canvas id="sgFundingChart" height="180"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!--  TAB 3: FINANCIAL PLANNING & BUDGETING  -->
+          <div id="sgTab_planning" class="safeguard-tab-content">
+
+            <!-- Budget Preparer Grid -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Budget Preparer Grid</h4>
+              <div class="sg-form-row">
+                <div><label>Forecast Name</label><input type="text" id="sgForecastName"
+                    placeholder="e.g. FY2026 Operational Plan"></div>
+                <div><label>Type</label>
+                  <select id="sgForecastType">
+                    <option value="Operational">Operational</option>
+                    <option value="Strategic">Strategic</option>
+                    <option value="Reserves">Reserves</option>
+                    <option value="Investment">Investment</option>
+                    <option value="What_If">What-If Scenario</option>
+                  </select>
+                </div>
+                <div><label>Fiscal Year</label><input type="number" id="sgForecastYear" placeholder="2026" value="2026">
+                </div>
+                <div><label>Quarter</label>
+                  <select id="sgForecastQuarter">
+                    <option value="Full_Year">Full Year</option>
+                    <option value="Q1">Q1</option>
+                    <option value="Q2">Q2</option>
+                    <option value="Q3">Q3</option>
+                    <option value="Q4">Q4</option>
+                  </select>
+                </div>
+                <div><label>Allocated Budget (KES)</label><input type="number" id="sgForecastBudget" placeholder="0.00">
+                </div>
+                <div><label>Actual Spend (KES)</label><input type="number" id="sgForecastSpend" placeholder="0.00">
+                </div>
+                <div><label>Projected Income (KES)</label><input type="number" id="sgForecastIncome" placeholder="0.00">
+                </div>
+                <div><label>Current Reserves (KES)</label><input type="number" id="sgForecastReserves"
+                    placeholder="0.00"></div>
+                <div><label>Reserves Target (KES)</label><input type="number" id="sgForecastResTarget"
+                    placeholder="0.00"></div>
+              </div>
+              <button class="sg-submit-btn primary" onclick="addForecast()">Create Forecast Entry</button>
+            </div>
+
+            <!-- Strategic What-If Impact Advisor -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Strategic "What-If" Impact Advisor</h4>
+              <p style="font-size:12px;opacity:0.7;margin:0 0 14px;">Adjust sliders to model financial scenarios and see
+                projected outcomes in real time.</p>
+              <div class="sg-split">
+                <div>
+                  <div style="margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><label
+                        style="font-size:11px;color:#ff5722;font-weight:600;text-transform:uppercase;">Revenue Growth
+                        Rate</label><span id="sgWhatIfRevenueVal"
+                        style="font-size:13px;font-weight:700;color:#81c784;">+10%</span></div>
+                    <input type="range" id="sgWhatIfRevenue" min="-50" max="100" value="10"
+                      oninput="runWhatIfSimulation()" style="width:100%;accent-color:#e91e63;">
+                  </div>
+                  <div style="margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><label
+                        style="font-size:11px;color:#ff5722;font-weight:600;text-transform:uppercase;">Cost Increase
+                        Rate</label><span id="sgWhatIfCostVal"
+                        style="font-size:13px;font-weight:700;color:#ff9800;">+5%</span></div>
+                    <input type="range" id="sgWhatIfCost" min="-30" max="80" value="5" oninput="runWhatIfSimulation()"
+                      style="width:100%;accent-color:#ff5722;">
+                  </div>
+                  <div style="margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><label
+                        style="font-size:11px;color:#ff5722;font-weight:600;text-transform:uppercase;">Base Revenue
+                        (KES)</label></div>
+                    <input type="number" id="sgWhatIfBase" placeholder="e.g. 500000" style="font-size:12px;"
+                      oninput="runWhatIfSimulation()">
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><label
+                        style="font-size:11px;color:#ff5722;font-weight:600;text-transform:uppercase;">Reserve
+                        Allocation (%)</label><span id="sgWhatIfReserveVal"
+                        style="font-size:13px;font-weight:700;color:#00e0ff;">15%</span></div>
+                    <input type="range" id="sgWhatIfReserve" min="0" max="50" value="15" oninput="runWhatIfSimulation()"
+                      style="width:100%;accent-color:#00e0ff;">
+                  </div>
+                </div>
+                <div
+                  style="background:rgba(0,0,0,0.25);border-radius:12px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div
+                    style="font-size:11px;text-transform:uppercase;color:#ff5722;font-weight:700;letter-spacing:0.5px;margin-bottom:12px;">
+                    Simulation Output</div>
+                  <div style="font-size:13px;line-height:2.2;">
+                    <div
+                      style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:4px;">
+                      Projected Revenue <strong id="sgWIFRevenue" style="color:#81c784;">KES 0.00</strong></div>
+                    <div
+                      style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:4px;">
+                      Projected Costs <strong id="sgWIFCosts" style="color:#ff9800;">KES 0.00</strong></div>
+                    <div
+                      style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:4px;">
+                      Net Surplus / Deficit <strong id="sgWIFNet" style="color:#81c784;">KES 0.00</strong></div>
+                    <div
+                      style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:4px;">
+                      Reserve Contribution <strong id="sgWIFReserve" style="color:#00e0ff;">KES 0.00</strong></div>
+                    <div style="display:flex;justify-content:space-between;padding-top:4px;">Risk Assessment <span
+                        id="sgWIFRisk" class="sg-badge pending">Moderate</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Forecasting Engine -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Live Forecasting Engine - Revised vs Initial Projections</h4>
+              <p style="font-size:12px;opacity:0.7;margin:0 0 10px;">Automatically computed from the
+                <code>v_safeguard_revised_forecasts</code> database view.
+              </p>
+              <div class="sg-scroll-area" id="sgForecastsTable">
+                <p style="opacity:0.5;font-style:italic;font-size:12px;padding:8px;">Loading revised forecasts from
+                  database view...</p>
+              </div>
+            </div>
+          </div>
+
+          <!--  TAB 4: FINANCIAL REPORTING TOOLKIT  -->
+          <div id="sgTab_reporting" class="safeguard-tab-content">
+            <div class="sg-split">
+
+              <!-- Financial Position Generator -->
+              <div class="sg-card">
+                <h4><span class="sg-icon"></span> Financial Position Generator</h4>
+                <p style="font-size:12px;opacity:0.7;margin:0 0 12px;">One-click automated report compiling the current
+                  financial position.</p>
+                <button class="sg-submit-btn primary" style="width:100%;font-size:13px;"
+                  onclick="generateFinancialPositionReport()"> Generate Position Report</button>
+                <div id="sgFinancialReport" style="margin-top:14px;display:none;">
+                  <pre id="sgFinancialReportContent"
+                    style="background:#fafafa;color:#333;padding:16px;border-radius:8px;font-family:'Courier New',monospace;font-size:11px;line-height:1.8;overflow-x:auto;white-space:pre-wrap;max-height:300px;overflow-y:auto;"></pre>
+                </div>
+              </div>
+
+              <!-- Auditor Portal -->
+              <div class="sg-card">
+                <h4><span class="sg-icon"></span> Auditor Portal</h4>
+                <p style="font-size:12px;opacity:0.7;margin:0 0 12px;">Digital communication bridge with external
+                  auditors.</p>
+                <div class="sg-form-row">
+                  <div><label>Auditor / Firm Name</label><input type="text" id="sgAuditorName"
+                      placeholder="e.g. KPMG Kenya"></div>
+                  <div><label>Subject</label><input type="text" id="sgAuditorSubject" placeholder="Audit query subject">
+                  </div>
+                </div>
+                <textarea id="sgAuditorMessage" placeholder="Message or query to auditor..."
+                  style="min-height:50px;font-size:12px;margin-bottom:10px;"></textarea>
+                <button class="sg-submit-btn primary" onclick="sgLogAuditQuery()">Submit Auditor Query</button>
+                <div class="sg-scroll-area" id="sgAuditorLogs" style="margin-top:12px;">
+                  <p style="opacity:0.5;font-style:italic;font-size:12px;padding:8px;">No audit correspondence yet.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- AGM Presenter Mode -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> AGM Presenter Mode</h4>
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                <div>
+                  <p style="font-size:12px;opacity:0.8;margin:0;">Toggles a clean, high-contrast presentation view
+                    optimised for displaying accounts at the Annual General Meeting.</p>
+                </div>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:600;">
+                  <input type="checkbox" id="sgAGMToggle" style="width:auto;margin:0;"
+                    onchange="toggleAGMPresenterMode()">
+                  <span id="sgAGMLabel">Enable AGM Mode</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Reserves & Investment Policy Gauge -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Reserves &amp; Investment Policy Tracker</h4>
+              <div class="sg-gauge-container" id="sgReservesGaugeContainer">
+                <div class="sg-gauge" id="sgReservesGauge">
+                  <svg viewBox="0 0 120 120">
+                    <circle class="sg-gauge-track" cx="60" cy="60" r="50"></circle>
+                    <circle class="sg-gauge-fill" id="sgReservesGaugeFill" cx="60" cy="60" r="50" stroke="#4caf50"
+                      stroke-dasharray="314" stroke-dashoffset="314"></circle>
+                  </svg>
+                  <div class="sg-gauge-label">
+                    <span class="sg-gauge-pct" id="sgReservesPct" style="color:#81c784;">0%</span>
+                    <span class="sg-gauge-sub">Coverage</span>
+                  </div>
+                </div>
+                <div style="flex:1;font-size:13px;line-height:2.2;">
+                  <div>Current Reserves: <strong id="sgReservesCurrentVal" style="color:#81c784;">KES 0.00</strong>
+                  </div>
+                  <div>Policy Target: <strong id="sgReservesTargetVal" style="color:#00e0ff;">KES 0.00</strong></div>
+                  <div>Investment Target: <strong id="sgInvestmentTargetVal" style="color:#ff9800;">KES 0.00</strong>
+                  </div>
+                  <div>Status: <span id="sgReservesCoverage" class="sg-badge pending">Awaiting Data</span></div>
+                  <div style="font-size:11px;opacity:0.7;margin-top:4px;" id="sgReservesAdvice">Load forecast entries to
+                    activate automatic investment policy recommendations.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!--  TAB 5: BANKING & BOOK-KEEPING CONTROLS  -->
+          <div id="sgTab_banking" class="safeguard-tab-content">
+
+            <!-- Bank Account Manager -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Bank Account Manager &amp; Ledger Entry</h4>
+              <div class="sg-form-row">
+                <div><label>Account Name</label><input type="text" id="sgBankAccName"
+                    placeholder="e.g. Chama Main Account"></div>
+                <div><label>Account Number</label><input type="text" id="sgBankAccNo" placeholder="0123456789"></div>
+                <div><label>Bank Name</label><input type="text" id="sgBankName" placeholder="e.g. Equity Bank"></div>
+                <div><label>Transaction Type</label>
+                  <select id="sgBankTxType">
+                    <option value="Payment">Payment</option>
+                    <option value="Lodgement">Lodgement</option>
+                    <option value="Transfer">Transfer</option>
+                    <option value="Petty_Cash_Out">Petty Cash Out</option>
+                    <option value="Petty_Cash_In">Petty Cash In</option>
+                    <option value="Bank_Charge">Bank Charge</option>
+                    <option value="Interest">Interest</option>
+                  </select>
+                </div>
+                <div><label>Amount (KES)</label><input type="number" id="sgBankAmount" placeholder="0.00"></div>
+                <div><label>Transaction Date</label><input type="date" id="sgBankDate"></div>
+                <div><label>Description</label><input type="text" id="sgBankDesc"
+                    placeholder="Brief transaction description"></div>
+                <div><label>Payee / Payer</label><input type="text" id="sgBankPayee"
+                    placeholder="Recipient or source name"></div>
+                <div><label>Handled By</label><input type="text" id="sgBankHandler" placeholder="Treasurer full name">
+                </div>
+                <div><label>Receipt Reference <span style="color:#f44336;font-size:10px;">(required to avoid audit
+                      flag)</span></label><input type="text" id="sgBankReceipt" placeholder="e.g. RCT-2026-001"></div>
+                <div><label>Supporting Doc Ref</label><input type="text" id="sgBankDoc"
+                    placeholder="e.g. INV-001, AGMT-22"></div>
+              </div>
+              <button class="sg-submit-btn primary" onclick="addBankLedgerEntry()">Record Transaction</button>
+              <div id="sgBankTriggerNotice" class="sg-alert warning" style="display:none;margin-top:10px;">
+                <span></span><span>This transaction will be <strong>automatically flagged for audit review</strong> by
+                  the database trigger because receipt/document fields are empty.</span>
+              </div>
+            </div>
+
+            <!-- Ledger Systems Control -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Ledger Systems Control - Day-to-Day Book-keeping</h4>
+              <div class="sg-scroll-area" id="sgBankLedgerTable">
+                <p style="opacity:0.5;font-style:italic;font-size:12px;padding:8px;">Loading bank ledger...</p>
+              </div>
+            </div>
+
+            <!-- Accountability Audit Trail -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Accountability Audit Trail - Auto-Flagged Records</h4>
+              <div id="sgAuditTrailAlert" class="sg-alert warning" style="display:none;">
+                <span></span><span>The records below were auto-flagged by the
+                  <strong>trg_bank_ledger_audit_flag</strong> database trigger for missing required documentation
+                  fields.</span>
+              </div>
+              <div id="sgAuditTrailEmpty" class="sg-alert success"><span></span><span>No flagged records found. All
+                  money-handling transactions have proper documentation.</span></div>
+              <div class="sg-scroll-area" id="sgFlaggedRecords"></div>
+            </div>
+          </div>
+
+          <!--  TAB 6: FIXED ASSETS & STOCK CONTROL  -->
+          <div id="sgTab_assets" class="safeguard-tab-content">
+
+            <!-- Asset Logbook -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Asset Logbook - Fixed Assets &amp; Stock Register</h4>
+              <div class="sg-form-row">
+                <div><label>Asset Name</label><input type="text" id="sgAssetName"
+                    placeholder="e.g. Toyota Hilux Van KAZ 001A"></div>
+                <div><label>Category</label>
+                  <select id="sgAssetCategory">
+                    <option value="Land">Land</option>
+                    <option value="Building">Building</option>
+                    <option value="Vehicle">Vehicle</option>
+                    <option value="Equipment" selected>Equipment</option>
+                    <option value="Furniture">Furniture</option>
+                    <option value="IT_Hardware">IT Hardware</option>
+                    <option value="IT_Software">IT Software</option>
+                    <option value="Stock">Stock</option>
+                  </select>
+                </div>
+                <div><label>Asset Tag / Serial</label><input type="text" id="sgAssetTag"
+                    placeholder="e.g. AST-2026-001"></div>
+                <div><label>Purchase Cost (KES)</label><input type="number" id="sgAssetCost" placeholder="0.00"
+                    oninput="sgCalcNetBookValue()"></div>
+                <div><label>Depreciation Rate (%/yr)</label><input type="number" id="sgAssetDepRate" placeholder="12.5"
+                    step="0.5" oninput="sgCalcNetBookValue()"></div>
+                <div><label>Accumulated Depreciation</label><input type="number" id="sgAssetAccDep" placeholder="0.00"
+                    oninput="sgCalcNetBookValue()"></div>
+                <div><label>Stock Quantity</label><input type="number" id="sgAssetQty" placeholder="1" value="1"></div>
+                <div><label>Location</label><input type="text" id="sgAssetLocation"
+                    placeholder="e.g. Eldoret HQ Office"></div>
+              </div>
+              <div
+                style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;font-size:12px;margin-bottom:12px;display:flex;gap:20px;">
+                <span>Calculated Net Book Value: <strong id="sgAssetNBV" style="color:#81c784;">KES 0.00</strong></span>
+              </div>
+              <div class="sg-form-row">
+                <div><label>Insurance Provider</label><input type="text" id="sgAssetInsurer"
+                    placeholder="e.g. Jubilee Insurance Co."></div>
+                <div><label>Policy Number</label><input type="text" id="sgAssetPolicyNo" placeholder="POL-12345-2026">
+                </div>
+                <div><label>Insurance Start Date</label><input type="date" id="sgAssetInsStart"></div>
+                <div><label>Insurance Expiry Date</label><input type="date" id="sgAssetInsExpiry"
+                    onchange="sgCheckInsuranceExpiry()"></div>
+                <div><label>Annual Premium (KES)</label><input type="number" id="sgAssetPremium" placeholder="0.00">
+                </div>
+                <div><label>Insurance Status</label>
+                  <select id="sgAssetInsStatus">
+                    <option value="Not_Insured">Not Insured</option>
+                    <option value="Active">Active</option>
+                    <option value="Expired">Expired</option>
+                    <option value="Pending_Renewal">Pending Renewal</option>
+                  </select>
+                </div>
+              </div>
+              <div id="sgInsExpiryWarning" class="sg-alert warning" style="display:none;margin-bottom:10px;">
+                <span></span><span id="sgInsExpiryMsg">Insurance expiry date is approaching or has passed.</span>
+              </div>
+              <button class="sg-submit-btn primary" onclick="addFixedAsset()">Register Asset</button>
+              <div class="sg-scroll-area" id="sgAssetsTable" style="margin-top:14px;">
+                <p style="opacity:0.5;font-style:italic;font-size:12px;padding:8px;">Loading asset register...</p>
+              </div>
+            </div>
+
+            <!-- Insurance Expiry Monitor -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Insurance Expiry Monitor</h4>
+              <div id="sgInsuranceAlerts">
+                <p style="opacity:0.5;font-style:italic;font-size:12px;padding:8px;">Loading insurance policy alerts...
+                </p>
+              </div>
+            </div>
+
+            <!-- Investment Allocation Visualizer -->
+            <div class="sg-card">
+              <h4><span class="sg-icon"></span> Investment Allocation Visualizer</h4>
+              <div class="sg-chart-container">
+                <div style="font-size:11px;text-transform:uppercase;color:#ff5722;font-weight:700;margin-bottom:8px;">
+                  Asset Portfolio by Category</div>
+                <canvas id="sgAssetChart" height="200"></canvas>
+              </div>
+              <div id="sgAssetChartLegend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:11px;">
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /#safeguardPanel -->
+      </div><!-- /.hub-module-card Safeguard Wrapper -->
+
+      <!--
+           10. SAVED MEETING MINUTES REGISTRY
+       -->
+      <div class="hub-module-card" id="meetingMinutesModule" style="margin-top:10px; border:1px solid rgba(0,224,255,0.2); background:rgba(0,224,255,0.03);">
+        <h3>10. Saved Meeting Minutes Registry</h3>
+        <p style="opacity:0.75; font-size:13px;">Record, store, and compile official Chama meeting minutes for audit and legal reference.</p>
+
+        <!-- New Entry Form -->
+        <div style="background:rgba(0,0,0,0.25); border-radius:10px; padding:16px; margin-bottom:18px; border:1px solid rgba(0,224,255,0.12);">
+          <h4 style="margin-top:0; color:#00e0ff;"> Record New Meeting</h4>
+          <div class="grid-inputs" style="grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Meeting Title</label>
+              <input type="text" id="minuteTitle" placeholder="e.g. Monthly AGM - July 2026" style="margin-bottom:0;">
+            </div>
+            <div>
+              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Date</label>
+              <input type="date" id="minuteDate" placeholder="Select meeting date" style="margin-bottom:0;">
+            </div>
+            <div>
+              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Venue / Location</label>
+              <input type="text" id="minuteVenue" placeholder="e.g. Chama Hall, Eldoret" style="margin-bottom:0;">
+            </div>
+            <div>
+              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Chairperson</label>
+              <input type="text" id="minuteChair" placeholder="e.g. Jane Wanjiru" style="margin-bottom:0;">
+            </div>
+            <div style="grid-column:1/-1;">
+              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Members Present (comma-separated)</label>
+              <input type="text" id="minuteAttendees" placeholder="e.g. John Kamau, Mary Achieng, Peter Mwangi" style="margin-bottom:0;">
+            </div>
+            <div style="grid-column:1/-1;">
+              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Agenda Items</label>
+              <textarea id="minuteAgenda" rows="3" placeholder="List agenda topics, one per line..." style="width:100%; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(0,224,255,0.2); color:#e8eaf6; padding:10px; font-family:inherit; font-size:13px; resize:vertical;"></textarea>
+            </div>
+            <div style="grid-column:1/-1;">
+              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Minutes / Discussion Notes</label>
+              <textarea id="minuteBody" rows="5" placeholder="Full meeting notes, decisions made, resolutions, action items..." style="width:100%; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(0,224,255,0.2); color:#e8eaf6; padding:10px; font-family:inherit; font-size:13px; resize:vertical;"></textarea>
+            </div>
+            <div>
+              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Next Meeting Date</label>
+              <input type="date" id="minuteNextDate" placeholder="Select next meeting date" style="margin-bottom:0;">
+            </div>
+            <div>
+              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Secretary Name</label>
+              <input type="text" id="minuteSecretary" placeholder="Recording Secretary" style="margin-bottom:0;">
+            </div>
+          </div>
+          <button class="action-btn" style="width:100%; background:#009688; margin-top:14px; font-size:14px;" onclick="saveMinuteRecord()">
+             Save Meeting Minutes
+          </button>
+        </div>
+
+        <!-- Registry List -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h4 style="margin:0; color:#81c784;"> Saved Minutes Registry</h4>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="minuteSearchInput" oninput="filterMinuteRegistry()" placeholder="Search by title or date..." style="width:200px; margin-bottom:0; font-size:12px; padding:6px 10px;">
+            <button class="action-btn" style="background:#0077ff; font-size:11px; padding:6px 10px;" onclick="loadMinuteRegistry()"> Refresh</button>
+            <button class="action-btn" style="background:#9c27b0; font-size:11px; padding:6px 10px;" onclick="downloadMinutesReport()"> Compile & Download</button>
+          </div>
+        </div>
+        <div id="minuteRegistryList" style="max-height:420px; overflow-y:auto;">
+          <div style="opacity:0.6; font-style:italic; padding:12px;">Loading minutes registry...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!--
+         SECTION 4: REPAYMENTS LEDGER
+     -->
+    <div id="repayments" class="section" style="display:none;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Repayments Ledger Tracking</h2>
+        <button class="action-btn" style="background: #0077ff; padding: 6px 12px; font-size: 12px;" onclick="exportTableToCSV('repaymentsTableBody', 'Repayments_Ledger.csv')"><i class="fas fa-file-csv"></i> Export as CSV</button>
+      </div>
+      <p>Real-time eligibility evaluations dynamically computed to eliminate errors during meetings:</p>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:10%;">#</th>
+            <th style="width:30%;">Member Identity</th>
+            <th style="width:30%;">Balances Configuration Ledger</th>
+            <th style="width:30%;">Policy Violation Status</th>
+          </tr>
+        </thead>
+        <tbody id="repaymentsTableBody"></tbody>
+      </table>
+    </div>
+
+    <!--
+         SECTION 5: SYSTEM LOGS
+     -->
+    <div id="notifications" class="section" style="display:none;">
+      <h2>Notifications Panel (System Action History Logs)</h2>
+      <p>System tracking records and live database modifications log trail:</p>
+      <div style="margin-bottom:15px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="action-btn" style="background:#4caf50;" onclick="keepCheckedNotifications()">Keep Selected Log
+          Messages</button>
+        <button class="btn-del" onclick="deleteCheckedNotifications()">Delete Selected Log Messages</button>
+      </div>
+      <hr style="border-color:rgba(255,255,255,0.1); margin-bottom:15px;">
+      <div id="notificationFeed"></div>
+    </div>
+
+    <!--
+         SECTION 6: AUTOMATION (Items 1 & 2 only)
+     -->
+    <div id="automation" class="section" style="display:none;">
+      <h2>Automation Console</h2>
+
+      <!-- 1. Admin Email Management -->
+      <div
+        style="background:rgba(0,0,0,0.15); padding:15px; border-radius:8px; margin-bottom:15px; border:1px solid rgba(255,255,255,0.05);">
+        <h3>1. Admin Email Management</h3>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <input type="email" id="automationEmail" name="email" autocomplete="email" placeholder="Enter admin email context address"
+            style="flex:1; min-width:200px;">
+          <button class="action-btn" style="margin:0;" onclick="addAutomationAdmin()">Register Admin</button>
+          <button class="btn-del" style="margin:0; padding:0 15px;" onclick="clearAutomationAdminInput()">Clear</button>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <strong>Registered Admin Active Directory Accounts:</strong>
+          <ul id="automationAdminList" style="margin:8px 0; padding-left:20px; color:#81c784;"></ul>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="emailNotificationToggle" onchange="saveAutomationPrefs()">
+            Send dynamic system telemetry notification updates through this active admin email channel
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="telSmsToggle" onchange="saveAutomationPrefs()">
+            Deploy simulated background communication options (tel / broadcast SMS protocols)
+          </label>
+        </div>
+      </div>
+
+      <!-- 2. Meeting Scheduler & Broadcast -->
+      <div
+        style="background:rgba(0,0,0,0.15); padding:15px; border-radius:8px; margin-bottom:15px; border:1px solid rgba(255,255,255,0.05);">
+        <h3>2. Meeting Scheduler &amp; Broadcast</h3>
+        <div
+          style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:12px;">
+          <div>
+            <label style="font-size:11px; opacity:0.7;">Meeting Context Title</label>
+            <input type="text" id="meetingTitle" placeholder="e.g., Q3 Capital Audit Track">
+          </div>
+          <div>
+            <label style="font-size:11px; opacity:0.7;">Execution Date</label>
+            <input type="date" id="meetingDate">
+          </div>
+          <div>
+            <label style="font-size:11px; opacity:0.7;">Execution Timestamp</label>
+            <input type="time" id="meetingTime">
+          </div>
+          <div>
+            <label style="font-size:11px; opacity:0.7;">Redirect Link / Target Location</label>
+            <input type="text" id="meetingLocation" placeholder="e.g., https://zoom.us/j/...">
+          </div>
+          <div>
+            <label style="font-size:11px; opacity:0.7;">Broadcast Pipeline</label>
+            <select id="meetingPlatformType">
+              <option value="Google Meet">Google Meet Channels</option>
+              <option value="Zoom">Zoom Communication Matrix</option>
+              <option value="Email Engine">Direct Email Gateway Portal</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px; opacity:0.7;">Recipients Sub-Pool Target</label>
+            <select id="meetingTargetGroup">
+              <option value="all">All Members Registry Pool</option>
+              <option value="active">Active Members Only (Savings Capital &gt; 0)</option>
+              <option value="agenda">Assigned Agenda Track Focus Group</option>
+            </select>
+          </div>
+        </div>
+        <button class="action-btn"
+          style="background:linear-gradient(45deg,#00e0ff,#00a8cc); color:#000; font-weight:600;"
+          onclick="createBroadcastMeeting()">
+          Schedule &amp; Deploy Live Broadcast Pipeline
+        </button>
+
+        <div style="margin-top:15px;">
+          <strong>Active Dynamic Broadcast Schedules Trace Ledger:</strong>
+          <div id="scheduledMeetingsList" style="margin-top:8px; display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!--
+         SECTION 7: CONTROL SECTOR DASHBOARD
+     -->
+    <div id="controlSector" class="section" style="display:none;">
+      <h2>Dashboard - Loan Management System</h2>
+      <p>Real-time overview of loan applications, approvals, disbursements, and repayments.</p>
+
+      <!-- Hidden metric spans kept for backward compat -->
+      <div style="display:none;">
+        <span id="metricApprovedCount"></span>
+        <span id="metricPendingCount"></span>
+        <span id="metricLoansCount"></span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:15px; margin-top:20px;">
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(0,150,255,0.1); border-left:4px solid #0096ff; padding:15px; border-radius:8px;"
+          onclick="showSection('loans')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">1. Loan Applications</div>
+          <div id="tile-loanApplications" style="font-size:28px; font-weight:bold; margin-top:8px; color:#0096ff;">0
+          </div>
+          <button class="action-btn" style="margin-top:10px; padding:6px 10px; font-size:11px; width:100%;"
+            onclick="event.stopPropagation(); showSection('loans')">Go to Loans -></button>
+        </div>
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(76,175,80,0.1); border-left:4px solid #4caf50; padding:15px; border-radius:8px;"
+          onclick="showSection('loans')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">2. Approved Loans</div>
+          <div id="tile-approvedLoans" style="font-size:28px; font-weight:bold; margin-top:8px; color:#4caf50;">0</div>
+          <button class="action-btn"
+            style="margin-top:10px; padding:6px 10px; font-size:11px; width:100%; background:#4caf50;"
+            onclick="event.stopPropagation(); showSection('members')">View Approved -></button>
+        </div>
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(244,67,54,0.1); border-left:4px solid #f44336; padding:15px; border-radius:8px;"
+          onclick="showSection('members')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">3. Denied Loans</div>
+          <div id="tile-deniedLoans" style="font-size:28px; font-weight:bold; margin-top:8px; color:#f44336;">0</div>
+          <button class="action-btn"
+            style="margin-top:10px; padding:6px 10px; font-size:11px; width:100%; background:#f44336;"
+            onclick="event.stopPropagation(); showSection('members')">View Denied -></button>
+        </div>
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(76,175,80,0.15); border-left:4px solid #81c784; padding:15px; border-radius:8px;"
+          onclick="showSection('loans')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">4. Disbursed Loans</div>
+          <div id="tile-disbursedLoans" style="font-size:28px; font-weight:bold; margin-top:8px; color:#81c784;">0</div>
+        </div>
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(255,152,0,0.1); border-left:4px solid #ff9800; padding:15px; border-radius:8px;"
+          onclick="showSection('repayments')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">5. Repayment Records</div>
+          <div id="tile-repaymentRecords" style="font-size:28px; font-weight:bold; margin-top:8px; color:#ff9800;">0
+          </div>
+          <button class="action-btn"
+            style="margin-top:10px; padding:6px 10px; font-size:11px; width:100%; background:#ff9800; color:#000;"
+            onclick="event.stopPropagation(); showSection('repayments')">View Ledger -></button>
+        </div>
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(244,67,54,0.1); border-left:4px solid #f44336; padding:15px; border-radius:8px;"
+          onclick="showSection('loans')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">6. Overdue Loans</div>
+          <div id="tile-overdueLoans" style="font-size:28px; font-weight:bold; margin-top:8px; color:#f44336;">0</div>
+        </div>
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(156,39,176,0.1); border-left:4px solid #9c27b0; padding:15px; border-radius:8px;"
+          onclick="showSection('members')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">7. Borrowers</div>
+          <div id="tile-borrowers" style="font-size:28px; font-weight:bold; margin-top:8px; color:#9c27b0;">0</div>
+          <button class="action-btn"
+            style="margin-top:10px; padding:6px 10px; font-size:11px; width:100%; background:#9c27b0;"
+            onclick="event.stopPropagation(); showNewLoanForm()">+ New Loan -></button>
+        </div>
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(233,30,99,0.1); border-left:4px solid #e91e63; padding:15px; border-radius:8px;"
+          onclick="showSection('loans')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">8. Loan Products</div>
+          <div id="tile-loanProducts" style="font-size:28px; font-weight:bold; margin-top:8px; color:#e91e63;">0</div>
+        </div>
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(0,188,212,0.1); border-left:4px solid #00bcd4; padding:15px; border-radius:8px;"
+          onclick="showSection('secretaryHub')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">9. Users</div>
+          <div id="tile-users" style="font-size:28px; font-weight:bold; margin-top:8px; color:#00bcd4;">0</div>
+        </div>
+
+        <div class="dashboard-tile"
+          style="cursor:pointer; background:rgba(255,193,7,0.1); border-left:4px solid #ffc107; padding:15px; border-radius:8px;"
+          onclick="showSection('loans')">
+          <div style="font-size:24px; margin-bottom:8px;"></div>
+          <div style="font-size:12px; opacity:0.7; text-transform:uppercase;">10. Total Active Loans</div>
+          <div id="tile-activeLoans" style="font-size:28px; font-weight:bold; margin-top:8px; color:#ffc107;">0</div>
+        </div>
+
+      </div>
+
+      <div style="margin-top:30px; padding:15px; background:rgba(0,0,0,0.2); border-radius:8px;">
+        <h3>Quick Actions</h3>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="action-btn" onclick="showSection('members')">+ Add Member</button>
+          <button class="action-btn" style="background:#4caf50;" onclick="showNewLoanForm()">+ New Loan
+            Application</button>
+          <button class="action-btn" style="background:#ff9800;" onclick="showSection('repayments')"> View
+            Repayments</button>
+          <button class="action-btn" style="background:#9c27b0;" onclick="exportLoansToCSV()"> Export Loans
+            CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <!--
+         SECTION: CORPORATE PORTAL (SHMS EXPANSION)
+     -->
+    <div id="corporatePortal" class="section" style="display:none;">
+      <h2>Corporate Governance & SHMS Hub</h2>
+      <p style="opacity: 0.8; margin-top: -10px; margin-bottom: 20px;">Centralized portal for compliance, meetings,
+        workflows, and automated lifecycle management.</p>
+
+      <div class="corporate-grid">
+
+        <!-- 1. Task & Ticket Routing -->
+        <div class="hub-module-card">
+          <h3> Task & Ticket Routing Engine</h3>
+          <p style="font-size:12px; opacity:0.8;">Automatically assigns tasks to available secretaries based on
+            workload.</p>
+          <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; margin-bottom:12px;">
+            <label style="font-size:11px; font-weight:bold; color:#00e0ff;">Create New Admin Task</label>
+            <input type="text" id="taskTitle" placeholder="Task Title (e.g. Q4 Tax Audit)"
+              style="font-size:12px; margin-bottom:8px;">
+            <input type="text" id="taskDesc" placeholder="Brief description..."
+              style="font-size:12px; margin-bottom:8px;">
+
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+              <select id="taskPriority" style="font-size:12px; margin-bottom:0; flex:1;">
+                <option value="Low">Priority: Low</option>
+                <option value="Medium" selected>Priority: Medium</option>
+                <option value="High">Priority: High</option>
+                <option value="Critical">Priority: Critical</option>
+              </select>
+              <select id="taskCreator" style="font-size:12px; margin-bottom:0; flex:1;">
+                <option value="1">By: Chairman Peter</option>
+                <option value="2">By: Director Mary</option>
+              </select>
+            </div>
+
+            <label style="font-size:11px; opacity:0.8; display:block; margin-bottom:4px;">SLA Deadline</label>
+            <input type="datetime-local" id="taskDeadline" style="font-size:12px; margin-bottom:10px;">
+
+            <button class="action-btn" style="width:100%; font-size:12px; background:#00bcd4;"
+              onclick="submitCorporateTask()">Submit & Route Request</button>
+          </div>
+
+          <h4 style="margin:8px 0; color:#81c784; font-size:13px;">Active Admin Tasks Log:</h4>
+          <div id="corpTaskList"
+            style="max-height:160px; overflow-y:auto; background:rgba(0,0,0,0.3); border-radius:6px; padding:6px; font-size:11px;">
+            <p style="opacity:0.6; font-style:italic;">Loading tasks...</p>
+          </div>
+        </div>
+
+        <!-- 2. Room Booking & Calendar -->
+        <div class="hub-module-card">
+          <h3> Calendar & Meeting Coordinator</h3>
+          <p style="font-size:12px; opacity:0.8;">Manages rooms and schedules without double-booking.</p>
+          <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; margin-bottom:12px;">
+            <label style="font-size:11px; font-weight:bold; color:#4caf50;">Book a Boardroom</label>
+            <input type="text" id="bookingTitle" placeholder="Meeting Title (e.g. Board Session)"
+              style="font-size:12px; margin-bottom:8px;">
+            <select id="bookingRoomSelect" style="font-size:12px; margin-bottom:8px;">
+              <option value="1">Elgon Boardroom (Capacity: 12)</option>
+              <option value="2">Cherangany Executive Suite (Capacity: 6)</option>
+              <option value="3">Kipchoge Meeting Hall (Capacity: 30)</option>
+            </select>
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+              <select id="bookingOrganizer" style="font-size:12px; margin-bottom:0; flex:1;">
+                <option value="1">Host: Chairman Peter</option>
+                <option value="2">Host: Director Mary</option>
+              </select>
+              <select id="bookingTimezone" style="font-size:12px; margin-bottom:0; flex:1;">
+                <option value="EAT (UTC+3)" selected>Timezone: EAT</option>
+                <option value="UTC">Timezone: UTC</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:10px;">
+              <div style="flex:1;">
+                <label style="font-size:10px; opacity:0.7; display:block; margin-bottom:4px;">Start Time</label>
+                <input type="datetime-local" id="bookingStart" style="font-size:11px; margin-bottom:0;">
+              </div>
+              <div style="flex:1;">
+                <label style="font-size:10px; opacity:0.7; display:block; margin-bottom:4px;">End Time</label>
+                <input type="datetime-local" id="bookingEnd" style="font-size:11px; margin-bottom:0;">
+              </div>
+            </div>
+            <button class="action-btn" style="width:100%; font-size:12px; background:#4caf50;"
+              onclick="submitCorporateBooking()">Reserve Room Space</button>
+          </div>
+
+          <h4 style="margin:8px 0; color:#ff9800; font-size:13px;">Upcoming Reservations:</h4>
+          <div id="corpBookingList"
+            style="max-height:120px; overflow-y:auto; background:rgba(0,0,0,0.3); border-radius:6px; padding:6px; font-size:11px;">
+            <p style="opacity:0.6; font-style:italic;">Loading bookings...</p>
+          </div>
+        </div>
+
+        <!-- 3. Document Control Hub (AWS S3) -->
+        <div class="hub-module-card">
+          <h3> Document Control & Signatures</h3>
+          <p style="font-size:12px; opacity:0.8;">Secure template repository integrated with AWS S3.</p>
+          <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; margin-bottom:12px;">
+            <label style="font-size:11px; font-weight:bold; color:#9c27b0;">Simulate S3 Document Upload</label>
+            <div style="display:flex; gap:6px; margin-bottom:8px;">
+              <input type="text" id="docUploadName" placeholder="Document name (e.g. resolution.pdf)"
+                style="font-size:12px; margin-bottom:0; flex:3;">
+              <button class="action-btn" style="flex:1; font-size:11px; background:#9c27b0; padding:0 8px;"
+                onclick="uploadCorporateDocument()">Upload</button>
+            </div>
+          </div>
+          <h4 style="margin:8px 0; color:#81c784; font-size:13px;">Secure Document Vault:</h4>
+          <div id="corpDocList"
+            style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+            <p style="opacity:0.6; font-style:italic; font-size:11px;">Loading vault files...</p>
+          </div>
+        </div>
+
+        <!-- 4. Consolidated Communication Feed -->
+        <div class="hub-module-card">
+          <h3> Unified Communication Center</h3>
+          <p style="font-size:12px; opacity:0.8;">Consolidated dashboard for email, visitor notifications & chats.</p>
+          <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; margin-bottom:12px;">
+            <label style="font-size:11px; font-weight:bold; color:#ff9800;">Log Incoming Interaction</label>
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+              <select id="commSource" style="font-size:12px; margin-bottom:0; flex:1;">
+                <option value="Email">Email</option>
+                <option value="Phone">Phone Log</option>
+                <option value="Visitor">Visitor Entry</option>
+                <option value="Chat">Internal Chat</option>
+              </select>
+              <input type="text" id="commSender" placeholder="Sender / Caller / Guest Name"
+                style="font-size:12px; margin-bottom:0; flex:2;">
+            </div>
+            <input type="text" id="commSubject" placeholder="Subject or brief summary..."
+              style="font-size:12px; margin-bottom:8px;">
+            <input type="text" id="commContent" placeholder="Details/notes..."
+              style="font-size:12px; margin-bottom:10px;">
+            <button class="action-btn" style="width:100%; font-size:12px; background:#ff9800; color:#000;"
+              onclick="submitCorporateComm()">Log & Dispatch Notification</button>
+          </div>
+          <h4 style="margin:8px 0; color:#00e0ff; font-size:13px;">Live Communications Feed:</h4>
+          <div id="corpCommList"
+            style="max-height:120px; overflow-y:auto; background:rgba(0,0,0,0.3); border-radius:6px; padding:6px; font-size:11px; display:flex; flex-direction:column; gap:6px;">
+            <p style="opacity:0.6; font-style:italic;">Loading feed...</p>
+          </div>
+        </div>
+
+        <!-- 5. Travel & Expense Tracking (S3 Integrated) -->
+        <div class="hub-module-card">
+          <h3> Travel & Expense Coordinator</h3>
+          <p style="font-size:12px; opacity:0.8;">Flight itineraries and receipt expense reporting via S3.</p>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+            <div style="background:rgba(0,0,0,0.25); padding:8px; border-radius:6px;">
+              <label style="font-size:10px; font-weight:bold; color:#ffc107; display:block; margin-bottom:4px;">Log
+                Travel Itinerary</label>
+              <select id="travelExec" style="font-size:11px; margin-bottom:6px; width:100%;">
+                <option value="1">Exec: Chairman Peter</option>
+                <option value="2">Exec: Director Mary</option>
+              </select>
+              <input type="text" id="travelDest" placeholder="Destination"
+                style="font-size:11px; margin-bottom:6px; width:100%;">
+              <input type="text" id="travelNotes" placeholder="Itinerary JSON or notes"
+                style="font-size:11px; margin-bottom:8px; width:100%;">
+              <button class="action-btn"
+                style="width:100%; font-size:11px; padding:6px; background:#ffc107; color:#000;"
+                onclick="submitCorporateTravel()">Log Itinerary</button>
+            </div>
+
+            <div style="background:rgba(0,0,0,0.25); padding:8px; border-radius:6px;">
+              <label style="font-size:10px; font-weight:bold; color:#81c784; display:block; margin-bottom:4px;">Submit
+                Expense Claim</label>
+              <select id="expenseTravelId" style="font-size:11px; margin-bottom:6px; width:100%;">
+                <option value="">-- Select Trip context --</option>
+              </select>
+              <input type="number" id="expenseAmount" placeholder="Amount (KES)"
+                style="font-size:11px; margin-bottom:6px; width:100%;">
+              <input type="text" id="expenseReceiptKey" placeholder="S3 Receipt File Key"
+                style="font-size:11px; margin-bottom:8px; width:100%;" value="receipts/expense_rec_3092.png" readonly>
+              <button class="action-btn"
+                style="width:100%; font-size:11px; padding:6px; background:#81c784; color:#000;"
+                onclick="submitCorporateExpense()">Claim Reimbursement</button>
+            </div>
+          </div>
+
+          <h4 style="margin:8px 0; color:#e91e63; font-size:13px;">Logged Expense Claims:</h4>
+          <div id="corpExpenseList"
+            style="max-height:120px; overflow-y:auto; background:rgba(0,0,0,0.3); border-radius:6px; padding:6px; font-size:11px;">
+            <p style="opacity:0.6; font-style:italic;">Loading expenses...</p>
+          </div>
+        </div>
+
+        <!-- 6. Performance Analytics (Full-width telemetry dashboard) -->
+        <div class="hub-module-card" style="grid-column: 1 / -1;">
+          <h3> Telemetry & Performance Analytics Panel</h3>
+          <p style="font-size:12px; opacity:0.8;">Real-time resource capacity levels, task completion rates, and
+            workload capacity thresholds.</p>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:10px;">
+            <div>
+              <h4 style="margin:0 0 8px 0; font-size:13px; color:#00e0ff;">Secretarial Workload Distribution (Active
+                Capacity)</h4>
+              <div id="workloadBarsContainer" style="display:flex; flex-direction:column; gap:10px;">
+                <p style="opacity:0.6; font-style:italic; font-size:11px;">Loading workloads...</p>
+              </div>
+            </div>
+            <div>
+              <h4 style="margin:0 0 8px 0; font-size:13px; color:#81c784;">Average Completion Time & Performance SLA
+              </h4>
+              <div id="performanceList"
+                style="background:rgba(0,0,0,0.2); border-radius:6px; padding:10px; font-size:12px;">
+                <p style="opacity:0.6; font-style:italic; font-size:11px;">Loading analytics...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!--
+         SECTION 8: SETTINGS
+     -->
+    <div id="settings" class="section" style="display:none;">
+      <h2>System Core Settings</h2>
+
+      <!-- Background -->
+      <h3>Background Customization</h3>
+      <input type="text" id="bgImage" placeholder="Enter custom background image canvas URL">
+      <button class="action-btn" onclick="changeBackground()">Apply Wallpaper URL</button>
+
+      <!-- Typography -->
+      <h3>Typography Configuration</h3>
+      <p style="font-size:13px; opacity:0.7; margin-top:-8px;">Select new Font Family - updates instantly across all
+        views.</p>
+      <select id="fontSelect" onchange="changeFont()">
+        <option value="Poppins">Poppins</option>
+        <option value="Arial">Arial</option>
+        <option value="Roboto">Roboto</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Verdana">Verdana</option>
+      </select>
+
+      <!-- Scale -->
+      <h3>Scale Proportions</h3>
+      <p style="font-size:13px; opacity:0.7; margin-top:-8px;">Input raw numerical scale pixel size value, then click
+        Apply.</p>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input type="number" id="fontSize" placeholder="Enter font size (px) e.g. 15" style="max-width:220px;">
+        <button class="action-btn" onclick="changeFontSize()">Apply Size Mapping</button>
+      </div>
+
+      <!-- Theme Engine -->
+      <h3>Theme Engine Palette</h3>
+      <p style="font-size:13px; opacity:0.7; margin-top:-8px;">Cycle through 1-10 aesthetic skin choices - updates app
+        background, cards and tables.</p>
+      <select id="themeSelect" onchange="applyTheme()">
+        <option value="gradient">1. Default Midnight Gradient</option>
+        <option value="light">2. Classic Light</option>
+        <option value="dark">3. Deep Dark Charcoal</option>
+        <option value="emerald">4. Emerald Forest</option>
+        <option value="ocean">5. Deep Ocean Blue</option>
+        <option value="sunset">6. Cyberpunk Sunset</option>
+        <option value="royal">7. Royal Amethyst</option>
+        <option value="monochrome">8. Stark High-Contrast</option>
+        <option value="nordic">9. Arctic Frost</option>
+        <option value="chocolate">10. Warm Espresso</option>
+      </select>
+
+      <!-- Reset -->
+      <h3>System Reset</h3>
+      <p style="font-size:13px; opacity:0.7; margin-top:-8px;">Press the orange Reset button - browser will ask you to
+        confirm before clearing all cache.</p>
+      <button class="action-btn" style="background:#ff9800;" onclick="resetSettings()">Reset App Environment</button>
+    </div>
+
+  </div><!-- /.main-content-wrapper -->
+
+  <button class="fab" onclick="showSection('members')">+</button>
+
+  <script src="home.js"></script>
+  <script>
+    async function promptDisableBlur() {
+      // First, fetch current state
+      let currentState = document.body.classList.contains("home-admin-locked");
+      try {
+         const res = await fetch(`${API}/settings/blur`);
+         const data = await res.json();
+         currentState = Boolean(currentState || data.blurEnabled);
+      } catch(e) {}
+
+      const newState = !currentState;
+      const actionText = newState ? "Block Screen Blur" : "Unblock Screen Blur";
+
+      const overlay = document.createElement("div");
+      overlay.id = "disableBlurModal";
+      overlay.style.cssText = "position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:100000; display:flex; justify-content:center; align-items:center;";
+
+      const modal = document.createElement("div");
+      modal.style.cssText = "background:#1a1a2e; border:1px solid #00e0ff; border-radius:10px; padding:25px; width:300px; text-align:center; box-shadow:0 0 20px rgba(0,224,255,0.3);";
+
+      const title = document.createElement("h3");
+      title.innerText = actionText;
+      title.style.cssText = "color:#fff; margin-top:0; margin-bottom:15px;";
+
+      const inputWrap = document.createElement("div");
+      inputWrap.style.cssText = "position: relative; margin-bottom: 15px;";
+
+      const input = document.createElement("input");
+      input.type = "password";
+      input.placeholder = "Enter admin password...";
+      input.style.cssText = "width:100%; padding:10px; padding-right:40px; border-radius:5px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.5); color:#fff; box-sizing:border-box;";
+
+      const eyeIcon = document.createElement("i");
+      eyeIcon.className = "fas fa-eye";
+      eyeIcon.style.cssText = "position: absolute; right: 10px; top: 12px; color: #aaa; cursor: pointer;";
+      eyeIcon.onclick = () => {
+          if (input.type === "password") {
+              input.type = "text";
+              eyeIcon.className = "fas fa-eye-slash";
+          } else {
+              input.type = "password";
+              eyeIcon.className = "fas fa-eye";
+          }
+      };
+
+      inputWrap.appendChild(input);
+      inputWrap.appendChild(eyeIcon);
+
+      const btnGroup = document.createElement("div");
+      btnGroup.style.display = "flex";
+      btnGroup.style.gap = "10px";
+
+      const btnOk = document.createElement("button");
+      btnOk.innerText = "Confirm";
+      btnOk.style.cssText = "flex:1; padding:8px; background:#4caf50; color:#fff; border:none; border-radius:5px; cursor:pointer;";
+
+      const btnCancel = document.createElement("button");
+      btnCancel.innerText = "Cancel";
+      btnCancel.style.cssText = "flex:1; padding:8px; background:#f44336; color:#fff; border:none; border-radius:5px; cursor:pointer;";
+
+      btnOk.onclick = async () => {
+         const pass = input.value;
+         if(!pass) return alert("Enter admin password.");
+         btnOk.innerText = "Processing...";
+
+         try {
+             const res = await fetch(`${API}/settings/blur`, {
+                 method: 'POST',
+                 headers: {
+                     'Content-Type': 'application/json',
+                     'Authorization': 'Bearer ' + ((JSON.parse(sessionStorage.getItem('adminSession') || '{}') || {}).token || '')
+                 },
+                 body: JSON.stringify({ password: pass, blurEnabled: newState })
+             });
+             const data = await res.json();
+             if (data.status === 'success') {
+                 alert(data.blurEnabled ? "Screen blur blocked successfully." : "Screen blur unblocked successfully.");
+                 document.body.removeChild(overlay);
+                 if (!data.blurEnabled) sessionStorage.removeItem('homeSessionTimedOut');
+                 if (data.blurEnabled) sessionStorage.setItem('homeSessionTimedOut', 'true');
+                 applyBlurState(data.blurEnabled);
+             } else {
+                 alert("Error: " + data.message);
+                 btnOk.innerText = "Confirm";
+             }
+         } catch(e) {
+             alert("Server error.");
+             btnOk.innerText = "Confirm";
+         }
+      };
+
+      btnCancel.onclick = () => document.body.removeChild(overlay);
+
+      btnGroup.appendChild(btnCancel);
+      btnGroup.appendChild(btnOk);
+
+      modal.appendChild(title);
+      modal.appendChild(inputWrap);
+      modal.appendChild(btnGroup);
+      overlay.appendChild(modal);
+
+      document.body.appendChild(overlay);
+      input.focus();
+    }
+
+    function applyBlurState(enabled) {
+        let adminGate = document.getElementById("adminAuthGate");
+        const bgCarousel = document.getElementById("bg-carousel");
+        document.body.classList.toggle("home-admin-locked", Boolean(enabled));
+
+        if (!enabled) {
+            if (adminGate) {
+                adminGate.classList.add("gate-dissolving");
+                setTimeout(() => {
+                    adminGate.style.display = "none";
+                    adminGate.remove();
+                }, 500);
+            }
+            if (bgCarousel) {
+                const slides = bgCarousel.querySelectorAll(".bg-slide");
+                slides.forEach(slide => slide.style.filter = "none");
+            }
+        } else {
+            // IF ENABLED, LOCK THE SCREEN
+            if (!adminGate) {
+                adminGate = document.createElement("div");
+                adminGate.id = "adminAuthGate";
+                adminGate.innerHTML = `
+                    <div class="admin-gate-card">
+                        <div class="public-access-lock">LOCKED</div>
+                        <h2 style="color: #fff; margin-bottom: 10px; border: none;">Access Restricted</h2>
+                        <p style="color: #aaa; margin-bottom: 25px; font-size: 14px;">The administrative console is locked. Use the admin password to unlock, or open the member Access Portal.</p>
+                        <button onclick="promptDisableBlur()" class="admin-gate-btn">Unlock Console</button>
+                        <button onclick="window.location.href='member.html#access'" class="admin-gate-btn" style="background:#ff9800;color:#fff;">Access Portal</button>
+                    </div>
+                `;
+                document.body.appendChild(adminGate);
+            }
+            adminGate.classList.remove("gate-dissolving");
+            adminGate.style.display = "flex";
+
+            if (bgCarousel) {
+                const slides = bgCarousel.querySelectorAll(".bg-slide");
+                slides.forEach(slide => slide.style.filter = "blur(12px) brightness(0.4)");
+            }
+        }
+    }
+
+    // Apply the disable blur effect logic on page load
+    window.addEventListener("DOMContentLoaded", async () => {
+        try {
+            const res = await fetch(`${API}/settings/blur`);
+            const data = await res.json();
+            applyBlurState(Boolean(data.blurEnabled || sessionStorage.getItem('homeSessionTimedOut') === 'true'));
+        } catch(e) {}
+    });
+  </script>
+  <!-- Deleted Records Tracker Modal Popup -->
+  <div id="deletedRecordsModal" style="display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(10, 18, 40, 0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); align-items: center; justify-content: center; animation: gateAppear 0.3s ease-out;">
+    <div style="background: #111b2f; border: 1px solid rgba(0, 224, 255, 0.3); border-radius: 12px; padding: 25px; width: 90%; max-width: 800px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); max-height: 85vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+        <h3 style="margin: 0; color: #00e0ff; display: flex; align-items: center; gap: 8px;"><i class="fas fa-trash-alt"></i> Deleted Member & Transaction Tracker</h3>
+        <button onclick="document.getElementById('deletedRecordsModal').style.display = 'none'" style="background: none; border: none; font-size: 20px; color: #aaa; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#f44336'" onmouseout="this.style.color='#aaa'">x</button>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <thead>
+          <tr style="border-bottom: 2px solid rgba(0,224,255,0.2); color: #00e0ff; font-weight: bold;">
+            <th style="padding: 10px 6px; width: 8%;">#</th>
+            <th style="padding: 10px 6px; width: 22%;">Tracking ID</th>
+            <th style="padding: 10px 6px; width: 35%;">Borrower Name</th>
+            <th style="padding: 10px 6px; width: 20%;">Amount (KES)</th>
+            <th style="padding: 10px 6px; width: 15%;">Status</th>
+          </tr>
+        </thead>
+        <tbody id="deletedRecordsTableBody" style="color: #ccc;">
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 20px; opacity: 0.6; font-style: italic;">No deleted transaction records compiled.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+
+</html>

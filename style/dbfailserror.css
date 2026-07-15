@@ -1,0 +1,77 @@
+ 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .error-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            color: #fff;
+            border-top: 5px solid #ff4a4a;
+        }
+        .icon-container {
+            font-size: 60px;
+            color: #ff4a4a;
+            margin-bottom: 15px;
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 24px;
+            letter-spacing: 1px;
+            color: #ff8484;
+        }
+        p {
+            color: #dddddd;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .instruction-box {
+            background: rgba(255, 74, 74, 0.15);
+            border: 1px solid rgba(255, 74, 74, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 14px;
+            text-align: left;
+            margin-bottom: 25px;
+            color: #ffcdcd;
+        }
+        .instruction-box ul {
+            margin: 5px 0 0 20px;
+            padding: 0;
+        }
+        .btn-retry {
+            background: linear-gradient(135deg, #ff6a00, #ee0979);
+            color: white;
+            padding: 2px 10px;
+            font-size: 15px;
+            margin-left: 100%;
+            margin-right: 100%;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            width: 20%;
+            transition: transform 0.2s, opacity 0.2s;
+            box-shadow: 0 4px 15px rgba(238, 9, 121, 0.3);
+        }
+        .btn-retry:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
+        }
+        .btn-retry:active {
+            transform: scale(0.98);
+            opacity: 0.8;
+        }

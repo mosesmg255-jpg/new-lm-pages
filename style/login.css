@@ -1,0 +1,111 @@
+ body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .login-container {
+      display: flex;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      overflow: auto;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+      width: 700px;
+      max-width: 95%;
+    }
+
+    .left-panel {
+      background: url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d') center/cover no-repeat;
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      font-size: 1.5rem;
+      font-weight: bold;
+      text-shadow: 1px 3px 8px rgba(0,0,0,0.6);
+    }
+    .right-panel {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      color: #fff;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .logo h1 {
+      font-size: 1.8rem;
+      margin: 0;
+      color: #00e0ff;
+      letter-spacing: 2px;
+    }
+
+    label {
+      margin: 10px 0 5px;
+      font-size: 0.9rem;
+      color: #ddd;
+    }
+
+    .form-inputs {
+      display: flex;
+      flex-direction: column;
+    }
+
+    input {
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      transition: background 0.3s;
+    }
+
+    input:focus {
+      background: rgba(255,255,255,0.25);
+    }
+
+    .btn {
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 8px;
+      width: 100%;
+      font-weight: 600;
+      transition: transform 0.2s, background 0.3s;
+    }
+
+    .btn-login {
+      background: linear-gradient(135deg, #00e0ff, #0077ff);
+      color: #fff;
+    }
+
+    .btn-create {
+      background: linear-gradient(135deg, #ff6a00, #ee0979);
+      color: #fff;
+    }
+
+    .btn-exit {
+      background: linear-gradient(135deg, #00c853, #64dd17);
+      color: #fff;
+    }
+
+    .btn:hover {
+      transform: scale(1.03);
+    }
+  
