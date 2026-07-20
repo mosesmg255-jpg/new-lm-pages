@@ -18,23 +18,36 @@
         }
     }
 
+    function hasAdminSession() {
+        try {
+            var raw = sessionStorage.getItem('adminSession');
+            if (!raw) return false;
+            var session = JSON.parse(raw);
+            return Boolean(session && session.token && session.role === 'admin');
+        } catch (e) {
+            return false;
+        }
+    }
+
     function shouldProtectCurrentPage() {
-        return false;
+        var protectedPages = ['home.html'];
+        var currentPage = window.location.pathname.split('/').pop() || 'index.html';
+        return protectedPages.indexOf(currentPage) !== -1;
     }
 
     function installAccessGate() {
-        if (!shouldProtectCurrentPage() || hasApprovedMemberSession() || document.getElementById('publicAccessGate')) return;
+        if (!shouldProtectCurrentPage() || hasApprovedMemberSession() || hasAdminSession() || document.getElementById('publicAccessGate')) return;
         var gate = document.createElement('div');
         gate.id = 'publicAccessGate';
         gate.setAttribute('role', 'dialog');
         gate.setAttribute('aria-modal', 'true');
         gate.innerHTML = [
             '<div class="public-access-card">',
-            '<div class="public-access-lock">LOCKED</div>',
-            '<h2>Access Restricted</h2>',
-            '<p>Please sign in through the Access Portal with an approved member account to open this page.</p>',
-            '<a class="public-access-btn" href="member.html#access">Login / Sign In</a>',
-            '<a class="public-access-link" href="member.html#access">New member registration</a>',
+            '<div class="public-access-lock">ADMIN CONSOLE</div>',
+            '<h2>Authentication Required</h2>',
+            '<p>This is the administrative panel. Please sign in with an authorized admin account to continue.</p>',
+            '<a class="public-access-btn" href="login.html">Admin Login</a>',
+            '<a class="public-access-link" href="member.html#access">Member Portal</a>',
             '</div>'
         ].join('');
         var style = document.createElement('style');
@@ -55,9 +68,9 @@
 
     document.addEventListener('DOMContentLoaded', installAccessGate);
     window.addEventListener('storage', function (e) {
-        if (e.key === 'memberSession') {
+        if (e.key === 'memberSession' || e.key === 'adminSession') {
             var gate = document.getElementById('publicAccessGate');
-            if (hasApprovedMemberSession()) {
+            if (hasApprovedMemberSession() || hasAdminSession()) {
                 if (gate) gate.remove();
                 document.body.classList.remove('access-locked');
             } else {

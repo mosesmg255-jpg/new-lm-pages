@@ -39,6 +39,8 @@ async function verifyAdminPassword(password, adminId) {
 
 router.get('/blur', async (req, res) => {
     try {
+        const admin = requireAdmin(req, res);
+        if (!admin) return;
         const [rows] = await sequelize.query(
             `SELECT setting_value FROM app_settings WHERE setting_key = 'blur_enabled' LIMIT 1`
         );

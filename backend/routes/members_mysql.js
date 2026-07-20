@@ -3,8 +3,10 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { Member, sequelize } = require('../models');
 const logger = require('../logger');
-const { getAdminFromRequest, requireAdmin, getFallbackAdminId } = require('../adminContext');
+const { getAdminFromRequest, getMemberFromRequest, requireAdmin, getFallbackAdminId } = require('../adminContext');
+const { signMemberToken } = require('../adminContext');
 const { Op } = require('sequelize');
+const { memberCreateRules } = require('../validation');
 
 const router = express.Router();
 
@@ -37,6 +39,8 @@ function toPlainApprovedDTO(row) {
     email: row.email,
     phone: row.phone,
     security_pin: row.security_pin || 'N/A',
+    loanAmount: Number(row.loanAmount || 0),
+    savingsAmount: Number(row.savingsAmount || 0),
     admin_id: row.admin_id || null,
     status: 'approved',
     approved: true
@@ -178,7 +182,7 @@ async function verifyAdminPassword(password, adminId) {
 
 // POST /api/members/create
 // { full_name, email, phone, password, pin }
-router.post('/create', async (req, res) => {
+router.post('/create', memberCreateRules, async (req, res) => {
   const start = process.hrtime();
   let session = '';
   let enc_ip = '';
@@ -211,13 +215,15 @@ router.post('/create', async (req, res) => {
     const password_hash = await bcrypt.hash(String(password), 10);
     const pin_hash = await bcrypt.hash(String(pin), 10);
 
+    const security_pin_hash = pin ? await bcrypt.hash(String(pin), 10) : null;
+
     const member = await Member.create({
       full_name,
       email: normalizedEmail,
       phone: phone ? String(phone) : '',
       password_hash,
       transaction_pin: pin_hash,
-      security_pin: String(pin),
+      security_pin: security_pin_hash,
       admin_id: admin?.id || req.body?.admin_id || null,
       status: 'pending',
       approved: false
@@ -304,13 +310,17 @@ router.post('/login', async (req, res) => {
     logger.log('members.login.success', { identifier, duration_ms: ms, session, route: req.originalUrl, enc_ip });
 
     if (isApprovedTable) {
-      return ok(res, toPlainApprovedDTO(foundMember));
+      const dto = toPlainApprovedDTO(foundMember);
+      dto.token = signMemberToken({ id: foundMember.id, full_name: foundMember.full_name, email: foundMember.email });
+      return ok(res, dto);
     } else {
-      return ok(res, {
+      const dto = {
         ...toMemberDTO(foundMember),
         status: foundMember.status,
         approved: false
-      });
+      };
+      dto.token = signMemberToken({ id: foundMember.id, full_name: foundMember.full_name, email: foundMember.email });
+      return ok(res, dto);
     }
   } catch (e) {
     const diff = process.hrtime(start); const ms = (diff[0] * 1e3 + diff[1] / 1e6).toFixed(2);
@@ -320,10 +330,23 @@ router.post('/login', async (req, res) => {
 });
 
 // GET /api/members/view?id=...
+// Requires: admin token OR member token whose id matches the requested id
 router.get('/view', async (req, res) => {
   try {
     const id = req.query.id;
     if (!id) return fail(res, 400, 'Missing id');
+
+    const admin = getAdminFromRequest(req);
+    const member = getMemberFromRequest(req);
+
+    if (!admin && !member) {
+      return fail(res, 401, 'Authentication required to view member details.');
+    }
+
+    // Members can only view their own profile
+    if (member && !admin && String(member.id) !== String(id)) {
+      return fail(res, 403, 'You can only view your own profile.');
+    }
 
     const approvedRows = await sequelize.query(
       `SELECT id, full_name, email, phone FROM approved_members WHERE id = :id LIMIT 1`,
@@ -333,10 +356,10 @@ router.get('/view', async (req, res) => {
       return ok(res, toPlainApprovedDTO(approvedRows[0]));
     }
 
-    const member = await Member.findByPk(Number(id));
-    if (!member) return fail(res, 404, 'Member not found');
+    const memberRec = await Member.findByPk(Number(id));
+    if (!memberRec) return fail(res, 404, 'Member not found');
 
-    return ok(res, toMemberDTO(member));
+    return ok(res, toMemberDTO(memberRec));
   } catch (e) {
     return fail(res, 500, 'System error fetching member');
   }
@@ -398,7 +421,7 @@ router.get('/dashboard-pools', async (req, res) => {
     });
 
     const approved = await sequelize.query(
-      `SELECT id, full_name, email, phone, security_pin, verified_at, admin_id
+      `SELECT id, full_name, email, phone, security_pin, verified_at, admin_id, loanAmount, savingsAmount
        FROM approved_members
        WHERE admin_id = :adminId
        ORDER BY id DESC`,
@@ -452,7 +475,7 @@ router.post('/process-approval', async (req, res) => {
 
       const storedPassword = pendingMember.password_hash || pendingMember.password || '';
       const storedPin = pendingMember.transaction_pin || null;
-      const securityPin = pendingMember.security_pin || null;
+      const securityPin = pendingMember.security_pin ? await bcrypt.hash(String(pendingMember.security_pin), 10) : null;
 
       try {
         await sequelize.query(
@@ -532,14 +555,31 @@ router.post('/process-approval', async (req, res) => {
  * GET /api/members/approver-contact
  * Fetch the admin's contact info who approved the member
  * Query: ?email=member@example.com
+ * Requires: admin token OR member token (member must own the queried email)
  */
 router.get('/approver-contact', async (req, res) => {
   try {
+    const admin = getAdminFromRequest(req);
+    const member = getMemberFromRequest(req);
+
+    if (!admin && !member) {
+      return fail(res, 401, 'Authentication required to fetch admin contact.');
+    }
+
     const { email } = req.query || {};
     if (!email) return fail(res, 400, 'Missing member email');
 
+    // Members can only look up their own admin contact
+    if (member && !admin && String(member.email).toLowerCase() !== String(email).toLowerCase().trim()) {
+      return fail(res, 403, 'You can only look up the admin who approved your own account.');
+    }
+
     const approved = await sequelize.query(
-      `SELECT admin_id, admin_phone, admin_email, admin_name FROM approved_members WHERE email = :email LIMIT 1`,
+      `SELECT am.admin_id, am.admin_phone, am.admin_email, am.admin_name,
+              a.full_name AS a_full_name, a.phone AS a_phone, a.email AS a_email
+       FROM approved_members am
+       LEFT JOIN admins a ON a.id = am.admin_id
+       WHERE am.email = :email LIMIT 1`,
       {
         type: sequelize.QueryTypes.SELECT,
         replacements: { email: String(email).toLowerCase().trim() }
@@ -555,7 +595,14 @@ router.get('/approver-contact', async (req, res) => {
       });
     }
 
-    return ok(res, approved[0]);
+    const row = approved[0];
+    // Prefer the live admins table data over the cached approved_members snapshot
+    return ok(res, {
+      admin_id: row.admin_id,
+      admin_name: row.a_full_name || row.admin_name || 'System Admin',
+      admin_phone: row.a_phone || row.admin_phone || '',
+      admin_email: row.a_email || row.admin_email || ''
+    });
   } catch (e) {
     console.error('Approver Contact Error:', e);
     return fail(res, 500, 'System error fetching approver contact');
@@ -749,7 +796,7 @@ router.post('/forgot-password', async (req, res) => {
     );
 
     // Return the reset link so the frontend can display it (since we are simulating email delivery)
-    const resetLink = `http://localhost:3000/member.html?reset_token=${token}`;
+    const resetLink = `${req.protocol}://${req.get('host')}/member.html?recover=1&token=${token}`;
     return ok(res, { success: true, message: 'Reset link generated successfully', resetLink });
   } catch (e) {
     return fail(res, 500, 'System error processing forgot password request');
@@ -814,6 +861,144 @@ router.post('/recover-password', async (req, res) => {
     return ok(res, { success: true, message: 'Password updated successfully' });
   } catch (e) {
     return fail(res, 500, 'System error recovering password');
+  }
+});
+
+// POST /api/members/update-password
+// { member_id, current_password, new_password, new_pin }
+router.post('/update-password', async (req, res) => {
+  try {
+    const { getMemberFromRequest } = require('../adminContext');
+    const memberAuth = getMemberFromRequest(req);
+    const { member_id, current_password, new_password, new_pin } = req.body || {};
+    if (!member_id || !current_password) return fail(res, 400, 'Member ID and current password are required');
+
+    if (!memberAuth) return fail(res, 401, 'Member session required. Please log in again.');
+    if (String(memberAuth.id) !== String(member_id)) {
+      return fail(res, 403, 'You can only update your own credentials');
+    }
+
+    // Find the member in approved_members
+    const approvedRows = await sequelize.query(
+      `SELECT id, password, security_pin FROM approved_members WHERE id = :id LIMIT 1`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { id: member_id } }
+    );
+
+    if (!approvedRows || approvedRows.length === 0) {
+      return fail(res, 404, 'Member not found');
+    }
+
+    const member = approvedRows[0];
+
+    // Verify current password
+    let passwordValid = false;
+    const storedPassword = member.password;
+    if (storedPassword && storedPassword.startsWith('$2')) {
+      passwordValid = await bcrypt.compare(String(current_password), storedPassword);
+    } else {
+      passwordValid = String(current_password) === String(storedPassword);
+    }
+
+    if (!passwordValid) {
+      return fail(res, 401, 'Current password is incorrect');
+    }
+
+    // Update password if provided
+    if (new_password && new_password.length >= 6) {
+      const newHash = await bcrypt.hash(String(new_password), 10);
+      await sequelize.query(
+        `UPDATE approved_members SET password = :hash WHERE id = :id`,
+        { type: sequelize.QueryTypes.UPDATE, replacements: { hash: newHash, id: member_id } }
+      );
+    }
+
+    // Update PIN if provided
+    if (new_pin !== undefined && new_pin !== null && String(new_pin).length >= 4) {
+      const pinHash = await bcrypt.hash(String(new_pin), 10);
+      await sequelize.query(
+        `UPDATE approved_members SET security_pin = :pin WHERE id = :id`,
+        { type: sequelize.QueryTypes.UPDATE, replacements: { pin: pinHash, id: member_id } }
+      );
+    }
+
+    return ok(res, { success: true, message: 'Credentials updated successfully' });
+  } catch (e) {
+    console.error('[members/update-password]', e);
+    return fail(res, 500, 'System error updating credentials');
+  }
+});
+
+// POST /api/members/update-profile
+// { member_id, full_name, phone, email }
+router.post('/update-profile', async (req, res) => {
+  try {
+    const { getMemberFromRequest } = require('../adminContext');
+    const memberAuth = getMemberFromRequest(req);
+    const { member_id, full_name, phone, email } = req.body || {};
+    if (!member_id) return fail(res, 400, 'Member ID is required');
+
+    if (!memberAuth) return fail(res, 401, 'Member session required. Please log in again.');
+    if (String(memberAuth.id) !== String(member_id)) {
+      return fail(res, 403, 'You can only update your own profile');
+    }
+
+    const approvedRows = await sequelize.query(
+      `SELECT id FROM approved_members WHERE id = :id LIMIT 1`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { id: member_id } }
+    );
+
+    if (!approvedRows || approvedRows.length === 0) {
+      return fail(res, 404, 'Member not found');
+    }
+
+    const updates = [];
+    const replacements = { id: member_id };
+
+    if (full_name && String(full_name).trim().length >= 2) {
+      updates.push('full_name = :full_name');
+      replacements.full_name = String(full_name).trim();
+    }
+    if (phone !== undefined && phone !== null) {
+      const normalized = String(phone).trim().replace(/[^0-9+]/g, '');
+      if (normalized.length >= 9) {
+        updates.push('phone = :phone');
+        replacements.phone = normalized;
+      }
+    }
+    if (email !== undefined && email !== null) {
+      const cleanEmail = String(email).toLowerCase().trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (emailRegex.test(cleanEmail)) {
+        const existingEmail = await sequelize.query(
+          `SELECT id FROM approved_members WHERE email = :email AND id != :id LIMIT 1`,
+          { type: sequelize.QueryTypes.SELECT, replacements: { email: cleanEmail, id: member_id } }
+        );
+        if (existingEmail && existingEmail.length > 0) {
+          return fail(res, 409, 'That email address is already in use by another member');
+        }
+        updates.push('email = :email');
+        replacements.email = cleanEmail;
+      }
+    }
+
+    if (updates.length === 0) {
+      return fail(res, 400, 'No valid fields to update');
+    }
+
+    await sequelize.query(
+      `UPDATE approved_members SET ${updates.join(', ')} WHERE id = :id`,
+      { type: sequelize.QueryTypes.UPDATE, replacements }
+    );
+
+    const [updated] = await sequelize.query(
+      `SELECT id, full_name, email, phone FROM approved_members WHERE id = :id LIMIT 1`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { id: member_id } }
+    );
+
+    return ok(res, { success: true, message: 'Profile updated successfully', member: updated && updated[0] });
+  } catch (e) {
+    console.error('[members/update-profile]', e);
+    return fail(res, 500, 'System error updating profile');
   }
 });
 

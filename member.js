@@ -7,7 +7,12 @@ const API_BASE_URL = window.__API_BASE__ || '/api';
 const STORAGE_KEYS = {
     SESSION: 'memberSession',
     NOTIFICATIONS: 'memberNotifications',
-    MEMBERS_POOL: 'membersPool'
+    MEMBERS_POOL: 'membersPool',
+    LOANS: 'memberLoans',
+    REPAYMENTS: 'memberRepayments',
+    CONTRIBUTIONS: 'memberContributions',
+    ACTIVE_TAB: 'memberActiveTab',
+    LIGHT_MODE: 'member_light_mode'
 };
 
 const WHATSAPP_CACHE_KEY = 'whatsappMessageCache';
@@ -18,25 +23,17 @@ let WHATSAPP_MESSAGE_CACHE = localStorage.getItem(WHATSAPP_CACHE_KEY) || '';
 let WHATSAPP_FRAME_LOADED = false;
 let WHATSAPP_FRAME_TIMER = null;
 let WHATSAPP_FAIL_TIMER = null;
-let MEMBER_DB_STATE = { loans: [], repayments: [], meetings: [] };
+let MEMBER_DB_STATE = { loans: [], repayments: [], meetings: [], contributions: [], expenses: [], logs: [] };
 
-function readStoredArray(key) {
-    try {
-        const value = JSON.parse(localStorage.getItem(key) || '[]');
-        return Array.isArray(value) ? value : [];
-    } catch (error) {
-        localStorage.setItem(key, '[]');
-        return [];
-    }
-}
-
-function readStoredObject(key) {
-    try {
-        const value = JSON.parse(localStorage.getItem(key) || 'null');
-        return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
-    } catch (error) {
-        localStorage.removeItem(key);
-        return null;
+function togglePasswordVisibility(fieldId, iconEl) {
+    const field = document.getElementById(fieldId);
+    if (!field || !iconEl) return;
+    if (field.type === 'password') {
+        field.type = 'text';
+        iconEl.className = 'fas fa-eye-slash';
+    } else {
+        field.type = 'password';
+        iconEl.className = 'fas fa-eye';
     }
 }
 
@@ -89,6 +86,7 @@ function ensureAuthGateVisible() {
 function forceAuthOnlyView(message) {
     CURRENT_SESSION = null;
     localStorage.removeItem(STORAGE_KEYS.SESSION);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_TAB);
     localStorage.removeItem('disableBlurEffect');
     localStorage.removeItem('memberAccessGranted');
     applyMemberAccessBodyState(null);
@@ -113,7 +111,7 @@ let IS_DEV_MODE = false;
    ========================================================================== */
 function toggleMemberTheme() {
     const isLight = document.body.classList.toggle('light-mode');
-    localStorage.setItem('member_light_mode', isLight);
+    localStorage.setItem(STORAGE_KEYS.LIGHT_MODE, isLight);
     const icon = document.getElementById('themeIcon');
     if (icon) {
         icon.className = isLight ? 'fas fa-moon' : 'fas fa-sun';
@@ -142,7 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     // Restore light mode state
-    if (localStorage.getItem('member_light_mode') === 'true') {
+    if (localStorage.getItem(STORAGE_KEYS.LIGHT_MODE) === 'true') {
         document.body.classList.add('light-mode');
         const icon = document.getElementById('themeIcon');
         if (icon) icon.className = 'fas fa-moon';
@@ -161,6 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadMemberPortalData().then(rebuildMetricsDashboard);
     loadAdminPhoneNumber();
     loadDefaultBrowserShell();
+    if (isApprovedMemberSession(CURRENT_SESSION)) resetAndPoll();
 
     if (window.location.hash === '#access') {
         openAuthPortal(null, 'authSection');
@@ -220,10 +219,14 @@ function initializeNavigationEngine() {
 
             document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
             item.classList.add("active");
+            localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, targetSectionId);
 
             document.querySelectorAll(".content-section").forEach(sec => sec.style.display = "none");
             const targetSec = document.getElementById(targetSectionId);
             if (targetSec) targetSec.style.display = "block";
+
+            if (targetSectionId === 'settingsSection') prefillProfileForm();
+            if (targetSectionId === 'notificationsSection') refreshNotificationsFeed();
 
             if (window.innerWidth <= 992 && sidebarMenu) {
                 sidebarMenu.classList.remove("active");
@@ -298,6 +301,9 @@ async function handleMemberLogin(event) {
         localStorage.setItem('memberAccessGranted', 'true');
         await refreshStateSync();
         await loadAdminPhoneNumber();
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, 'dashboardSection');
+        activateNavTab('dashboardSection');
+        resetAndPoll();
         alert("Authentication successful. Welcome back!");
     } catch (error) {
         forceAuthOnlyView('Member login failed; protected navigation remains locked.');
@@ -320,7 +326,6 @@ function showRecoveryUI(e) {
     
     // Reset steps
     document.getElementById("recoveryStep1").style.display = 'block';
-    document.getElementById("recoveryStep2").style.display = 'none';
     document.getElementById("recoveryStep3").style.display = 'none';
     document.getElementById("recoveryEmail").value = "";
     document.getElementById("recoveryNewPassword").value = "";
@@ -530,7 +535,30 @@ function evaluateSessionUIModifications() {
         setFunctionalSectionsLock(false);
         //  APPROVED - dissolve the blur protection gate
         dissolveAuthGate();
+        restoreActiveTab();
     }
+}
+
+function activateNavTab(sectionId) {
+    document.querySelectorAll(".content-section").forEach(sec => sec.style.display = "none");
+    const targetSec = document.getElementById(sectionId);
+    if (targetSec) targetSec.style.display = "block";
+    document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
+    const navItem = document.querySelector(`.nav-item[data-target="${sectionId}"]`);
+    if (navItem) navItem.classList.add("active");
+}
+
+function restoreActiveTab() {
+    if (!isApprovedMemberSession(CURRENT_SESSION)) return;
+    const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+    if (!savedTab || savedTab === 'authSection' || savedTab === '') return;
+    const targetSec = document.getElementById(savedTab);
+    if (!targetSec) return;
+    document.querySelectorAll(".content-section").forEach(sec => sec.style.display = "none");
+    targetSec.style.display = "block";
+    document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
+    const navItem = document.querySelector(`.nav-item[data-target="${savedTab}"]`);
+    if (navItem) navItem.classList.add("active");
 }
 
 function setFunctionalSectionsLock(shouldLock) {
@@ -545,19 +573,18 @@ function setFunctionalSectionsLock(shouldLock) {
             } else {
                 el.classList.remove("disabled-ui-mask");
                 el.querySelectorAll("input, button, select").forEach(child => child.removeAttribute("disabled"));
-                // Keep inactive selection tracker input fixed
-                const disabledRadio = document.getElementById("radioStatusActive");
-                if (disabledRadio) disabledRadio.setAttribute("disabled", "true");
             }
         }
     });
 }
 
 function logoutMember() {
+    stopLiveUpdatePoller();
     // Mark session as timed out
     localStorage.setItem('sessionTimedOut', 'true');
     localStorage.setItem('sessionTimeoutTime', Date.now().toString());
     localStorage.removeItem(STORAGE_KEYS.SESSION);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_TAB);
     localStorage.removeItem('disableBlurEffect');
     localStorage.removeItem('memberAccessGranted');
     CURRENT_SESSION = null;
@@ -614,7 +641,9 @@ function showSessionTimeoutGate() {
 function executeLogoutSequence(e) {
     if(e) e.preventDefault();
     if(confirm("Confirm security termination of active portal workspace session?")) {
+        stopLiveUpdatePoller();
         localStorage.removeItem(STORAGE_KEYS.SESSION);
+        localStorage.removeItem(STORAGE_KEYS.ACTIVE_TAB);
         localStorage.removeItem('disableBlurEffect');
         localStorage.removeItem('memberAccessGranted');
         CURRENT_SESSION = null;
@@ -683,30 +712,28 @@ function openAuthPortal(e, sectionId, targetFormId = null) {
  * ==========================================================================
  */
 function postSystemLogToAdmin(msg, category) {
-    let globalLogs = readStoredArray(STORAGE_KEYS.NOTIFICATIONS);
-    globalLogs.push({
-        id: 'LOG-' + Date.now(),
-        message: msg,
-        type: category,
-        timestamp: new Date().toLocaleTimeString()
-    });
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(globalLogs));
+    if (!CURRENT_SESSION || !CURRENT_SESSION.id) return;
+    apiRequest('live-updates/log', {
+        method: 'POST',
+        body: JSON.stringify({ event_type: category || 'system', event_body: msg })
+    }).catch(() => {});
 }
 
 function postApprovalRequestToAdmin(msg, category) {
-    let adminLogs = JSON.parse(localStorage.getItem('adminNotifications')) || [];
-    adminLogs.unshift({
-        id: 'ADMIN-' + Date.now(),
-        message: msg,
-        type: category,
-        timestamp: new Date().toLocaleTimeString()
-    });
-    localStorage.setItem('adminNotifications', JSON.stringify(adminLogs));
+    if (!CURRENT_SESSION || !CURRENT_SESSION.id) return;
+    apiRequest('live-updates/log', {
+        method: 'POST',
+        body: JSON.stringify({ event_type: category || 'activity', event_body: msg })
+    }).catch(() => {});
 }
 
 async function apiRequest(path, options = {}) {
     const url = `${API_BASE_URL}/${path}`;
-    const headers = { 'Content-Type': 'application/json' };
+    const isFormData = options.body instanceof FormData;
+    const headers = {};
+    if (!isFormData) {
+        headers['Content-Type'] = 'application/json';
+    }
     if (CURRENT_SESSION && CURRENT_SESSION.token) {
         headers['Authorization'] = 'Bearer ' + CURRENT_SESSION.token;
     }
@@ -728,73 +755,172 @@ async function apiGetMemberById(id) {
 }
 
 async function loadAdminPhoneNumber() {
-    // Load dynamic admin contact based on member's approver
     if (!CURRENT_SESSION || !CURRENT_SESSION.email) {
         console.warn('No active session to load admin contact');
         return;
     }
     
+    function setAdminDisplay(n, p, em) {
+        const contactHint = document.getElementById('contactAdminHint');
+        const contactName = document.getElementById('contactAdminName');
+        const contactPhone = document.getElementById('contactAdminPhone');
+        const contactEmail = document.getElementById('contactAdminEmail');
+        const dashName = document.getElementById('adminNameDisplay');
+        const dashPhone = document.getElementById('adminPhoneDisplay');
+        const dashEmail = document.getElementById('adminEmailDisplay');
+        const dashHint = document.getElementById('adminContactHint');
+        const sidebarPhone = document.getElementById('sidebarPhone');
+        const sidebarPhoneLink = document.getElementById('sidebarPhoneLink');
+        const sidebarHandler = document.getElementById('sidebarHandler');
+        if (contactHint) contactHint.textContent = (n || 'System Admin') + ' is your assigned officer';
+        if (contactName) contactName.textContent = n || 'System Admin';
+        if (contactPhone) contactPhone.textContent = p || 'N/A';
+        if (contactEmail) contactEmail.textContent = em || 'N/A';
+        if (dashName) dashName.textContent = n || 'System Admin';
+        if (dashPhone) dashPhone.textContent = p || 'N/A';
+        if (dashEmail) dashEmail.textContent = em || 'N/A';
+        if (dashHint) dashHint.textContent = (n || 'System Admin') + ' is your assigned officer';
+        if (sidebarPhone) sidebarPhone.textContent = p || 'N/A';
+        if (sidebarPhoneLink && p) sidebarPhoneLink.href = 'tel:' + p;
+        if (sidebarHandler) sidebarHandler.textContent = n || 'System Admin';
+        if (p) { ADMIN_PHONE = String(p).trim(); localStorage.setItem('currentAdminPhone', ADMIN_PHONE); }
+    }
+
     try {
-        // Fetch member's approver details from backend
-        const response = await fetch(API_BASE_URL + '/members/approver-contact?email=' + encodeURIComponent(CURRENT_SESSION.email));
-        if (!response.ok) throw new Error('Failed to load admin contact');
-        
-        const raw = await response.json();
+        const raw = await apiRequest('members/approver-contact?email=' + encodeURIComponent(CURRENT_SESSION.email), { method: 'GET' });
         const approverData = raw.data || raw;
         
         const resolvedName = approverData.admin_name || 'System Admin';
-        const resolvedPhone = approverData.admin_phone || '0741943207';
-        const resolvedEmail = approverData.admin_email || 'admin@chama.local';
+        const resolvedPhone = approverData.admin_phone || '';
+        const resolvedEmail = approverData.admin_email || '';
 
-        if (resolvedPhone) {
-            ADMIN_PHONE = String(resolvedPhone || '').trim();
-            localStorage.setItem('currentAdminPhone', ADMIN_PHONE);
-        }
-        
-        // Update the UI with admin details
-        const adminNameDisplay = document.getElementById('adminNameDisplay');
-        const adminPhoneDisplay = document.getElementById('adminPhoneDisplay');
-        const adminEmailDisplay = document.getElementById('adminEmailDisplay');
-        const adminContactHint = document.getElementById('adminContactHint');
-        
-        if (adminNameDisplay) adminNameDisplay.textContent = resolvedName;
-        if (adminPhoneDisplay) adminPhoneDisplay.textContent = resolvedPhone;
-        if (adminEmailDisplay) adminEmailDisplay.textContent = resolvedEmail;
-        if (adminContactHint) adminContactHint.textContent = `${resolvedName} is your assigned officer`;
-        
+        setAdminDisplay(resolvedName, resolvedPhone, resolvedEmail);
     } catch (err) {
-        console.warn('Unable to load admin contact:', err);
-        const adminContactHint = document.getElementById('adminContactHint');
-        const adminNameDisplay = document.getElementById('adminNameDisplay');
-        const adminPhoneDisplay = document.getElementById('adminPhoneDisplay');
-        const adminEmailDisplay = document.getElementById('adminEmailDisplay');
-        ADMIN_PHONE = '0741943207';
-        if (adminNameDisplay) adminNameDisplay.textContent = 'System Admin';
-        if (adminPhoneDisplay) adminPhoneDisplay.textContent = '0741943207';
-        if (adminEmailDisplay) adminEmailDisplay.textContent = 'admin@chama.local';
-        if (adminContactHint) adminContactHint.textContent = 'System Admin is your assigned officer';
+        console.warn('Unable to load admin contact, trying fallback...', err);
+        try {
+            const raw2 = await apiRequest('members/my-admin-info', { method: 'GET' });
+            const d2 = raw2.data || raw2;
+            if (d2 && (d2.admin_name || d2.admin_phone)) {
+                setAdminDisplay(d2.admin_name || 'System Admin', d2.admin_phone || '', d2.admin_email || '');
+                return;
+            }
+        } catch (_) {}
+        const resolvedName = (CURRENT_SESSION && CURRENT_SESSION.admin_name) ? CURRENT_SESSION.admin_name : 'System Admin';
+        const resolvedPhone = (CURRENT_SESSION && CURRENT_SESSION.admin_phone) ? CURRENT_SESSION.admin_phone : (localStorage.getItem('currentAdminPhone') || 'N/A');
+        const resolvedEmail = (CURRENT_SESSION && CURRENT_SESSION.admin_email) ? CURRENT_SESSION.admin_email : 'N/A';
+        setAdminDisplay(resolvedName, resolvedPhone, resolvedEmail);
     }
 }
 
-function synchronizeNotificationStreams() {
-    const feed = document.getElementById("memberNotificationFeed");
+function renderNotificationsFeed() {
+    const feed = document.getElementById("memberNotificationFeedExtended");
     if (!feed) return;
 
-    const globalLogs = readStoredArray(STORAGE_KEYS.NOTIFICATIONS);
-    const allowedTypes = ['meeting', 'loan'];
-    const filtered = globalLogs.filter(log => allowedTypes.includes(log.type));
-
-    if (filtered.length === 0) {
-        feed.innerHTML = `<div class="text-muted" style="text-align:center; padding-top:2rem;">No isolated membership updates present inside stream.</div>`;
+    const logs = MEMBER_DB_STATE.logs || [];
+    if (logs.length === 0) {
+        feed.innerHTML = `<div class="text-muted" style="text-align:center; padding:2rem;">No activity recorded yet.</div>`;
         return;
     }
 
-    feed.innerHTML = filtered.reverse().map(log => `
-        <div class="notification-item ${log.type}">
-            <p><i class="${log.type === 'meeting' ? 'fas fa-video text-purple' : 'fas fa-money-bill-wave text-success'}"></i> ${log.message}</p>
-            <span class="notification-time">${log.timestamp || 'Live Trace'}</span>
-        </div>
-    `).join('');
+    const filterEl = document.getElementById('notificationTypeFilter');
+    const filterVal = filterEl ? filterEl.value : 'all';
+
+    const typeIconMap = {
+        'loan': { icon: 'fa-hand-holding-usd', color: '#3b82f6' },
+        'contribution': { icon: 'fa-piggy-bank', color: '#4caf50' },
+        'expense': { icon: 'fa-file-invoice', color: '#f59e0b' },
+        'security': { icon: 'fa-shield-alt', color: '#ef4444' },
+        'system': { icon: 'fa-cog', color: '#8b5cf6' },
+        'meeting': { icon: 'fa-video', color: '#06b6d4' },
+        'approval': { icon: 'fa-check-circle', color: '#10b981' }
+    };
+
+    const filtered = filterVal === 'all' ? logs : logs.filter(l => {
+        const msg = (l.message || '').toLowerCase();
+        const type = (l.type || '').toLowerCase();
+        if (filterVal === 'loan') return msg.includes('loan') || msg.includes('repay') || type === 'loan';
+        if (filterVal === 'contribution') return msg.includes('contribut') || msg.includes('payment') || type === 'contribution';
+        if (filterVal === 'expense') return msg.includes('expense') || type === 'expense';
+        if (filterVal === 'security') return msg.includes('security') || msg.includes('login') || type === 'security';
+        if (filterVal === 'system') return msg.includes('system') || type === 'system';
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        feed.innerHTML = `<div class="text-muted" style="text-align:center; padding:2rem;">No ${filterVal === 'all' ? '' : filterVal + ' '}notifications found.</div>`;
+        return;
+    }
+
+    feed.innerHTML = filtered.slice(0, 50).map(l => {
+        const msg = (l.message || '').toLowerCase();
+        let matchedType = 'system';
+        if (msg.includes('loan') || msg.includes('repay') || (l.type || '').toLowerCase() === 'loan') matchedType = 'loan';
+        else if (msg.includes('contribut') || msg.includes('payment') || (l.type || '').toLowerCase() === 'contribution') matchedType = 'contribution';
+        else if (msg.includes('expense') || (l.type || '').toLowerCase() === 'expense') matchedType = 'expense';
+        else if (msg.includes('security') || msg.includes('login') || (l.type || '').toLowerCase() === 'security') matchedType = 'security';
+        else if (msg.includes('meeting') || (l.type || '').toLowerCase() === 'meeting') matchedType = 'meeting';
+        else if (msg.includes('approval') || (l.type || '').toLowerCase() === 'approval') matchedType = 'approval';
+        const meta = typeIconMap[matchedType] || typeIconMap['system'];
+        const timestamp = l.timestamp_str || (l.created_at ? new Date(l.created_at).toLocaleString() : '');
+        return `<div class="notification-item" style="border-left: 3px solid ${meta.color}; padding-left: 12px; margin-bottom: 10px;">
+            <p style="margin:0;"><i class="fas ${meta.icon}" style="color:${meta.color}; margin-right:6px;"></i> ${l.message}</p>
+            <span class="notification-time" style="font-size: 0.8rem; color: #888;">${timestamp}</span>
+        </div>`;
+    }).join('');
+}
+
+async function refreshNotificationsFeed() {
+    if (!CURRENT_SESSION || !CURRENT_SESSION.id || !isApprovedMemberSession(CURRENT_SESSION)) {
+        renderNotificationsFeed();
+        return;
+    }
+    try {
+        const [systemLogsRaw, liveLogsRaw] = await Promise.allSettled([
+            apiRequest('logs/member-activity/' + encodeURIComponent(CURRENT_SESSION.id), { method: 'GET' }),
+            apiRequest('live-updates/member', { method: 'GET' })
+        ]);
+        const sLogs = (systemLogsRaw.status === 'fulfilled' ? systemLogsRaw.value : []).map(l => ({ message: l.message || l.event_body, type: l.type || 'system', created_at: l.created_at, timestamp_str: l.timestamp_str }));
+        const lLogs = (liveLogsRaw.status === 'fulfilled' ? liveLogsRaw.value : []).map(l => ({ message: l.event_body, type: l.event_type, created_at: l.created_at }));
+        MEMBER_DB_STATE.logs = [...sLogs, ...lLogs].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    } catch (_) {}
+    renderNotificationsFeed();
+}
+
+function synchronizeNotificationStreams() { refreshNotificationsFeed(); }
+
+let _liveUpdatePollTimer = null;
+let _lastKnownLogCount = 0;
+
+function startLiveUpdatePoller() {
+    if (_liveUpdatePollTimer) return;
+    _liveUpdatePollTimer = setInterval(async () => {
+        if (!CURRENT_SESSION || !CURRENT_SESSION.id || !isApprovedMemberSession(CURRENT_SESSION)) return;
+        try {
+            const raw = await apiRequest('live-updates/member', { method: 'GET' });
+            const rows = Array.isArray(raw) ? raw : [];
+            if (rows.length > _lastKnownLogCount && _lastKnownLogCount > 0) {
+                MEMBER_DB_STATE.logs = rows.map(l => ({ message: l.event_body, type: l.event_type, created_at: l.created_at }));
+                renderNotificationsFeed();
+                const badge = document.getElementById('notificationBadge');
+                if (badge) {
+                    const extra = rows.length - _lastKnownLogCount;
+                    badge.textContent = extra;
+                    badge.style.display = 'flex';
+                }
+            }
+            _lastKnownLogCount = rows.length;
+        } catch (_) {}
+    }, 8000);
+    _liveUpdatePollTimer.unref && _liveUpdatePollTimer.unref();
+}
+
+function stopLiveUpdatePoller() {
+    if (_liveUpdatePollTimer) { clearInterval(_liveUpdatePollTimer); _liveUpdatePollTimer = null; }
+}
+
+function resetAndPoll() {
+    _lastKnownLogCount = 0;
+    startLiveUpdatePoller();
 }
 
 /**
@@ -808,10 +934,6 @@ function promptForTransactionPin(callback) {
     pendingTransactionCallback = callback;
     document.getElementById("transactionPinInput").value = '';
     document.getElementById("securityPinModal").style.display = 'flex';
-}
-
-function openTransactionPinModal(callback) {
-    promptForTransactionPin(callback);
 }
 
 function cancelTransactionPin() {
@@ -851,7 +973,7 @@ async function processLoanApplication(event) {
                 member_id: CURRENT_SESSION.id,
                 amount: amt,
                 duration: dur,
-                interest_rate: 12,
+                interest_rate: parseFloat(document.getElementById("loanInterest")?.value) || 12,
                 pin: pin
             };
 
@@ -861,23 +983,7 @@ async function processLoanApplication(event) {
                 body: JSON.stringify(payload)
             });
 
-        // Fallback sync vector configuration to keep administrative ledger in home.html aligned instantly
-        let sharedLoans = JSON.parse(localStorage.getItem('loans')) || [];
-        const trackingId = result.id ? 'LNK-' + result.id : 'LNK-' + Math.floor(1000 + Math.random() * 9000);
-        
-        sharedLoans.push({
-            id: trackingId,
-            db_id: result.id,
-            memberId: CURRENT_SESSION.id,
-            borrower_name: CURRENT_SESSION.full_name || CURRENT_SESSION.name,
-            amount: amt,
-            duration: dur,
-            status: 'Active',
-            timestamp: new Date().toLocaleDateString()
-        });
-        localStorage.setItem('loans', JSON.stringify(sharedLoans));
-
-        postNotificationToChannels(`Loan Application Confirmed: File ${trackingId} for Ksh ${amt.toFixed(2)} is now live.`, 'loan');
+        postNotificationToChannels(`Loan Application Confirmed: Loan ID ${result.id || ''} for Ksh ${amt.toFixed(2)} is now live.`, 'loan');
         document.getElementById("takeLoanForm").reset();
         
         await loadMemberPortalData();
@@ -897,17 +1003,16 @@ async function processLoanSettlement(event) {
 
     if (!targetId || !CURRENT_SESSION) return;
 
-    let sharedLoans = JSON.parse(localStorage.getItem('loans')) || [];
-    const loanIdx = sharedLoans.findIndex(l => l.id === targetId);
-    if (loanIdx === -1) return;
+    if (!confirm(`Are you sure you want to process a repayment of Ksh ${payVal} via ${method}? This action cannot be reversed.`)) {
+        return;
+    }
 
     promptForTransactionPin(async (pin) => {
         try {
-            // Find actual DB ID from loaded member state, fallback to stripping LNK-
-            let dbLoanId = targetId.replace('LNK-', '');
+            let dbLoanId = targetId;
             if (MEMBER_DB_STATE.loans && MEMBER_DB_STATE.loans.length) {
-                const liveLoan = MEMBER_DB_STATE.loans.find(l => String(l.id) === targetId || String(l.db_id) === targetId || 'LNK-'+l.id === targetId);
-                if (liveLoan) dbLoanId = liveLoan.db_id || liveLoan.id;
+                const liveLoan = MEMBER_DB_STATE.loans.find(l => String(l.id) === String(targetId) || String(l.id) === String(targetId.replace('LNK-', '')));
+                if (liveLoan) dbLoanId = liveLoan.id;
             }
             
             await apiRequest('repayments/create', {
@@ -921,27 +1026,7 @@ async function processLoanSettlement(event) {
                 })
             });
 
-        // Apply visual transaction deduction onto client ledger tracking parameters
-        sharedLoans[loanIdx].amount -= payVal;
-        if (sharedLoans[loanIdx].amount <= 0) {
-            sharedLoans[loanIdx].amount = 0;
-            sharedLoans[loanIdx].status = 'Settled';
-        }
-        localStorage.setItem('loans', JSON.stringify(sharedLoans));
-
-        // Increment dynamic historical cross-window records tracker
-        let sharedRepayments = JSON.parse(localStorage.getItem('repayments')) || [];
-        sharedRepayments.unshift({
-            id: 'RPY-' + Date.now(),
-            loan_id: targetId,
-            member_name: CURRENT_SESSION.full_name || CURRENT_SESSION.name,
-            amount: payVal,
-            method: method,
-            date: new Date().toLocaleDateString()
-        });
-        localStorage.setItem('repayments', JSON.stringify(sharedRepayments));
-
-        postNotificationToChannels(`Remittance Confirmed: Installment of Ksh ${payVal} applied via ${method} onto file ${targetId}.`, 'loan');
+        postNotificationToChannels(`Remittance Confirmed: Installment of Ksh ${payVal} applied via ${method}.`, 'loan');
         document.getElementById("payLoanForm").reset();
         
         await loadMemberPortalData();
@@ -953,50 +1038,12 @@ async function processLoanSettlement(event) {
     });
 }
 
-function triggerJoinMeeting() {
-    const activeRadio = document.getElementById("radioStatusActive");
-    const inactiveRadio = document.getElementById("radioStatusInactive");
-    const leaveBtn = document.getElementById("btnLeaveGroup");
-
-    if (activeRadio) activeRadio.checked = true;
-    if (inactiveRadio) inactiveRadio.checked = false;
-    if (leaveBtn) leaveBtn.disabled = false;
-
-    let joinedCount = parseInt(localStorage.getItem('metric_joined_meetings') || '0');
-    localStorage.setItem('metric_joined_meetings', (joinedCount + 1).toString());
-
-    const memberName = CURRENT_SESSION ? (CURRENT_SESSION.full_name || CURRENT_SESSION.name) : "Member";
-    postNotificationToChannels(`Assembly Notification: ${memberName} established connection verification inside live video channel room.`, 'meeting');
-    rebuildMetricsDashboard();
-}
-
-function triggerLeaveGroup() {
-    const activeRadio = document.getElementById("radioStatusActive");
-    const inactiveRadio = document.getElementById("radioStatusInactive");
-    const leaveBtn = document.getElementById("btnLeaveGroup");
-
-    if (inactiveRadio) inactiveRadio.checked = true;
-    if (activeRadio) activeRadio.checked = false;
-    if (leaveBtn) leaveBtn.disabled = true;
-
-    let leftCount = parseInt(localStorage.getItem('metric_left_groups') || '0');
-    localStorage.setItem('metric_left_groups', (leftCount + 1).toString());
-
-    const memberName = CURRENT_SESSION ? (CURRENT_SESSION.full_name || CURRENT_SESSION.name) : "Member";
-    postNotificationToChannels(`System Notice: Profile account ${memberName} disconnected session participation structures.`, 'meeting');
-    rebuildMetricsDashboard();
-}
-
 function postNotificationToChannels(msg, type) {
-    let globalLogs = readStoredArray(STORAGE_KEYS.NOTIFICATIONS);
-    globalLogs.push({
-        id: 'SYS-' + Date.now(),
-        message: msg,
-        type: type,
-        timestamp: new Date().toLocaleTimeString()
-    });
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(globalLogs));
-    synchronizeNotificationStreams();
+    if (!CURRENT_SESSION || !CURRENT_SESSION.id) return;
+    apiRequest('live-updates/log', {
+        method: 'POST',
+        body: JSON.stringify({ event_type: type || 'notification', event_body: msg })
+    }).catch(() => {});
 }
 
 /**
@@ -1289,11 +1336,11 @@ async function aiAssistantSend(event) {
     setAITyping(true);
 
     try {
-        // Try backend AI proxy first
+        // Try backend AI proxy first (only send message, not session token)
         const resp = await fetch(API_BASE_URL + '/ai/assistant', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text, session: CURRENT_SESSION })
+            body: JSON.stringify({ message: text })
         });
 
         if (resp.ok) {
@@ -1361,7 +1408,8 @@ async function loadMemberPortalData() {
         { key: 'meetings', url: 'automation/meetings/member/' + memberId },
         { key: 'contributions', url: 'contributions/member/' + memberId },
         { key: 'expenses', url: 'expenses/member/' + memberId },
-        { key: 'logs', url: 'logs/member/' + memberId }
+        { key: 'logs', url: 'logs/member-activity/' + memberId },
+        { key: 'liveUpdates', url: 'live-updates/member' }
     ];
 
     try {
@@ -1374,12 +1422,15 @@ async function loadMemberPortalData() {
                 console.warn(`[loadMemberPortalData] ${endpoints[idx].key} fallback:`, res.reason);
             }
         });
+
+        const systemLogs = (next.logs || []).map(l => ({ message: l.message || l.event_body, type: l.type || l.category || 'system', created_at: l.created_at, timestamp_str: l.timestamp_str }));
+        const liveLogs = (next.liveUpdates || []).map(l => ({ message: l.event_body, type: l.event_type, created_at: l.created_at }));
+        next.logs = [...systemLogs, ...liveLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     } catch (error) {
         console.error('[loadMemberPortalData] global fetch error', error);
     }
     
     MEMBER_DB_STATE = next;
-    return MEMBER_DB_STATE;
     return MEMBER_DB_STATE;
 }
 
@@ -1396,32 +1447,19 @@ function memberLoanViewModel(loan) {
     };
 }
 
-function renderMemberMeetings() {
-    const meetingsList = document.getElementById('meetingsList') || document.getElementById('memberMeetingsList');
-    if (!meetingsList) return;
-    const meetings = MEMBER_DB_STATE.meetings || [];
-    meetingsList.innerHTML = meetings.length ? meetings.map(m => `
-        <div class="notification-item meeting">
-            <p><i class="fas fa-calendar-alt text-purple"></i> <strong>${m.title}</strong></p>
-            <span class="notification-time">${m.meeting_date || ''} ${m.meeting_time || ''} - ${m.location || m.platform || 'Meeting'}</span>
-        </div>
-    `).join('') : '<p class="text-muted" style="text-align:center; padding:12px;">No meetings scheduled by your administrator yet.</p>';
-}
-
 /**
  * ==========================================================================
  * DYNAMIC METRICS REBUILDER & LEDGER COMPILER
  * ==========================================================================
  */
 function rebuildMetricsDashboard() {
-    const pool = JSON.parse(localStorage.getItem(STORAGE_KEYS.MEMBERS_POOL)) || [];
-    const cachedLedger = readStoredArray('loans');
-    const cachedRepayments = readStoredArray('repayments');
-    const ledger = (MEMBER_DB_STATE.loans && MEMBER_DB_STATE.loans.length) ? MEMBER_DB_STATE.loans.map(memberLoanViewModel) : cachedLedger;
-    const repaymentsList = (MEMBER_DB_STATE.repayments && MEMBER_DB_STATE.repayments.length) ? MEMBER_DB_STATE.repayments : cachedRepayments;
+    const ledger = (MEMBER_DB_STATE.loans || []).map(memberLoanViewModel);
+    const repaymentsList = MEMBER_DB_STATE.repayments || [];
+    const contributionsList = MEMBER_DB_STATE.contributions || [];
+    const expensesList = MEMBER_DB_STATE.expenses || [];
     
     const totalMembersEl = document.getElementById("tileTotalMembers");
-    if (totalMembersEl) totalMembersEl.innerText = pool.length;
+    if (totalMembersEl) totalMembersEl.innerText = (MEMBER_DB_STATE.loans || []).length > 0 ? 1 : 0;
 
     if (CURRENT_SESSION) {
         const myLoans = ledger.filter(l => l.memberId === CURRENT_SESSION.id);
@@ -1434,7 +1472,6 @@ function rebuildMetricsDashboard() {
         const activeTile = document.getElementById("tileActiveLoans");
         if (activeTile) activeTile.innerText = activeLoans.length;
 
-        // Sum repayments matched against this member's full name to present live totals
         const myRepaymentsSum = repaymentsList
             .filter(r => String(r.member_id || '') === String(CURRENT_SESSION.id) || r.member_name === (CURRENT_SESSION.full_name || CURRENT_SESSION.name))
             .reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
@@ -1442,7 +1479,6 @@ function rebuildMetricsDashboard() {
         const paidTile = document.getElementById("tileLoansPaid");
         if (paidTile) paidTile.innerText = `Ksh ${myRepaymentsSum.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
-        // Update Repayment Progress Bar
         const totalHistoricalDebt = totalOutstanding + myRepaymentsSum;
         let progressPercent = 0;
         if (totalHistoricalDebt > 0) {
@@ -1456,45 +1492,108 @@ function rebuildMetricsDashboard() {
             progressText.innerText = progressPercent + "% Paid Off";
         }
 
-        // Render targets inside payment selector input components
         const select = document.getElementById("payLoanSelect");
         if (select) {
             if (activeLoans.length === 0) {
                 select.innerHTML = `<option value="">-- No active outstanding balances detected --</option>`;
             } else {
-                select.innerHTML = activeLoans.map(l => `<option value="${l.id}">${l.id} - Remainder: Ksh ${l.amount}</option>`).join('');
+                select.innerHTML = activeLoans.map(l => `<option value="${l.db_id || l.id}" data-balance="${l.amount}">${l.id} - Outstanding: Ksh ${parseFloat(l.amount).toLocaleString(undefined, {minimumFractionDigits:2})}</option>`).join('');
+            }
+        }
+        const balanceHint = document.getElementById('payLoanBalanceHint');
+        if (balanceHint) {
+            if (activeLoans.length > 0) {
+                const totalOwed = activeLoans.reduce((s, l) => s + parseFloat(l.amount || 0), 0);
+                balanceHint.textContent = `Total outstanding: Ksh ${totalOwed.toLocaleString(undefined, {minimumFractionDigits:2})} — enter any amount from Ksh 1 upward`;
+            } else {
+                balanceHint.textContent = 'No active loans to repay.';
             }
         }
 
-        // Output dynamic historical lists onto live ledger component layout
         const tableBody = document.getElementById("memberReportTableBody");
         if (tableBody) {
-            if (myLoans.length > 0) {
-                tableBody.innerHTML = myLoans.map(l => `
-                    <tr>
-                        <td><code>${l.id}</code></td>
-                        <td>Capital Loan request</td>
-                        <td>Ksh ${parseFloat(l.amount).toLocaleString()}</td>
-                        <td>${l.timestamp || new Date().toLocaleDateString()}</td>
-                        <td><span style="color:${l.status === 'Active' ? 'var(--warning)' : 'var(--success)'}; font-weight:bold;">${l.status}</span></td>
-                    </tr>
-                `).join('');
+            const allTx = [];
+            myLoans.forEach(l => allTx.push({ id: l.id, type: 'Loan', amount: l.amount, date: l.timestamp || new Date().toLocaleDateString(), status: l.status }));
+            repaymentsList.filter(r => String(r.member_id || '') === String(CURRENT_SESSION.id)).forEach(r => allTx.push({ id: r.id ? 'RPY-' + r.id : 'RPY', type: 'Repayment', amount: r.amount, date: r.created_at ? new Date(r.created_at).toLocaleDateString() : '', status: 'Completed' }));
+            contributionsList.filter(c => String(c.member_id || '') === String(CURRENT_SESSION.id)).forEach(c => allTx.push({ id: c.id ? 'CBN-' + c.id : 'CBN', type: 'Contribution', amount: c.amount, date: c.created_at ? new Date(c.created_at).toLocaleDateString() : '', status: 'Confirmed' }));
+            expensesList.filter(e => String(e.member_id || '') === String(CURRENT_SESSION.id)).forEach(e => allTx.push({ id: e.id ? 'EXP-' + e.id : 'EXP', type: 'Expense', amount: e.amount, date: e.created_at ? new Date(e.created_at).toLocaleDateString() : '', status: e.status || 'Pending' }));
+
+            allTx.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+            const filterVal = document.getElementById('ledgerTypeFilter') ? document.getElementById('ledgerTypeFilter').value : 'all';
+            const filtered = filterVal === 'all' ? allTx : allTx.filter(tx => tx.type === filterVal);
+
+            const totalIn = allTx.filter(tx => tx.type === 'Contribution').reduce((s, tx) => s + parseFloat(tx.amount || 0), 0);
+            const totalOut = allTx.filter(tx => tx.type === 'Expense').reduce((s, tx) => s + parseFloat(tx.amount || 0), 0);
+            const totalLoan = allTx.filter(tx => tx.type === 'Loan').reduce((s, tx) => s + parseFloat(tx.amount || 0), 0);
+            const totalRepaid = allTx.filter(tx => tx.type === 'Repayment').reduce((s, tx) => s + parseFloat(tx.amount || 0), 0);
+
+            const summaryEl = document.getElementById('ledgerSummaryCards');
+            if (summaryEl) {
+                summaryEl.innerHTML = `
+                    <div style="background: rgba(76,175,80,0.15); padding: 12px; border-radius: 8px; border-left: 3px solid #4caf50;">
+                        <div style="font-size: 0.75rem; color: #888;">Contributions</div>
+                        <div style="font-size: 1.1rem; font-weight: bold; color: #4caf50;">Ksh ${totalIn.toLocaleString()}</div>
+                    </div>
+                    <div style="background: rgba(59,130,246,0.15); padding: 12px; border-radius: 8px; border-left: 3px solid #3b82f6;">
+                        <div style="font-size: 0.75rem; color: #888;">Loans Taken</div>
+                        <div style="font-size: 1.1rem; font-weight: bold; color: #3b82f6;">Ksh ${totalLoan.toLocaleString()}</div>
+                    </div>
+                    <div style="background: rgba(16,185,129,0.15); padding: 12px; border-radius: 8px; border-left: 3px solid #10b981;">
+                        <div style="font-size: 0.75rem; color: #888;">Repaid</div>
+                        <div style="font-size: 1.1rem; font-weight: bold; color: #10b981;">Ksh ${totalRepaid.toLocaleString()}</div>
+                    </div>
+                    <div style="background: rgba(245,158,11,0.15); padding: 12px; border-radius: 8px; border-left: 3px solid #f59e0b;">
+                        <div style="font-size: 0.75rem; color: #888;">Expenses</div>
+                        <div style="font-size: 1.1rem; font-weight: bold; color: #f59e0b;">Ksh ${totalOut.toLocaleString()}</div>
+                    </div>
+                `;
+            }
+
+            if (filtered.length > 0) {
+                let runningBalance = 0;
+                const rows = filtered.map(tx => {
+                    let displayBalance = 0;
+                    if (tx.type === 'Contribution') runningBalance += parseFloat(tx.amount || 0);
+                    else if (tx.type === 'Repayment') runningBalance += parseFloat(tx.amount || 0);
+                    else if (tx.type === 'Expense') runningBalance -= parseFloat(tx.amount || 0);
+                    else if (tx.type === 'Loan') runningBalance += parseFloat(tx.amount || 0);
+
+                    // For loans and repayments, calculate specific remaining loan balance dynamically
+                    if (tx.type === 'Loan' || tx.type === 'Repayment') {
+                        const totalTaken = myLoans.reduce((sum, l) => sum + parseFloat(l.amount), 0);
+                        const totalPaid = repaymentsList.filter(r => String(r.member_id) === String(CURRENT_SESSION.id)).reduce((sum, r) => sum + parseFloat(r.amount), 0);
+                        displayBalance = totalTaken - totalPaid;
+                    } else {
+                        displayBalance = runningBalance;
+                    }
+
+                    const statusColor = (tx.status === 'Active' || tx.status === 'Completed' || tx.status === 'Confirmed' || tx.status === 'Settled') ? 'var(--success)' : 'var(--warning)';
+                    return `<tr>
+                        <td><code>${tx.id}</code></td>
+                        <td>${tx.type}</td>
+                        <td>Ksh ${parseFloat(tx.amount).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                        <td>${tx.date}</td>
+                        <td><span style="color:${statusColor}; font-weight:bold;">${tx.status}</span></td>
+                        <td style="font-weight:500; color: ${displayBalance >= 0 ? 'var(--success)' : 'var(--error)'};">Ksh ${displayBalance.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                    </tr>`;
+                }).join('');
+                tableBody.innerHTML = rows;
             } else {
-                tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center;" class="text-muted">No historical transactions logged in current workspace session.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;" class="text-muted">No transactions found${filterVal !== 'all' ? ' for this type' : ''}.</td></tr>`;
             }
         }
     }
 
-    renderMemberMeetings();
     renderContributionsList();
     renderExpensesList();
-    renderNotificationsList();
+    renderNotificationsFeed();
 
     const joinedEl = document.getElementById("tileMeetingsJoined");
-    if (joinedEl) joinedEl.innerText = localStorage.getItem('metric_joined_meetings') || '0';
+    if (joinedEl) joinedEl.innerText = (MEMBER_DB_STATE.meetings || []).length;
     
     const leftEl = document.getElementById("tileGroupsLeft");
-    if (leftEl) leftEl.innerText = localStorage.getItem('metric_left_groups') || '0';
+    if (leftEl) leftEl.innerText = '0';
 }
 
 function renderContributionsList() {
@@ -1533,27 +1632,163 @@ function renderExpensesList() {
     `).join('');
 }
 
-function renderNotificationsList() {
-    const feed = document.getElementById("memberNotificationFeedExtended");
-    if (!feed) return;
-    const logs = MEMBER_DB_STATE.logs || [];
-    if (logs.length === 0) {
-        feed.innerHTML = `<div class="text-muted" style="text-align:center; padding:2rem;">No system notifications found.</div>`;
-        return;
-    }
-    feed.innerHTML = logs.map(l => `
-        <div class="notification-item">
-            <p><i class="fas fa-info-circle text-primary"></i> ${l.message}</p>
-            <span class="notification-time">${l.timestamp_str || new Date(l.created_at).toLocaleString()}</span>
-        </div>
-    `).join('');
-}
-
 function executeSystemReset() {
-    if (confirm("Confirm complete structural diagnostic wipe of client local browser memory storage containers?")) {
-        localStorage.clear();
+    if (confirm("Confirm complete structural diagnostic wipe of client local browser memory storage containers?\n\nNote: Your session will be preserved. Only cached data will be cleared.")) {
+        // Targeted removal - preserve session so member stays logged in
+        Object.values(STORAGE_KEYS).forEach(k => {
+            if (k !== STORAGE_KEYS.SESSION) localStorage.removeItem(k);
+        });
+        localStorage.removeItem('disableBlurEffect');
+        localStorage.removeItem('memberAccessGranted');
+        localStorage.removeItem('currentAdminPhone');
+        localStorage.removeItem(WHATSAPP_CACHE_KEY);
+        localStorage.removeItem('sessionTimedOut');
+        localStorage.removeItem('sessionTimeoutTime');
         window.location.reload();
     }
+}
+
+async function updateMemberCredentials(event) {
+    event.preventDefault();
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const newPin = document.getElementById('newPin').value;
+    const statusEl = document.getElementById('credUpdateStatus');
+
+    if (!currentPassword) {
+        statusEl.innerHTML = '<span style="color: #f44336;">Please enter your current password.</span>';
+        return;
+    }
+    if (!newPassword && !newPin) {
+        statusEl.innerHTML = '<span style="color: #f44336;">Please enter a new password or new PIN.</span>';
+        return;
+    }
+    if (newPassword && newPassword.length < 6) {
+        statusEl.innerHTML = '<span style="color: #f44336;">New password must be at least 6 characters.</span>';
+        return;
+    }
+    if (newPin && (newPin.length !== 4 || !/^\d{4}$/.test(newPin))) {
+        statusEl.innerHTML = '<span style="color: #f44336;">PIN must be exactly 4 digits.</span>';
+        return;
+    }
+
+    const session = CURRENT_SESSION;
+    if (!session || !session.id) {
+        statusEl.innerHTML = '<span style="color: #f44336;">No active session. Please log in again.</span>';
+        return;
+    }
+
+    statusEl.innerHTML = '<span style="color: #ff9800;">Updating...</span>';
+
+    try {
+        const result = await apiRequest('members/update-password', {
+            method: 'POST',
+            body: JSON.stringify({
+                member_id: session.id,
+                current_password: currentPassword,
+                new_password: newPassword || undefined,
+                new_pin: newPin || undefined
+            })
+        });
+
+        if (result.success) {
+            statusEl.innerHTML = '<span style="color: #4caf50;">Credentials updated successfully!</span>';
+            postNotificationToChannels('Security credentials updated: password and/or PIN changed.', 'security');
+            document.getElementById('updateCredentialsForm').reset();
+        } else {
+            statusEl.innerHTML = '<span style="color: #f44336;">' + (result.message || 'Update failed') + '</span>';
+        }
+    } catch (err) {
+        statusEl.innerHTML = '<span style="color: #f44336;">' + (err.message || 'Network error') + '</span>';
+    }
+}
+
+async function updateMemberProfile(event) {
+    event.preventDefault();
+    const name = document.getElementById('profileName').value.trim();
+    const phone = document.getElementById('profilePhone').value.trim();
+    const email = document.getElementById('profileEmail').value.trim();
+    const statusEl = document.getElementById('profileUpdateStatus');
+
+    if (!name && !phone && !email) {
+        statusEl.innerHTML = '<span style="color: #f44336;">Please fill in at least one field to update.</span>';
+        return;
+    }
+
+    const session = CURRENT_SESSION;
+    if (!session || !session.id) {
+        statusEl.innerHTML = '<span style="color: #f44336;">No active session. Please log in again.</span>';
+        return;
+    }
+
+    statusEl.innerHTML = '<span style="color: #ff9800;">Updating...</span>';
+
+    try {
+        const result = await apiRequest('members/update-profile', {
+            method: 'POST',
+            body: JSON.stringify({
+                member_id: session.id,
+                full_name: name || undefined,
+                phone: phone || undefined,
+                email: email || undefined
+            })
+        });
+
+        if (result.success) {
+            statusEl.innerHTML = '<span style="color: #4caf50;">Profile updated successfully!</span>';
+            postNotificationToChannels(`Profile updated: ${name || 'name'}, ${phone || 'phone'}.`, 'profile');
+            if (result.member) {
+                CURRENT_SESSION = { ...CURRENT_SESSION, ...result.member };
+                localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(CURRENT_SESSION));
+                const badgeUsername = document.getElementById('badgeUsername');
+                if (badgeUsername) badgeUsername.innerText = CURRENT_SESSION.full_name || CURRENT_SESSION.name || 'Member';
+            }
+        } else {
+            statusEl.innerHTML = '<span style="color: #f44336;">' + (result.message || 'Update failed') + '</span>';
+        }
+    } catch (err) {
+        statusEl.innerHTML = '<span style="color: #f44336;">' + (err.message || 'Network error') + '</span>';
+    }
+}
+
+function prefillProfileForm() {
+    if (!CURRENT_SESSION) return;
+    const nameEl = document.getElementById('profileName');
+    const phoneEl = document.getElementById('profilePhone');
+    const emailEl = document.getElementById('profileEmail');
+    if (nameEl) nameEl.value = CURRENT_SESSION.full_name || CURRENT_SESSION.name || '';
+    if (phoneEl) phoneEl.value = CURRENT_SESSION.phone || '';
+    if (emailEl) emailEl.value = CURRENT_SESSION.email || '';
+
+    const sName = document.getElementById('settingsProfileName');
+    const sPhone = document.getElementById('settingsProfilePhone');
+    const sEmail = document.getElementById('settingsProfileEmail');
+    const sStatus = document.getElementById('settingsProfileStatus');
+    const sId = document.getElementById('settingsProfileId');
+    const sDate = document.getElementById('settingsProfileDate');
+    if (sName) sName.textContent = CURRENT_SESSION.full_name || CURRENT_SESSION.name || '-';
+    if (sPhone) sPhone.textContent = CURRENT_SESSION.phone || '-';
+    if (sEmail) sEmail.textContent = CURRENT_SESSION.email || '-';
+    if (sStatus) {
+        const statusStr = String(CURRENT_SESSION.status || '').toLowerCase();
+        sStatus.textContent = statusStr.charAt(0).toUpperCase() + statusStr.slice(1) || '-';
+        sStatus.style.color = (statusStr === 'approved' || statusStr === 'active') ? 'var(--success)' : 'var(--warning)';
+    }
+    if (sId) sId.textContent = CURRENT_SESSION.id || '-';
+    if (sDate) sDate.textContent = CURRENT_SESSION.created_at ? new Date(CURRENT_SESSION.created_at).toLocaleDateString() : '-';
+}
+
+/* ==========================================================================
+   CUSTOM DROPDOWN TOGGLE FUNCTIONS
+   ========================================================================== */
+function toggleCustomPaymentMethod(val) {
+    const custom = document.getElementById('paymentMethodCustom');
+    if (custom) custom.style.display = val === '__other__' ? 'block' : 'none';
+}
+
+function toggleCustomExpenseCategory(val) {
+    const custom = document.getElementById('expenseCategoryCustom');
+    if (custom) custom.style.display = val === 'Other' ? 'block' : 'none';
 }
 
 /* ==========================================================================
@@ -1562,13 +1797,56 @@ function executeSystemReset() {
 function openPaymentModal() {
     document.getElementById('paymentModal').style.display = 'flex';
     document.getElementById('paymentForm').reset();
-    document.getElementById('paymentMemberId').value = '';
     document.getElementById('memberSearchDropdown').style.display = 'none';
+    const customMethod = document.getElementById('paymentMethodCustom');
+    if (customMethod) { customMethod.style.display = 'none'; customMethod.value = ''; }
+    
+    if (CURRENT_SESSION) {
+        document.getElementById('paymentMemberId').value = CURRENT_SESSION.id;
+        document.getElementById('paymentMemberSearch').value = CURRENT_SESSION.full_name || CURRENT_SESSION.name || '';
+    } else {
+        document.getElementById('paymentMemberId').value = '';
+        document.getElementById('paymentMemberSearch').value = '';
+    }
 }
 
 function openExpenseModal() {
     document.getElementById('expenseModal').style.display = 'flex';
     document.getElementById('expenseForm').reset();
+    const customCat = document.getElementById('expenseCategoryCustom');
+    if (customCat) { customCat.style.display = 'none'; customCat.value = ''; }
+}
+
+async function fetchAllApprovedMembers() {
+    // dashboard-pools is admin-only. For member context, return only the current session member.
+    if (!CURRENT_SESSION) return [];
+    return [{
+        id: CURRENT_SESSION.id,
+        full_name: CURRENT_SESSION.full_name || CURRENT_SESSION.name || 'Me',
+        email: CURRENT_SESSION.email || ''
+    }];
+}
+
+async function toggleAllMembersDropdown() {
+    const dropdown = document.getElementById('memberSearchDropdown');
+    if (dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+        return;
+    }
+    dropdown.innerHTML = '<div style="padding: 10px; color: #888;">Loading members...</div>';
+    dropdown.style.display = 'block';
+    
+    const pool = await fetchAllApprovedMembers();
+    if (pool.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 10px; color: #888;">No members found</div>';
+        return;
+    }
+    const selfId = CURRENT_SESSION ? String(CURRENT_SESSION.id) : '';
+    dropdown.innerHTML = pool.map(m => {
+        const isSelf = String(m.id) === selfId;
+        const label = (m.full_name || m.name || 'Unknown') + (isSelf ? ' (You)' : '');
+        return `<div style="padding: 10px; cursor: pointer; border-bottom: 1px solid #333;${isSelf ? ' background: rgba(76,175,80,0.15);' : ''}" onclick="selectPaymentMember('${m.id}', '${(m.full_name || m.name || '').replace(/'/g, "\\'")}')">${label}</div>`;
+    }).join('');
 }
 
 async function filterMemberSearch(query) {
@@ -1578,14 +1856,7 @@ async function filterMemberSearch(query) {
         return;
     }
     
-    let pool = [];
-    try {
-        const data = await apiRequest('members/dashboard-pools', { method: 'GET' });
-        pool = data.approved || [];
-    } catch (e) {
-        pool = JSON.parse(localStorage.getItem(STORAGE_KEYS.MEMBERS_POOL)) || [];
-    }
-    
+    const pool = await fetchAllApprovedMembers();
     const matches = pool.filter(m => (m.full_name || m.name || '').toLowerCase().includes(query.toLowerCase()));
     
     if (matches.length === 0) {
@@ -1614,63 +1885,87 @@ function validateExpenseReceipt(input) {
 async function submitPayment(event) {
     event.preventDefault();
     const memberId = document.getElementById('paymentMemberId').value;
-    if (!memberId) return alert('Please select a valid member from the search dropdown.');
+    const searchVal = document.getElementById('paymentMemberSearch').value.trim();
     
-    const formData = new FormData();
-    formData.append('member_id', memberId);
-    formData.append('amount', document.getElementById('paymentAmount').value);
-    formData.append('payment_method', document.getElementById('paymentMethod').value);
-    
-    const fileInput = document.getElementById('paymentReceipt');
-    if (fileInput.files[0]) {
-        formData.append('receipt', fileInput.files[0]);
+    let finalMemberId = memberId;
+    if (!finalMemberId && searchVal && CURRENT_SESSION) {
+        finalMemberId = CURRENT_SESSION.id;
+    }
+    if (!finalMemberId) {
+        return alert('Please select a member from the dropdown or type a name.');
     }
     
+    const amountVal = document.getElementById('paymentAmount').value;
+    if (!amountVal || parseFloat(amountVal) <= 0) {
+        return alert('Please enter a valid amount greater than 0.');
+    }
+    
+    const formData = new FormData();
+    formData.append('member_id', finalMemberId);
+    formData.append('amount', amountVal);
+    
+    const method = document.getElementById('paymentMethod').value;
+    if (method === '__other__') {
+        const custom = document.getElementById('paymentMethodCustom').value.trim();
+        if (custom) formData.append('payment_method', custom);
+    } else if (method) {
+        formData.append('payment_method', method);
+    }
+    
+    // Receipt upload disabled as per requirement
+    
     try {
-        const response = await fetch(API_BASE_URL + '/contributions/create', {
+        const result = await apiRequest('contributions/create', {
             method: 'POST',
             body: formData
         });
-        const result = await response.json();
-        if (result.status === 'success') {
-            alert('Payment recorded successfully and sent to Head Treasurer for reconciliation.');
-            document.getElementById('paymentModal').style.display = 'none';
-        } else {
-            alert('Error: ' + result.message);
-        }
+        alert('Payment recorded successfully and sent to Head Treasurer for reconciliation.');
+        
+        // Notify admin via logs mechanism (dashboard message)
+        const payerName = searchVal || CURRENT_SESSION.full_name || CURRENT_SESSION.name || 'Member';
+        const methodStr = method === '__other__' ? document.getElementById('paymentMethodCustom').value.trim() : method;
+        postApprovalRequestToAdmin(`Member ${payerName} recorded a manual contribution of Ksh ${amountVal} via ${methodStr}.`, 'contribution');
+        
+        document.getElementById('paymentModal').style.display = 'none';
+        await loadMemberPortalData();
+        rebuildMetricsDashboard();
     } catch (e) {
-        alert('Failed to submit payment: ' + e.message);
+        alert('Error: ' + (e.message || 'Failed to submit payment.'));
     }
 }
 
 async function submitExpense(event) {
     event.preventDefault();
+    if (!CURRENT_SESSION || !CURRENT_SESSION.id) {
+        return alert('You must be logged in to submit an expense claim.');
+    }
     const formData = new FormData();
-    formData.append('member_id', CURRENT_SESSION ? CURRENT_SESSION.id : 1); // fallback if admin is testing
-    formData.append('category', document.getElementById('expenseCategory').value);
+    formData.append('member_id', CURRENT_SESSION.id);
+    
+    const categoryVal = document.getElementById('expenseCategory').value;
+    if (categoryVal === 'Other') {
+        const custom = document.getElementById('expenseCategoryCustom').value.trim();
+        if (!custom) return alert('Please enter a custom category name.');
+        formData.append('category', custom);
+    } else {
+        formData.append('category', categoryVal);
+    }
     formData.append('amount', document.getElementById('expenseAmount').value);
     
-    const fileInput = document.getElementById('expenseReceipt');
-    if (fileInput.files[0]) {
-        formData.append('receipt', fileInput.files[0]);
-    }
+    // Receipt upload disabled as per requirement
     
     try {
-        const response = await fetch(API_BASE_URL + '/expenses/create', {
+        const result = await apiRequest('expenses/create', {
             method: 'POST',
             body: formData
         });
-        const result = await response.json();
-        if (result.status === 'success') {
-            alert('Expense claim locked and routed to Head Treasurer authorization queue.');
-            document.getElementById('expenseModal').style.display = 'none';
-            await loadMemberPortalData();
-            rebuildMetricsDashboard();
-        } else {
-            alert('Error: ' + result.message);
-        }
+        alert('Expense claim submitted and routed to Head Treasurer for authorization.');
+        postNotificationToChannels(`Expense claim submitted: ${categoryVal} Ksh ${document.getElementById('expenseAmount').value}.`, 'expense');
+        document.getElementById('expenseModal').style.display = 'none';
+        await loadMemberPortalData();
+        rebuildMetricsDashboard();
     } catch (e) {
-        alert('Failed to submit expense claim: ' + e.message);
+        alert('Error: ' + (e.message || 'Failed to submit expense claim.'));
     }
 }
 
@@ -1696,9 +1991,13 @@ setInterval(async () => {
 
     function logoutDueToInactivity() {
         alert("Session expired due to inactivity. You will be logged out securely.");
-        localStorage.clear();
+        // Use targeted removal — preserve any app data not related to session
+        localStorage.removeItem(STORAGE_KEYS.SESSION);
+        localStorage.removeItem(STORAGE_KEYS.ACTIVE_TAB);
+        localStorage.removeItem('disableBlurEffect');
+        localStorage.removeItem('memberAccessGranted');
         sessionStorage.clear();
-        window.location.href = 'laddingpage.html';
+        window.location.href = 'landingpage.html';
     }
 
     // Use addEventListener to avoid overwriting existing handlers
@@ -1713,66 +2012,73 @@ setInterval(async () => {
    ACTIVITIES SECTION FUNCTIONS
    ===================================================================== */
 
-/**
- * Send an email to the admin using EmailJS.
- * Reads the admin email from the DOM (already populated by loadAdminContact).
- */
 async function sendActivityEmailToAdmin(e) {
     e.preventDefault();
     const subject  = (document.getElementById('actEmailSubject')?.value || '').trim();
-    const body     = (document.getElementById('actEmailBody')?.value   || '').trim();
+    const msgBody  = (document.getElementById('actEmailBody')?.value   || '').trim();
     const statusEl = document.getElementById('actEmailStatus');
     const btn      = e.target.querySelector('button[type="submit"]');
 
-    if (!subject || !body) { alert('Please fill in both subject and message.'); return; }
-
-    // Resolve admin email from DOM (populated by loadAdminContact())
-    const adminEmail = document.getElementById('adminEmailDisplay')?.textContent?.trim() || 'admin@chama.local';
-
-    // Resolve sender info from session
-    const session   = JSON.parse(sessionStorage.getItem('memberSession') || '{}');
-    const fromName  = session.name  || 'Member';
-    const fromEmail = session.email || 'member@chama.local';
+    if (!subject || !msgBody) { alert('Please fill in both subject and message.'); return; }
 
     if (statusEl) { statusEl.style.color = '#aaa'; statusEl.textContent = 'Sending…'; }
     if (btn) btn.disabled = true;
 
+    let dbSaved = false;
     try {
-        await emailjs.send('service_0gypwcr', 'template_ozc1j5q', {
-            to_email : adminEmail,
-            email    : adminEmail,
-            from_name: fromName,
-            from_email: fromEmail,
-            subject  : subject,
-            message  : body
-        });
-        if (statusEl) { statusEl.style.color = '#4caf50'; statusEl.textContent = '✔ Email sent successfully to admin!'; }
-        e.target.reset();
-    } catch (err) {
-        console.error('Activity email error:', err);
-        if (statusEl) { statusEl.style.color = '#f44336'; statusEl.textContent = '✘ Failed to send email. Please try Contact Admin instead.'; }
-    } finally {
-        if (btn) btn.disabled = false;
+        await apiRequest('messages/send', { method: 'POST', body: JSON.stringify({ subject, body: msgBody }) });
+        dbSaved = true;
+    } catch (dbErr) {
+        console.error('DB save error:', dbErr);
     }
+
+    if (dbSaved) {
+        if (statusEl) { statusEl.style.color = '#4caf50'; statusEl.textContent = '✔ Message sent successfully!'; }
+        e.target.reset();
+    } else {
+        if (statusEl) { statusEl.style.color = '#f44336'; statusEl.textContent = '✘ Failed to send message. Please try again.'; }
+    }
+
+    const adminEmail = document.getElementById('adminEmailDisplay')?.textContent?.trim() || document.getElementById('contactAdminEmail')?.textContent?.trim() || '';
+    if (adminEmail && typeof emailjs !== 'undefined') {
+        try {
+            const fromName  = CURRENT_SESSION ? (CURRENT_SESSION.full_name || CURRENT_SESSION.name || 'Member') : 'Member';
+            const fromEmail = CURRENT_SESSION ? (CURRENT_SESSION.email || 'member@chama.local') : 'member@chama.local';
+            await emailjs.send('service_0gypwcr', 'template_ozc1j5q', {
+                to_email : adminEmail,
+                email    : adminEmail,
+                from_name: fromName,
+                from_email: fromEmail,
+                subject  : subject,
+                message  : msgBody
+            });
+        } catch (_) {}
+    }
+
+    if (btn) btn.disabled = false;
 }
 
 /**
  * Print the member's transaction ledger as a formatted printout.
  */
 function printMemberLedger() {
-    const session      = JSON.parse(sessionStorage.getItem('memberSession') || '{}');
-    const memberName   = session.name  || 'Member';
-    const memberId     = session.uid   || session.id || '—';
-    const loans        = readStoredArray ? readStoredArray(STORAGE_KEYS.LOANS)        : [];
-    const repayments   = readStoredArray ? readStoredArray(STORAGE_KEYS.REPAYMENTS)   : [];
-    const allTx        = [...loans, ...repayments].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const memberName   = CURRENT_SESSION ? (CURRENT_SESSION.full_name || CURRENT_SESSION.name || 'Member') : 'Member';
+    const memberId     = CURRENT_SESSION ? CURRENT_SESSION.id : '—';
+    const loans        = (MEMBER_DB_STATE.loans || []).map(memberLoanViewModel);
+    const repayments   = MEMBER_DB_STATE.repayments || [];
+    const contributions = MEMBER_DB_STATE.contributions || [];
+    const allTx = [];
+    loans.forEach(l => allTx.push({ id: l.id, type: 'Loan', amount: l.amount, date: l.timestamp, status: l.status }));
+    repayments.forEach(r => allTx.push({ id: r.id ? 'RPY-' + r.id : 'RPY', type: 'Repayment', amount: r.amount, date: r.created_at ? new Date(r.created_at).toLocaleString() : '', status: 'Completed' }));
+    contributions.forEach(c => allTx.push({ id: c.id ? 'CBN-' + c.id : 'CBN', type: 'Contribution', amount: c.amount, date: c.created_at ? new Date(c.created_at).toLocaleString() : '', status: 'Confirmed' }));
+    allTx.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
     const rows = allTx.map(tx => `
         <tr>
             <td>${tx.id || '—'}</td>
             <td>${tx.type || tx.classification || '—'}</td>
             <td>Ksh ${Number(tx.amount || 0).toLocaleString('en-KE', {minimumFractionDigits:2})}</td>
-            <td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : '—'}</td>
+            <td>${tx.date || '—'}</td>
             <td>${tx.status || 'Logged'}</td>
         </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#888;">No transactions recorded.</td></tr>';
 
@@ -1791,10 +2097,9 @@ function printMemberLedger() {
  * Print the member's savings / contributions statement.
  */
 function printMemberSavings() {
-    const session     = JSON.parse(sessionStorage.getItem('memberSession') || '{}');
-    const memberName  = session.name || 'Member';
-    const memberId    = session.uid  || session.id || '—';
-    const contribs    = readStoredArray ? readStoredArray(STORAGE_KEYS.CONTRIBUTIONS) : [];
+    const memberName  = CURRENT_SESSION ? (CURRENT_SESSION.full_name || CURRENT_SESSION.name || 'Member') : 'Member';
+    const memberId    = CURRENT_SESSION ? CURRENT_SESSION.id : '—';
+    const contribs    = MEMBER_DB_STATE.contributions || [];
 
     let totalSaved = 0;
     const rows = contribs.map(c => {
@@ -1820,24 +2125,41 @@ function printMemberSavings() {
 }
 
 /**
- * Load meeting link posted by admin from localStorage into the Activities card.
- * Admin should save the meeting link to localStorage key 'adminMeetingLink'.
+ * Load meeting link posted by admin from backend API into the Activities card.
+ * Fetches the latest meeting_url from meeting_minutes table.
  */
-function loadMeetingLink() {
-    const link    = localStorage.getItem('adminMeetingLink') || '';
+async function loadMeetingLink() {
     const textEl  = document.getElementById('meetingLinkText');
     const joinBtn = document.getElementById('meetingJoinBtn');
     if (!textEl || !joinBtn) return;
 
-    if (link && link.startsWith('http')) {
-        textEl.textContent  = '✅ Meeting link is available! Click the button below to join.';
-        textEl.style.color  = '#4caf50';
-        joinBtn.href        = link;
-        joinBtn.style.display = 'inline-block';
-    } else {
-        textEl.textContent   = 'No meeting link sent by admin yet. Check back later or contact your admin.';
-        textEl.style.color   = '#aaa';
-        joinBtn.style.display = 'none';
+    try {
+        const data = await apiRequest('minutes/latest-link', { method: 'GET' });
+        const link = data?.meeting_url || data?.data?.meeting_url || '';
+
+        if (link && link.startsWith('http')) {
+            textEl.textContent  = '✅ Meeting link is available! Click the button below to join.';
+            textEl.style.color  = '#4caf50';
+            joinBtn.href        = link;
+            joinBtn.style.display = 'inline-block';
+        } else {
+            textEl.textContent   = 'No meeting link sent by admin yet. Check back later or contact your admin.';
+            textEl.style.color   = '#aaa';
+            joinBtn.style.display = 'none';
+        }
+    } catch (err) {
+        // Fallback to localStorage for backward compatibility
+        const localLink = localStorage.getItem('adminMeetingLink') || '';
+        if (localLink && localLink.startsWith('http')) {
+            textEl.textContent  = '✅ Meeting link is available! Click the button below to join.';
+            textEl.style.color  = '#4caf50';
+            joinBtn.href        = localLink;
+            joinBtn.style.display = 'inline-block';
+        } else {
+            textEl.textContent   = 'No meeting link sent by admin yet. Check back later or contact your admin.';
+            textEl.style.color   = '#aaa';
+            joinBtn.style.display = 'none';
+        }
     }
 }
 
@@ -1845,8 +2167,231 @@ function loadMeetingLink() {
 document.addEventListener('DOMContentLoaded', () => {
     // Piggyback on the existing nav click system
     document.querySelectorAll('.nav-item[data-target="meetingsSection"]').forEach(navEl => {
-        navEl.addEventListener('click', () => setTimeout(loadMeetingLink, 100));
+        navEl.addEventListener('click', () => {
+            setTimeout(loadMeetingLink, 100);
+            setTimeout(loadActiveMeetings, 200);
+            setTimeout(loadPastMeetings, 300);
+        });
     });
     // Also run once on load in case the section is already active
     loadMeetingLink();
+
+    // Load messages badge on session
+    if (CURRENT_SESSION && CURRENT_SESSION.id) {
+        loadUnreadCount();
+        setInterval(loadUnreadCount, 30000);
+    }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MEETINGS — Active / Past dropdown panels
+// ═══════════════════════════════════════════════════════════════════════════
+
+function toggleMeetingPanel(panelId, btn) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+        if (panelId === 'activeMeetingsPanel') loadActiveMeetings();
+        else loadPastMeetings();
+    }
+}
+
+async function loadActiveMeetings() {
+    const listEl = document.getElementById('activeMeetingsList');
+    if (!listEl || !CURRENT_SESSION || !CURRENT_SESSION.id) return;
+    listEl.innerHTML = '<div style="padding:16px; text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    try {
+        const data = await apiRequest('automation/meetings/member/' + CURRENT_SESSION.id + '/active', { method: 'GET' });
+        const meetings = Array.isArray(data) ? data : (data.data || []);
+        if (!meetings.length) {
+            listEl.innerHTML = '<div style="padding:16px; text-align:center; color:#888; font-size:13px;"><i class="fas fa-calendar-times"></i> No upcoming meetings scheduled.</div>';
+            return;
+        }
+        listEl.innerHTML = meetings.map(m => `
+            <div style="padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <div style="flex:1; min-width:0;">
+                    <div style="font-weight:600; font-size:14px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(m.title)}</div>
+                    <div style="font-size:12px; color:#888; margin-top:3px;">
+                        <i class="fas fa-calendar"></i> ${escHtml(m.meeting_date)}
+                        ${m.meeting_time ? ' &bull; <i class="fas fa-clock"></i> ' + escHtml(m.meeting_time) : ''}
+                        ${m.location ? ' &bull; <i class="fas fa-map-marker-alt"></i> ' + escHtml(m.location) : ''}
+                    </div>
+                </div>
+                <div style="display:flex; gap:6px; flex-shrink:0;">
+                    <button onclick="joinMemberMeeting(${m.id}, '${escAttr(m.title)}')" title="Join Meeting" style="padding:6px 12px; border-radius:6px; border:none; background:#10b981; color:#fff; font-size:12px; font-weight:600; cursor:pointer;"><i class="fas fa-sign-in-alt"></i> Join</button>
+                    <button onclick="deleteMemberMeeting(${m.id})" title="Delete Meeting" style="padding:6px 10px; border-radius:6px; border:none; background:rgba(239,68,68,0.15); color:#ef4444; font-size:12px; cursor:pointer; border:1px solid rgba(239,68,68,0.3);"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('loadActiveMeetings error:', err);
+        listEl.innerHTML = '<div style="padding:16px; text-align:center; color:#f44336; font-size:13px;">Failed to load meetings.</div>';
+    }
+}
+
+async function loadPastMeetings() {
+    const listEl = document.getElementById('pastMeetingsList');
+    if (!listEl || !CURRENT_SESSION || !CURRENT_SESSION.id) return;
+    listEl.innerHTML = '<div style="padding:16px; text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    try {
+        const data = await apiRequest('automation/meetings/member/' + CURRENT_SESSION.id + '/past', { method: 'GET' });
+        const meetings = Array.isArray(data) ? data : (data.data || []);
+        if (!meetings.length) {
+            listEl.innerHTML = '<div style="padding:16px; text-align:center; color:#888; font-size:13px;"><i class="fas fa-history"></i> No past meetings found.</div>';
+            return;
+        }
+        listEl.innerHTML = meetings.map(m => `
+            <div style="padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; gap:10px; opacity:0.75;">
+                <div style="flex:1; min-width:0;">
+                    <div style="font-weight:600; font-size:13px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(m.title)}</div>
+                    <div style="font-size:11px; color:#666; margin-top:3px;">
+                        <i class="fas fa-calendar"></i> ${escHtml(m.meeting_date)}
+                        ${m.location ? ' &bull; <i class="fas fa-map-marker-alt"></i> ' + escHtml(m.location) : ''}
+                    </div>
+                </div>
+                <button onclick="deleteMemberMeeting(${m.id})" title="Delete Meeting" style="padding:6px 10px; border-radius:6px; border:none; background:rgba(239,68,68,0.1); color:#ef4444; font-size:12px; cursor:pointer; border:1px solid rgba(239,68,68,0.2);"><i class="fas fa-trash"></i></button>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('loadPastMeetings error:', err);
+        listEl.innerHTML = '<div style="padding:16px; text-align:center; color:#f44336; font-size:13px;">Failed to load meetings.</div>';
+    }
+}
+
+async function deleteMemberMeeting(id) {
+    if (!confirm('Are you sure you want to delete this meeting?')) return;
+    try {
+        await apiRequest('automation/meetings/' + id, { method: 'DELETE' });
+        loadActiveMeetings();
+        loadPastMeetings();
+    } catch (err) {
+        console.error('deleteMemberMeeting error:', err);
+        alert('Failed to delete meeting.');
+    }
+}
+
+async function joinMemberMeeting(id, title) {
+    const link = localStorage.getItem('adminMeetingLink') || '';
+    if (link && link.startsWith('http')) {
+        window.open(link, '_blank');
+    }
+    try {
+        await apiRequest('live-updates/log', {
+            method: 'POST',
+            body: JSON.stringify({ event_type: 'meeting_join', event_body: 'Joined meeting: ' + title })
+        });
+        await apiRequest('messages/send', {
+            method: 'POST',
+            body: JSON.stringify({ subject: 'Meeting Attendance', body: 'I have joined the meeting: ' + title })
+        });
+    } catch (err) {
+        console.warn('joinMemberMeeting: failed to log event or send message:', err);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MESSAGES — Inbox, Compose, Unread Badge
+// ═══════════════════════════════════════════════════════════════════════════
+
+function navigateToMessages() {
+    const navLink = document.querySelector('.nav-item[data-target="messagesSection"]');
+    if (navLink) navLink.click();
+}
+
+async function loadUnreadCount() {
+    if (!CURRENT_SESSION || !CURRENT_SESSION.id) return;
+    try {
+        const data = await apiRequest('messages/unread-count', { method: 'GET' });
+        const count = typeof data === 'number' ? data : (data.count || 0);
+        const badge = document.getElementById('unreadBadgeCount');
+        const badgeWrap = document.getElementById('unreadMessagesBadge');
+        const navBadge = document.getElementById('navMsgBadge');
+        const indicator = document.getElementById('msgUnreadIndicator');
+        if (badge) badge.textContent = count;
+        if (badgeWrap) badgeWrap.style.display = count > 0 ? 'block' : 'none';
+        if (navBadge) { navBadge.textContent = count; navBadge.style.display = count > 0 ? 'inline' : 'none'; }
+        if (indicator) indicator.style.display = count > 0 ? 'inline' : 'none';
+    } catch (err) {
+        console.warn('loadUnreadCount error:', err);
+    }
+}
+
+async function loadMessagesInbox() {
+    const listEl = document.getElementById('messagesInboxList');
+    if (!listEl || !CURRENT_SESSION || !CURRENT_SESSION.id) return;
+    listEl.innerHTML = '<div style="padding:16px; text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</div>';
+    try {
+        const data = await apiRequest('messages/member-inbox/' + CURRENT_SESSION.id, { method: 'GET' });
+        const messages = Array.isArray(data) ? data : (data.data || []);
+        if (!messages.length) {
+            listEl.innerHTML = '<div style="padding:24px; text-align:center; color:#888; font-size:13px;"><i class="fas fa-inbox" style="font-size:24px; margin-bottom:8px; display:block;"></i>No messages yet. Use the compose form above to send a message to your admin.</div>';
+            return;
+        }
+        listEl.innerHTML = messages.map(m => {
+            const isFromAdmin = m.sender_role === 'admin';
+            const bgColor = isFromAdmin ? 'rgba(59,130,246,0.06)' : 'rgba(16,185,129,0.06)';
+            const borderColor = isFromAdmin ? 'rgba(59,130,246,0.2)' : 'rgba(16,185,129,0.2)';
+            const label = isFromAdmin ? '<span style="color:#3b82f6; font-weight:600;">Admin</span>' : '<span style="color:#10b981; font-weight:600;">You</span>';
+            const readDot = !m.is_read && isFromAdmin ? '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444; margin-left:6px;"></span>' : '';
+            return `
+                <div style="background:${bgColor}; border:1px solid ${borderColor}; border-radius:10px; padding:14px 16px; margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <div style="font-size:13px;">${label} ${readDot}</div>
+                        <div style="font-size:11px; color:#666;">${m.created_at ? new Date(m.created_at).toLocaleString() : ''}</div>
+                    </div>
+                    <div style="font-weight:600; font-size:14px; margin-bottom:4px;">${escHtml(m.subject || 'General')}</div>
+                    <div style="font-size:13px; color:var(--text-primary); line-height:1.5; white-space:pre-wrap;">${escHtml(m.body)}</div>
+                </div>
+            `;
+        }).join('');
+        loadUnreadCount();
+    } catch (err) {
+        console.error('loadMessagesInbox error:', err);
+        listEl.innerHTML = '<div style="padding:16px; text-align:center; color:#f44336; font-size:13px;">Failed to load messages.</div>';
+    }
+}
+
+async function sendMessageToAdmin(e) {
+    e.preventDefault();
+    const subjectEl = document.getElementById('msgSubject');
+    const bodyEl = document.getElementById('msgBody');
+    const statusEl = document.getElementById('sendMessageStatus');
+    const btn = document.getElementById('btnSendMessage');
+    const subject = (subjectEl?.value || '').trim();
+    const body = (bodyEl?.value || '').trim();
+    if (!subject || !body) { alert('Please fill in both subject and message.'); return; }
+    if (btn) btn.disabled = true;
+    if (statusEl) { statusEl.style.color = '#aaa'; statusEl.textContent = 'Sending...'; }
+    try {
+        await apiRequest('messages/send', { method: 'POST', body: JSON.stringify({ subject, body }) });
+        if (statusEl) { statusEl.style.color = '#4caf50'; statusEl.textContent = 'Message sent successfully!'; }
+        e.target.reset();
+        setTimeout(loadMessagesInbox, 500);
+    } catch (err) {
+        console.error('sendMessageToAdmin error:', err);
+        if (statusEl) { statusEl.style.color = '#f44336'; statusEl.textContent = 'Failed to send message. Please try again.'; }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// Hook into messages section navigation
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item[data-target="messagesSection"]').forEach(navEl => {
+        navEl.addEventListener('click', () => setTimeout(loadMessagesInbox, 200));
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HTML ESCAPE UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function escAttr(str) {
+    return escHtml(str).replace(/'/g, '&#39;');
+}

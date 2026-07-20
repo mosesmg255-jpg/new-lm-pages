@@ -1,12 +1,14 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { OpenAI } = require('openai');
+const os = require('os');
 
 const dotenv = require('dotenv');
 const path = require('path');
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 
@@ -14,43 +16,121 @@ const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
+const securityScanner = require('./securityScanner');
+const { log } = require('./logger');
 
-app.use(cors({ origin: true, credentials: true }));
+// --- Security Headers ---
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+
+// --- CORS ---
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:4000,http://127.0.0.1:4000,http://localhost:3000,http://127.0.0.1:3000')
+  .split(',').map(s => s.trim());
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin) || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
+// --- Body Parsing ---
 app.use(express.json({ limit: '1mb' }));
 
+// --- WAF ---
+app.use(securityScanner);
+
+// --- Request Logger ---
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    log('http_request', {
+      route: req.originalUrl,
+      admin_id: req.headers['x-admin-token'] ? 'token-present' : '',
+      duration_ms: duration
+    });
+  });
+  next();
+});
+
+// --- Global Rate Limit ---
 app.use(
   rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 5000, // Increased limit for local testing
+    windowMs: 15 * 60 * 1000,
+    limit: 5000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { status: 'fail', message: 'Too many requests from this IP, please try again later.' }
   })
 );
 
-// Serve static files from the project root (parent of backend/)
+// --- Stricter Rate Limits for Auth Endpoints ---
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { status: 'fail', message: 'Too many authentication attempts. Please try again in 15 minutes.' }
+});
+
+// --- Upload Rate Limit ---
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 50,
+  message: { status: 'fail', message: 'Too many upload requests.' }
+});
+
+// Apply strict auth rate limiter
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/recover-password', authLimiter);
+app.use('/api/members/login', authLimiter);
+app.use('/api/settings/verify-admin-password', authLimiter);
+
+// --- Static Files ---
 app.use(express.static(path.join(__dirname, '..')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 const { sequelize } = require('./models');
 
-
-app.get('/api/health', (req, res) => {
-  res.json({ ok: true });
+// --- Enhanced Health Check ---
+app.get('/api/health', async (req, res) => {
+  const health = {
+    ok: true,
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    memory: process.memoryUsage(),
+    db: 'disconnected'
+  };
+  try {
+    await sequelize.authenticate();
+    health.db = 'connected';
+  } catch (err) {
+    health.db = 'error: ' + err.message;
+    health.ok = false;
+  }
+  const statusCode = health.ok ? 200 : 503;
+  res.status(statusCode).json(health);
 });
 
-// AI assistant proxy route.
-// POST /api/ai/assistant { message, session }
+// --- AI Assistant Proxy ---
 app.post('/api/ai/assistant', async (req, res) => {
   try {
-    const { message, session } = req.body || {};
+    const { message } = req.body || {};
     const prompt = `You are a helpful assistant for a loan management portal. The user said: "${String(message).slice(0, 1000)}". Respond clearly and politely with guidance about loans, repayments, account status, or member actions.`;
 
     if (openai) {
-      const completion = await openai.createChatCompletion({
+      const completion = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: 'You are a member support assistant for a loan management application.' },
@@ -60,33 +140,21 @@ app.post('/api/ai/assistant', async (req, res) => {
         temperature: 0.7
       });
 
-      const aiReply = completion.data.choices?.[0]?.message?.content?.trim();
+      const aiReply = completion.choices?.[0]?.message?.content?.trim();
       if (aiReply) {
         return res.json({ reply: aiReply });
       }
     }
 
-    // Fallback mock reply when OpenAI is not configured or returns no reply.
-    const reply = `Mock assistant reply: I received your message "${String(message).slice(0,200)}". Ask me about your loans, repayments, or account status and I'll assist.`;
+    const reply = `Mock assistant reply: I received your message "${String(message).slice(0, 200)}". Ask me about your loans, repayments, or account status and I'll assist.`;
     return res.json({ reply });
   } catch (err) {
-    console.error('AI assistant proxy error:', err);
+    console.error('AI assistant proxy error:', err.message);
     return res.status(500).json({ message: 'AI proxy error' });
   }
 });
 
-// Redirect root to member.html
-app.get('/', (req, res) => {
-  res.redirect('/member.html');
-});
-
-const os = require('os');
-
-/**
- * Pick one preferred IPv4 address:
- * - Prefer the first non-loopback (non-127.x.x.x) address found.
- * - Fall back to 127.0.0.1 if none found.
- */
+// --- IP Discovery ---
 function getPreferredIP() {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -98,6 +166,8 @@ function getPreferredIP() {
   }
   return '127.0.0.1';
 }
+
+let server;
 
 async function startServer() {
   const dbInfo = sequelize.connectionDetails || {};
@@ -135,11 +205,16 @@ async function startServer() {
   // Routes
   app.use('/api', require('./routes/api'));
 
-  app.use((req, res) => {
-    res.status(404).json({ message: 'Not found' });
+  // Serve landing page as index
+  app.get('/', (req, res) => {
+    res.redirect('/member.html');
   });
 
-  app.listen(PORT, HOST, () => {
+  app.use((req, res) => {
+    res.status(404).json({ status: 'fail', message: 'Not found' });
+  });
+
+  server = app.listen(PORT, HOST, () => {
     const localHost = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
     console.log(`\nLM backend listening on port ${PORT}`);
     console.log(`Static files served from: ${path.join(__dirname, '..')}\n`);
@@ -147,10 +222,36 @@ async function startServer() {
     console.log(`  http://${localHost}:${PORT}/home.html          (Admin Panel)`);
     console.log(`  http://${localHost}:${PORT}/member.html        (Member Portal)`);
     console.log(`  http://${localHost}:${PORT}/login.html         (Admin Login)`);
-    console.log(`  http://${localHost}:${PORT}/laddingpage.html   (Landing Page)`);
+    console.log(`  http://${localHost}:${PORT}/landingpage.html   (Landing Page)`);
     console.log(`  http://${localHost}:${PORT}/createaccount.html (Create Account)`);
+    console.log(`  http://${localHost}:${PORT}/api/health          (Health Check)`);
     console.log(`--------------------------------\n`);
   });
 }
+
+// --- Graceful Shutdown ---
+function gracefulShutdown(signal) {
+  console.log(`\n[SHUTDOWN] Received ${signal}. Closing server gracefully...`);
+  if (server) {
+    server.close(() => {
+      console.log('[SHUTDOWN] HTTP server closed.');
+      sequelize.close().then(() => {
+        console.log('[SHUTDOWN] Database connections closed.');
+        process.exit(0);
+      }).catch(() => {
+        process.exit(0);
+      });
+    });
+  } else {
+    process.exit(0);
+  }
+  setTimeout(() => {
+    console.error('[SHUTDOWN] Forced shutdown after timeout.');
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 startServer();

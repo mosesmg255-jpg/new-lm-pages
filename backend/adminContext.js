@@ -1,7 +1,21 @@
 const crypto = require('crypto');
 
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
-const SECRET = process.env.ADMIN_TOKEN_SECRET || process.env.SESSION_SECRET || 'lm-project-admin-token-secret';
+
+function getSecret() {
+  const secret = process.env.ADMIN_TOKEN_SECRET || process.env.SESSION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: ADMIN_TOKEN_SECRET or SESSION_SECRET must be set in environment for production.');
+    }
+    console.warn('[SECURITY] WARNING: Using auto-generated token secret. Set ADMIN_TOKEN_SECRET in .env for persistent sessions.');
+    // Generate a per-process random secret so tokens don't survive restarts
+    return crypto.randomBytes(32).toString('hex');
+  }
+  return secret;
+}
+
+const SECRET = getSecret();
 
 function base64url(input) {
   return Buffer.from(input).toString('base64url');
@@ -38,6 +52,7 @@ function getAdminFromRequest(req) {
     const expBuf = Buffer.from(expected);
     if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
     const admin = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (admin.type === 'member') return null;
     if (!admin.id || !admin.exp || Date.now() > Number(admin.exp)) return null;
     return {
       id: String(admin.id),
@@ -68,9 +83,49 @@ async function getFallbackAdminId(sequelize) {
   return rows && rows.length ? String(rows[0].id) : null;
 }
 
+function signMemberToken(member) {
+  const payload = base64url(JSON.stringify({
+    type: 'member',
+    id: String(member.id),
+    full_name: member.full_name || member.name || '',
+    email: member.email || '',
+    exp: Date.now() + TOKEN_TTL_MS
+  }));
+  return `${payload}.${signPayload(payload)}`;
+}
+
+function getMemberFromRequest(req) {
+  try {
+    const token = readBearerToken(req);
+    if (!token || !token.includes('.')) return null;
+    const [payload, signature] = token.split('.');
+    const expected = signPayload(payload);
+    const sigBuf = Buffer.from(String(signature));
+    const expBuf = Buffer.from(expected);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (data.type !== 'member' || !data.id || !data.exp || Date.now() > Number(data.exp)) return null;
+    return { id: String(data.id), full_name: data.full_name || '', email: data.email || '' };
+  } catch (_) {
+    return null;
+  }
+}
+
+function requireMember(req, res) {
+  const member = getMemberFromRequest(req);
+  if (!member) {
+    res.status(401).json({ status: 'fail', message: 'Member session expired. Please log in again.' });
+    return null;
+  }
+  return member;
+}
+
 module.exports = {
   signAdminToken,
+  signMemberToken,
   getAdminFromRequest,
+  getMemberFromRequest,
   requireAdmin,
+  requireMember,
   getFallbackAdminId
 };

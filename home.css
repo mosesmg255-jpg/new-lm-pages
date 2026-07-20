@@ -1,4 +1,5 @@
- body {
+*, *::before, *::after { box-sizing: border-box; }
+    body {
       margin: 0;
       font-family: 'Poppins', sans-serif;
       background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
@@ -148,6 +149,7 @@
       border-radius: 12px;
       margin-bottom: 30px;
       box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+      overflow: hidden;
     }
     h2 { color: #00e0ff; margin-top: 0; border-bottom: 2px solid rgba(0, 224, 255, 0.2); padding-bottom: 8px; }
     h3 { margin-top: 25px; color: #81c784; }
@@ -169,13 +171,14 @@
     select option { background: #222; color: #fff; }
 
     .action-btn {
-      padding: 10px 20px;
+      padding: 7px 14px;
       background: #0077ff;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       color: white;
       cursor: pointer;
       font-weight: bold;
+      font-size: 0.85rem;
       transition: background 0.2s, transform 0.1s;
     }
     .action-btn:hover { background: #0055cc; transform: translateY(-1px); }
@@ -205,7 +208,7 @@
       min-width: 0;
       border-collapse: collapse;
       margin-top: 15px;
-      table-layout: fixed;
+      table-layout: auto;
     }
     th, td {
       word-break: break-word;
@@ -215,7 +218,7 @@
       overflow-x: auto;
     }
     th, td {
-      padding: 12px;
+      padding: 10px;
       text-align: left;
       border-bottom: 1px solid rgba(255,255,255,0.1);
     }
@@ -247,13 +250,13 @@
       color: #fff;
     }
     .loan-header-action {
-      width: 220px;
-      min-width: 180px;
+      width: auto;
+      min-width: 120px;
       padding: 0;
     }
     .loan-header-menu {
-      width: 220px;
-      min-width: 180px;
+      width: auto;
+      min-width: 120px;
       padding: 0;
     }
 
@@ -272,21 +275,22 @@
         padding: 16px;
       }
       .section {
-        padding: 18px;
+        padding: 14px;
+        overflow: hidden;
       }
       .grid-inputs {
-        gap: 12px;
+        gap: 10px;
       }
       .action-btn,
       .btn-db,
       .btn-del,
       .btn-danger {
-        padding: 8px 14px;
+        padding: 6px 12px;
       }
       .loan-header-action,
       .loan-header-menu {
-        width: 190px;
-        min-width: 160px;
+        width: auto;
+        min-width: 100px;
       }
     }
 
@@ -302,6 +306,7 @@
       }
       .section {
         padding: 16px;
+        overflow: hidden;
       }
       .grid-inputs {
         grid-template-columns: 1fr;
@@ -312,7 +317,7 @@
       .loan-header-action,
       .loan-header-menu {
         width: auto;
-        min-width: 140px;
+        min-width: 80px;
       }
       .menu-dropdown {
         max-width: 100%;
@@ -335,6 +340,7 @@
       }
       .section {
         padding: 26px;
+        overflow: hidden;
       }
       .action-btn,
       .btn-db,
@@ -344,8 +350,8 @@
       }
       .loan-header-action,
       .loan-header-menu {
-        width: 240px;
-        min-width: 200px;
+        width: auto;
+        min-width: 140px;
       }
     }
 
@@ -374,23 +380,24 @@
       background: #4caf50;
       color: white;
       border: none;
-      padding: 8px 14px;
-      min-height: 34px;
-      min-width: 110px;
-      border-radius: 14px;
+      padding: 6px 12px;
+      min-height: 30px;
+      min-width: 90px;
+      border-radius: 10px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 5px;
       cursor: pointer;
       font-weight: 600;
+      font-size: 0.85rem;
       line-height: 1.2;
-      box-shadow: 0 8px 20px rgba(76,175,80,0.22);
+      box-shadow: 0 6px 16px rgba(76,175,80,0.22);
       transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
     .btn-db:hover {
       transform: translateY(-1px);
-      box-shadow: 0 12px 24px rgba(76,175,80,0.28);
+      box-shadow: 0 10px 20px rgba(76,175,80,0.28);
       background: #43a047;
     }
     .btn-del,
@@ -398,38 +405,39 @@
       background: linear-gradient(135deg, #ff5252, #ff1744);
       color: white;
       border: none;
-      padding: 8px 14px;
-      min-height: 34px;
-      min-width: 110px;
-      border-radius: 14px;
+      padding: 6px 12px;
+      min-height: 30px;
+      min-width: 90px;
+      border-radius: 10px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 5px;
       cursor: pointer;
       font-weight: 600;
+      font-size: 0.85rem;
       line-height: 1.2;
-      box-shadow: 0 8px 22px rgba(255,82,82,0.24);
+      box-shadow: 0 6px 18px rgba(255,82,82,0.24);
       transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
     .btn-del:hover,
     .btn-danger:hover {
       transform: translateY(-1px);
-      box-shadow: 0 12px 26px rgba(255,82,82,0.28);
+      box-shadow: 0 10px 22px rgba(255,82,82,0.28);
       background: linear-gradient(135deg, #e53935, #d32f2f);
     }
     .btn-del:active,
     .btn-danger:active {
       transform: translateY(0);
-      box-shadow: 0 6px 16px rgba(255,82,82,0.18);
+      box-shadow: 0 4px 12px rgba(255,82,82,0.18);
     }
     .btn-del.small,
     .btn-danger.small,
     .btn-db.small {
-      padding: 7px 12px;
-      font-size: 0.95rem;
-      min-width: 98px;
-      border-radius: 12px;
+      padding: 5px 10px;
+      font-size: 0.8rem;
+      min-width: 78px;
+      border-radius: 10px;
     }
     .btn-del.ghost,
     .btn-danger.ghost {
@@ -441,23 +449,27 @@
 
     .button-group {
       display: flex;
-      flex-wrap: nowrap;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 5px;
       align-items: center;
       justify-content: flex-end;
       min-width: 0;
       width: 100%;
     }
     .button-group > button {
-      flex: 0 0 auto;
+      flex: 0 1 auto;
       white-space: nowrap;
+      min-width: 0;
+      padding: 5px 8px;
+      font-size: 11px;
     }
     .action-button-cell {
-      min-width: 150px;
-      width: 150px;
-      padding: 10px 6px;
+      min-width: 80px;
+      width: auto;
+      padding: 8px 4px;
       vertical-align: middle;
       white-space: nowrap;
+      overflow: hidden;
     }
     @media (max-width: 820px) {
       .button-group {
@@ -498,6 +510,7 @@
       border-radius: 8px;
       margin-bottom: 15px;
       border-left: 4px solid #81c784;
+      overflow: hidden;
     }
 
     /* Notification Styling */
@@ -510,6 +523,7 @@
       display: flex;
       align-items: flex-start;
       gap: 12px;
+      overflow: hidden;
     }
     .notification-timestamp {
       font-size: 11px;
@@ -538,6 +552,7 @@
       border-radius: 10px;
       padding: 15px;
       margin-bottom: 20px;
+      overflow: hidden;
     }
     .badge {
       display: inline-block;
@@ -793,6 +808,7 @@
       padding: 10px;
       border-radius: 4px;
       margin-bottom: 10px;
+      overflow: hidden;
     }
     .pdf-preview-box {
       background: #fafafa;
@@ -836,7 +852,7 @@
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
       transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       position: relative;
-      overflow: auto;
+      overflow: hidden;
     }
 
     .corporate-grid .hub-module-card::before {
@@ -1050,6 +1066,7 @@
       padding: 18px;
       margin-bottom: 18px;
       transition: all 0.3s ease;
+      overflow: hidden;
     }
     .sg-card:hover {
       border-color: rgba(233, 30, 99, 0.2);
@@ -1179,6 +1196,7 @@
       padding: 12px;
       background: rgba(0,0,0,0.2);
       border-radius: 10px;
+      overflow: hidden;
     }
     .sg-gauge {
       width: 120px;
@@ -1226,6 +1244,7 @@
       border-radius: 10px;
       padding: 16px;
       margin-top: 12px;
+      overflow: hidden;
     }
     .sg-chart-container canvas {
       width: 100% !important;
@@ -1251,6 +1270,8 @@
       display: flex;
       align-items: flex-start;
       gap: 8px;
+      overflow: hidden;
+      word-wrap: break-word;
     }
     .sg-alert.warning {
       background: rgba(255,152,0,0.12);
@@ -1297,6 +1318,7 @@
       background: #fff;
       border-color: #e0e0e0;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
     }
     .agm-presenter-mode .sg-card h4 { color: #1a1a2e; }
     .agm-presenter-mode .sg-table th { background: #f5f5f5; color: #333; }
@@ -1321,6 +1343,7 @@
       text-align: center;
       border-top: 3px solid;
       transition: transform 0.2s ease;
+      overflow: hidden;
     }
     .sg-stat-tile:hover {
       transform: translateY(-3px);
@@ -1388,6 +1411,8 @@
         0 36px 90px rgba(0,0,0,0.75),
         0 0 80px rgba(0,224,255,0.06);
       animation: adminCardIn 0.55s cubic-bezier(0.34,1.56,0.64,1);
+      overflow: hidden;
+      box-sizing: border-box;
     }
     @keyframes adminCardIn {
       from { transform: translateY(30px) scale(0.95); opacity: 0; }

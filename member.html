@@ -48,17 +48,26 @@
             </button>
             <div class="logo-area">
                 <i class="fas fa-wallet text-primary"></i>
-                <span>MONEY<span>HUB</span></span>
+                <span>CAPITAL <span>CONNECTION </span>SYSTEM</span></SPAN>
             </div>
         </div>
         <div class="header-right" style="display: flex; align-items: center; gap: 10px;">
+            <!-- Unread Messages Badge -->
+            <div id="unreadMessagesBadge" style="display:none; position:relative;">
+                <button class="hamburger-btn" id="unreadBadgeBtn" onclick="navigateToMessages()" title="You have unread messages"
+                    style="position:relative; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); border-radius:8px; padding:6px 10px; cursor:pointer; color:#ef4444;">
+                    <i class="fas fa-envelope" style="color:#ef4444;"></i>
+                    <span id="unreadBadgeCount" style="position:absolute; top:-6px; right:-6px; background:#ef4444; color:#fff; border-radius:50%; font-size:10px; font-weight:bold; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; padding:0 4px;">0</span>
+                </button>
+            </div>
             <!-- Dark Mode Toggle -->
             <button class="hamburger-btn" id="themeToggleBtn" title="Toggle Dark/Light Mode" onclick="toggleMemberTheme()" style="border-radius: 8px; transition: all 0.3s ease;">
                 <i class="fas fa-moon" id="themeIcon"></i>
             </button>
             <div class="user-profile-badge" id="userBadge" style="display: none;">
-                <i class="fas fa-user-circle text-primary"></i>
-                <span id="badgeUsername">Member</span>
+<a href="#" class="nav-item" data-target="settingsSection">
+    <i class="fas fa-user-circle text-primary"></i>  <span id="badgeUsername">profile</span>
+</a>
             </div>
         </div>
     </header>
@@ -80,6 +89,10 @@
                 <li><a href="#" class="nav-item" data-target="reportsSection"><i class="fas fa-file-invoice-dollar"></i> Live Ledger</a></li>
                 <li><a href="#" class="nav-item" data-target="contributionsSection"><i class="fas fa-piggy-bank"></i> Contributions / Savings</a></li>
                 <li><a href="#" class="nav-item" data-target="expensesSection"><i class="fas fa-file-invoice"></i> Expense Claims</a></li>
+                <li><a href="#" class="nav-item" data-target="messagesSection" id="navMessagesLink">
+                    <i class="fas fa-envelope"></i> Messages
+                    <span id="navMsgBadge" style="display:none; background:#ef4444; color:#fff; border-radius:50%; font-size:10px; font-weight:bold; min-width:16px; height:16px; line-height:16px; text-align:center; padding:0 3px; margin-left:6px;">0</span>
+                </a></li>
                 <li><a href="#" class="nav-item" data-target="notificationsSection"><i class="fas fa-bell"></i> Notifications</a></li>
                 <li><a href="#" class="nav-item" data-target="contactSection"><i class="fas fa-headset"></i> Contact Admin</a></li>
                 <li><a href="#" class="nav-item" data-target="settingsSection"><i class="fas fa-sliders-h"></i> System
@@ -87,8 +100,8 @@
             </ul>
             <div class="sidebar-footer">
                 <p><i class="fas fa-headset"></i> Official Desk:</p>
-                <a href="tel:0741943207" class="call-link"><i class="fas fa-phone-alt"></i> 0741943207</a>
-                <span class="handler">officialmugomoses</span>
+                <a href="#" id="sidebarPhoneLink" class="call-link"><i class="fas fa-phone-alt"></i> <span id="sidebarPhone">Loading...</span></a>
+                <span class="handler" id="sidebarHandler">Loading...</span>
             </div>
         </nav>
 
@@ -115,8 +128,8 @@
                             <div class="form-group">
                                 <label for="loginPassword">Password</label>
                                 <div style="position: relative;">
-                                    <input type="password" id="loginPassword" name="password" autocomplete="new-password" required placeholder="********" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
-                                    <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="const loginPwd = document.getElementById('loginPassword'); if(loginPwd.type==='password'){loginPwd.type='text'; this.className='fas fa-eye-slash';}else{loginPwd.type='password'; this.className='fas fa-eye';}"></i>
+                                    <input type="password" id="loginPassword" name="password" autocomplete="current-password" required placeholder="********" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
+                                    <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="togglePasswordVisibility('loginPassword', this)"></i>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-primary btn-block">Verify & Open Session</button>
@@ -145,14 +158,14 @@
                                 <label for="regPassword">Security Password</label>
                                 <div style="position: relative;">
                                     <input type="password" id="regPassword" autocomplete="new-password" required placeholder="Create secure password" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
-                                    <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="const regPwd = document.getElementById('regPassword'); if(regPwd.type==='password'){regPwd.type='text'; this.className='fas fa-eye-slash';}else{regPwd.type='password'; this.className='fas fa-eye';}"></i>
+                                    <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="togglePasswordVisibility('regPassword', this)"></i>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label for="regPin">4-Digit Security PIN (For Transactions)</label>
                                 <div style="position: relative;">
                                     <input type="password" id="regPin" autocomplete="new-password" required maxlength="4" pattern="[0-9]{4}" placeholder="e.g. 1234" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
-                                    <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="const pinField = document.getElementById('regPin'); if(pinField.type==='password'){pinField.type='text'; this.className='fas fa-eye-slash';}else{pinField.type='password'; this.className='fas fa-eye';}"></i>
+                                    <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="togglePasswordVisibility('regPin', this)"></i>
                                 </div>
                                 <small style="color:#aaa;">You will need this PIN to request loans or make payments.</small>
                             </div>
@@ -198,7 +211,7 @@
                                     <label for="recoveryNewPassword">Create New Secure Password</label>
                                     <div style="position: relative;">
                                         <input type="password" id="recoveryNewPassword" autocomplete="new-password" required placeholder="Enter new password" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
-                                        <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="const memberRecPwd = document.getElementById('recoveryNewPassword'); if(memberRecPwd.type==='password'){memberRecPwd.type='text'; this.className='fas fa-eye-slash';}else{memberRecPwd.type='password'; this.className='fas fa-eye';}"></i>
+                                        <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="togglePasswordVisibility('recoveryNewPassword', this)"></i>
                                     </div>
                                 </div>
                                 <button type="submit" class="btn btn-success btn-block">Update Password</button>
@@ -317,7 +330,7 @@
                     <form id="takeLoanForm" onsubmit="processLoanApplication(event)">
                         <div class="form-group">
                             <label>Principal Amount Required (Ksh)</label>
-                            <input type="number" id="loanAmount" min="500" required placeholder="e.g. 25000">
+                            <input type="number" id="loanAmount" min="50" required placeholder="e.g. 25000">
                         </div>
                         <div class="form-group">
                             <label>Amortization Window (Months)</label>
@@ -325,7 +338,8 @@
                         </div>
                         <div class="form-group">
                             <label>Assigned Annual Interest Rate (%)</label>
-                            <input type="number" id="loanInterest" value="12" readonly>
+                            <input type="number" id="loanInterest" value="12" readonly style="opacity:0.7;">
+                            <small style="color:#888;">Set by administrator</small>
                         </div>
                         <button type="submit" class="btn btn-primary ActionRestricted">File Loan Request</button>
                     </form>
@@ -344,8 +358,9 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Repayment Installment (Ksh)</label>
-                            <input type="number" id="payAmount" min="100" required placeholder="Specify payment value">
+                            <label>Repayment Installment (Ksh) — Minimum Ksh 1, partial payments allowed</label>
+                            <input type="number" id="payAmount" min="1" step="0.01" required placeholder="Enter amount (min Ksh 1)">
+                            <small class="text-muted" id="payLoanBalanceHint"></small>
                         </div>
                         <div class="form-group">
                             <label>Payment Channel</label>
@@ -407,23 +422,45 @@
                             </div>
                         </div>
 
-                        <!-- 3. Join Meeting Online -->
-                        <div style="background: linear-gradient(135deg, rgba(156,39,176,0.12), rgba(156,39,176,0.04)); border: 1px solid rgba(156,39,176,0.35); border-radius: 16px; padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 32px rgba(156,39,176,0.2)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                        <!-- 3. Active & Past Meetings -->
+                        <div style="background: linear-gradient(135deg, rgba(156,39,176,0.12), rgba(156,39,176,0.04)); border: 1px solid rgba(156,39,176,0.35); border-radius: 16px; padding: 28px 24px; display: flex; flex-direction: column; gap: 14px;">
                             <div style="display: flex; align-items: center; gap: 14px;">
                                 <div style="width: 52px; height: 52px; border-radius: 12px; background: rgba(156,39,176,0.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                    <i class="fas fa-video" style="font-size: 1.5rem; color: #ce93d8;"></i>
+                                    <i class="fas fa-calendar-alt" style="font-size: 1.5rem; color: #ce93d8;"></i>
                                 </div>
                                 <div>
-                                    <h4 style="margin: 0 0 4px; font-size: 1.05rem; color: #ce93d8;">Join Meeting Online</h4>
-                                    <p style="margin: 0; font-size: 12px; color: #888;">Admin sends the meeting link. Click below to join when the link is available.</p>
+                                    <h4 style="margin: 0 0 4px; font-size: 1.05rem; color: #ce93d8;">Meetings</h4>
+                                    <p style="margin: 0; font-size: 12px; color: #888;">Click a button to view active or past meetings scheduled by your admin.</p>
                                 </div>
                             </div>
-                            <div id="meetingLinkBox" style="background: rgba(255,255,255,0.04); border: 1px dashed rgba(156,39,176,0.4); border-radius: 10px; padding: 14px; text-align: center;">
-                                <i class="fas fa-satellite-dish" style="font-size: 1.8rem; color: #9c27b0; margin-bottom: 8px;"></i>
-                                <p id="meetingLinkText" style="margin: 0; font-size: 13px; color: #aaa;">No meeting link sent by admin yet. Check back later or contact your admin.</p>
-                                <a id="meetingJoinBtn" href="#" target="_blank" rel="noopener" style="display: none; margin-top: 12px; padding: 10px 24px; border-radius: 8px; background: #9c27b0; color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='#7b1fa2';" onmouseout="this.style.background='#9c27b0';"><i class="fas fa-video"></i> Join Meeting Now</a>
+
+                            <!-- Active Meetings Dropdown -->
+                            <div>
+                                <button type="button" onclick="toggleMeetingPanel('activeMeetingsPanel', this)"
+                                    style="width:100%; padding:10px 16px; border-radius:8px; border:none; background:#9c27b0; color:#fff; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+                                    <span><i class="fas fa-video"></i> Active Meetings</span>
+                                    <i class="fas fa-chevron-down" id="activeMeetingsChevron"></i>
+                                </button>
+                                <div id="activeMeetingsPanel" style="display:none; border:1px solid rgba(156,39,176,0.3); border-radius:0 0 8px 8px; overflow:hidden;">
+                                    <div id="activeMeetingsList" style="max-height:280px; overflow-y:auto;">
+                                        <div style="padding:20px; text-align:center; color:#888; font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                                    </div>
+                                </div>
                             </div>
-                            <p style="font-size: 11px; color: #666; margin: 0; text-align: center;">Meeting links are posted by the Admin. You will receive a notification when a link is available.</p>
+
+                            <!-- Past Meetings Dropdown -->
+                            <div>
+                                <button type="button" onclick="toggleMeetingPanel('pastMeetingsPanel', this)"
+                                    style="width:100%; padding:10px 16px; border-radius:8px; border:none; background:#5e35b1; color:#fff; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+                                    <span><i class="fas fa-history"></i> Past Meetings</span>
+                                    <i class="fas fa-chevron-down" id="pastMeetingsChevron"></i>
+                                </button>
+                                <div id="pastMeetingsPanel" style="display:none; border:1px solid rgba(94,53,177,0.3); border-radius:0 0 8px 8px; overflow:hidden;">
+                                    <div id="pastMeetingsList" style="max-height:280px; overflow-y:auto;">
+                                        <div style="padding:20px; text-align:center; color:#888; font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                     </div><!-- end activity grid -->
@@ -432,23 +469,36 @@
 
             <section id="reportsSection" class="content-section" style="display: none;">
                 <div class="panel-card">
-                    <h3><i class="fas fa-file-invoice-dollar text-teal"></i> Ledger Records & Personal Transcripts</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3><i class="fas fa-file-invoice-dollar text-teal"></i> Live Ledger</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <select id="ledgerTypeFilter" onchange="rebuildMetricsDashboard()" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #444; background: var(--bg-dark-panel); color: var(--text-primary); font-size: 0.85rem;">
+                                <option value="all">All Types</option>
+                                <option value="Loan">Loans</option>
+                                <option value="Repayment">Repayments</option>
+                                <option value="Contribution">Contributions</option>
+                                <option value="Expense">Expenses</option>
+                            </select>
+                            <button class="btn btn-secondary" onclick="printMemberLedger()" style="padding: 5px 12px; font-size: 0.85rem;"><i class="fas fa-print"></i> Print</button>
+                        </div>
+                    </div>
+                    <div id="ledgerSummaryCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 15px;"></div>
                     <hr>
                     <div class="table-responsive">
                         <table class="data-table-element">
                             <thead>
                                 <tr>
-                                    <th>Transaction ID</th>
-                                    <th>Classification</th>
-                                    <th>Volume Matrix</th>
-                                    <th>Timestamp Record</th>
-                                    <th>Verification Status</th>
+                                    <th>ID</th>
+                                    <th>Type</th>
+                                    <th>Amount (Ksh)</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Remaining Balance</th>
                                 </tr>
                             </thead>
                             <tbody id="memberReportTableBody">
                                 <tr>
-                                    <td colspan="5" style="text-align: center;" class="text-muted">No historical
-                                        transactions logged in current workspace session.</td>
+                                    <td colspan="6" style="text-align: center;" class="text-muted">No transactions recorded yet.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -506,13 +556,55 @@
                 </div>
             </section>
 
+            <section id="messagesSection" class="content-section" style="display: none;">
+                <div class="panel-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3><i class="fas fa-envelope text-primary"></i> Messages</h3>
+                        <span id="msgUnreadIndicator" style="font-size:12px; color:#ef4444; display:none;"><i class="fas fa-circle"></i> Unread messages from admin</span>
+                    </div>
+                    <p class="subtitle text-muted">View messages from your administrator and send messages directly.</p>
+                    <hr>
+                    <!-- Compose Form -->
+                    <div style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.2); border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 12px; font-size: 0.95rem; color: var(--primary);"><i class="fas fa-pen"></i> Compose Message</h4>
+                        <form id="messageComposeForm" onsubmit="sendMessageToAdmin(event)">
+                            <div class="form-group">
+                                <label for="msgSubject">Subject</label>
+                                <input type="text" id="msgSubject" placeholder="What is this about?" required style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background: var(--bg-dark-panel); color: var(--text-primary); font-size:13px; box-sizing:border-box;">
+                            </div>
+                            <div class="form-group">
+                                <label for="msgBody">Message</label>
+                                <textarea id="msgBody" rows="4" placeholder="Write your message here..." required style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background: var(--bg-dark-panel); color: var(--text-primary); font-size:13px; resize:vertical; box-sizing:border-box;"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="btnSendMessage" style="padding:10px 20px;"><i class="fas fa-paper-plane"></i> Send Message</button>
+                            <span id="sendMessageStatus" style="margin-left:12px; font-size:13px;"></span>
+                        </form>
+                    </div>
+                    <!-- Message Thread -->
+                    <h4 style="margin: 0 0 10px; font-size: 0.95rem;"><i class="fas fa-inbox"></i> Message Thread</h4>
+                    <div id="messagesInboxList" style="max-height:400px; overflow-y:auto;">
+                        <div style="padding:20px; text-align:center; color:#888; font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</div>
+                    </div>
+                </div>
+            </section>
+
             <section id="notificationsSection" class="content-section" style="display: none;">
                 <div class="panel-card">
-                    <h3><i class="fas fa-bell text-primary"></i> System Notifications & Logs</h3>
-                    <p class="subtitle text-muted">All automated system alerts and notifications.</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3><i class="fas fa-bell text-primary"></i> Activity & Alerts</h3>
+                        <select id="notificationTypeFilter" onchange="renderNotificationsFeed()" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #444; background: var(--bg-dark-panel); color: var(--text-primary); font-size: 0.85rem;">
+                            <option value="all">All Activity</option>
+                            <option value="loan">Loan Updates</option>
+                            <option value="contribution">Contributions</option>
+                            <option value="expense">Expenses</option>
+                            <option value="security">Security</option>
+                            <option value="system">System</option>
+                        </select>
+                    </div>
+                    <p class="subtitle text-muted" style="font-size: 0.85rem;">Real-time notifications from your account activity.</p>
                     <hr>
                     <div class="notification-stream" id="memberNotificationFeedExtended">
-                        <div class="text-muted" style="text-align:center; padding:2rem;">Loading logs...</div>
+                        <div class="text-muted" style="text-align:center; padding:2rem;">Loading activity...</div>
                     </div>
                 </div>
             </section>
@@ -524,16 +616,16 @@
                     <div class="chat-outer-box" style="min-height: 400px; margin-top: 15px;">
                         <div class="chat-header">
                             <span>Admin WhatsApp Contact</span>
-                            <small id="adminContactHint">Loading admin details...</small>
+                            <small id="contactAdminHint">Loading admin details...</small>
                         </div>
                         <div class="chat-history-window" id="chatWindow" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;">
                             <div style="font-size: 48px; margin-bottom: 15px;"></div>
                             <div id="adminDetailsDisplay" style="width: 100%;">
                                 <p style="color: #94a3b8; margin-bottom: 10px;">Admin Contact Information</p>
                                 <div style="background: rgba(56, 189, 248, 0.1); padding: 15px; border-radius: 8px; border: 1px solid #38bdf8; margin: 10px 0;">
-                                    <p style="margin: 5px 0;"><strong>Name:</strong> <span id="adminNameDisplay">Loading...</span></p>
-                                    <p style="margin: 5px 0;"><strong>Phone:</strong> <span id="adminPhoneDisplay">Loading...</span></p>
-                                    <p style="margin: 5px 0;"><strong>Email:</strong> <span id="adminEmailDisplay">Loading...</span></p>
+                                    <p style="margin: 5px 0;"><strong>Name:</strong> <span id="contactAdminName">Loading...</span></p>
+                                    <p style="margin: 5px 0;"><strong>Phone:</strong> <span id="contactAdminPhone">Loading...</span></p>
+                                    <p style="margin: 5px 0;"><strong>Email:</strong> <span id="contactAdminEmail">Loading...</span></p>
                                 </div>
                             </div>
                         </div>
@@ -561,22 +653,103 @@
             </section>
 
             <section id="settingsSection" class="content-section" style="display: none;">
-                <div class="panel-card max-width-md">
+                <div class="panel-card max-width-md" style="border-top: 4px solid var(--primary);">
+                    <h3><i class="fas fa-id-card text-primary"></i> My Profile</h3>
+                    <hr>
+                    <div id="profileSummaryCard" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem;">
+                        <div><strong>Name:</strong> <span id="settingsProfileName">-</span></div>
+                        <div><strong>Phone:</strong> <span id="settingsProfilePhone">-</span></div>
+                        <div><strong>Email:</strong> <span id="settingsProfileEmail">-</span></div>
+                        <div><strong>Status:</strong> <span id="settingsProfileStatus" style="font-weight: bold;">-</span></div>
+                        <div><strong>Member ID:</strong> <span id="settingsProfileId">-</span></div>
+                        <div><strong>Joined:</strong> <span id="settingsProfileDate">-</span></div>
+                    </div>
+                </div>
+
+                <div class="panel-card max-width-md" style="margin-top: 20px;">
                     <h3><i class="fas fa-sliders-h text-muted"></i> Workspace Parameters</h3>
                     <hr>
-                    <div class="form-group">
-                        <label class="toggle-switch-wrapper">
-                            <input type="checkbox" id="settingSimulatedDelay" checked>
-                            <span class="custom-toggle-slider"></span>
-                            <span>Enforce Back-end Roundtrip Simulation Delays</span>
+                    <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <h4 style="margin: 0 0 5px; font-size: 0.95rem;">Enforce Back-End Roundtrip</h4>
+                            <p style="margin: 0; font-size: 0.8rem; color: #888;">Require API refresh on every data load.</p>
+                        </div>
+                        <label class="toggle-switch" style="margin-left: 15px;">
+                            <input type="checkbox" id="settingsForceRefresh">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <h4 style="margin: 0 0 5px; font-size: 0.95rem;">Disable Glassmorphism Blur</h4>
+                            <p style="margin: 0; font-size: 0.8rem; color: #888;">Improve performance on older devices.</p>
+                        </div>
+                        <label class="toggle-switch" style="margin-left: 15px;">
+                            <input type="checkbox" id="settingsDisableBlur" onchange="toggleBlurEffect(this.checked)">
+                            <span class="slider"></span>
                         </label>
                     </div>
                     <button class="btn btn-danger" onclick="executeSystemReset()"><i class="fas fa-trash-alt"></i> Flush
                         Local Cache State</button>
                 </div>
+
+                <div class="panel-card max-width-md" style="margin-top: 20px; border-top: 4px solid #4caf50;">
+                    <h3><i class="fas fa-user-edit text-success"></i> Update Profile</h3>
+                    <p class="subtitle text-muted">Update your name, phone number, or email.</p>
+                    <hr>
+                    <form id="updateProfileForm" onsubmit="updateMemberProfile(event)">
+                        <div class="form-group">
+                            <label for="profileName">Full Name</label>
+                            <input type="text" id="profileName" autocomplete="name" placeholder="Your full name">
+                        </div>
+                        <div class="form-group">
+                            <label for="profilePhone">Phone Number</label>
+                            <input type="tel" id="profilePhone" autocomplete="tel" placeholder="e.g. 0712345678">
+                        </div>
+                        <div class="form-group">
+                            <label for="profileEmail">Email Address</label>
+                            <input type="email" id="profileEmail" autocomplete="email" placeholder="you@example.com">
+                        </div>
+                        <div id="profileUpdateStatus" style="margin-top: 10px; font-size: 13px;"></div>
+                        <button type="submit" class="btn btn-primary" style="margin-top: 10px;"><i class="fas fa-save"></i> Update Profile</button>
+                    </form>
+                </div>
+
+                <div class="panel-card max-width-md" style="margin-top: 20px; border-top: 4px solid var(--primary);">
+                    <h3><i class="fas fa-key text-primary"></i> Update Password & PIN</h3>
+                    <p class="subtitle text-muted">Change your login password or transaction security PIN.</p>
+                    <hr>
+                    <form id="updateCredentialsForm" onsubmit="updateMemberCredentials(event)">
+                        <div class="form-group">
+                            <label for="currentPassword">Current Password</label>
+                            <div style="position: relative;">
+                                <input type="password" id="currentPassword" autocomplete="current-password" required placeholder="Enter current password" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
+                                <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="togglePasswordVisibility('currentPassword', this)"></i>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">New Password (leave blank to keep current)</label>
+                            <div style="position: relative;">
+                                <input type="password" id="newPassword" autocomplete="new-password" placeholder="Enter new password (min 6 characters)" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
+                                <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="togglePasswordVisibility('newPassword', this)"></i>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="newPin">New Transaction PIN (leave blank to keep current)</label>
+                            <div style="position: relative;">
+                                <input type="password" id="newPin" autocomplete="new-password" maxlength="4" pattern="[0-9]{4}" placeholder="e.g. 1234" style="width: 100%; box-sizing: border-box; padding-right: 40px;">
+                                <i class="fas fa-eye" style="position:absolute; right:12px; top:12px; color:#aaa; cursor:pointer;" onclick="togglePasswordVisibility('newPin', this)"></i>
+                            </div>
+                            <small style="color:#aaa;">4-digit numeric PIN for loan requests and payments.</small>
+                        </div>
+                        <div id="credUpdateStatus" style="margin-top: 10px; font-size: 13px;"></div>
+                        <button type="submit" class="btn btn-primary" style="margin-top: 10px;"><i class="fas fa-save"></i> Update Credentials</button>
+                    </form>
+                </div>
             </section>
 
         </main>
+    </div><!-- /.app-container -->
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script>
         (function(){
@@ -607,27 +780,33 @@
             <h3 style="margin-top: 0;">Manual Dues & Contribution Entry</h3>
             <form id="paymentForm" onsubmit="submitPayment(event)" enctype="multipart/form-data">
                 <div class="form-group" style="position: relative;">
-                    <label>Member Search (Predictive)</label>
-                    <input type="text" id="paymentMemberSearch" placeholder="Type name..." oninput="filterMemberSearch(this.value)" autocomplete="off">
-                    <input type="hidden" id="paymentMemberId" required>
-                    <div id="memberSearchDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-dark-panel); border: 1px solid var(--bg-dark-accent); max-height: 150px; overflow-y: auto; z-index: 1000;"></div>
+                    <label>Member Name *</label>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="paymentMemberSearch" placeholder="Type name or click dropdown..." oninput="filterMemberSearch(this.value)" autocomplete="off" style="flex: 1;">
+                        <button type="button" class="btn btn-secondary" onclick="toggleAllMembersDropdown()" title="Show all members" style="padding: 6px 10px; min-width: 36px;"><i class="fas fa-chevron-down"></i></button>
+                    </div>
+                    <input type="hidden" id="paymentMemberId">
+                    <div id="memberSearchDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-dark-panel); border: 1px solid var(--bg-dark-accent); max-height: 200px; overflow-y: auto; z-index: 1000;"></div>
                 </div>
                 <div class="form-group">
-                    <label>Amount (Numeric > 0)</label>
-                    <input type="number" id="paymentAmount" step="0.01" min="0.01" required>
+                    <label>Amount (Ksh) *</label>
+                    <input type="number" id="paymentAmount" step="0.01" min="0.01" required placeholder="Enter contribution amount">
                 </div>
                 <div class="form-group">
-                    <label>Payment Method</label>
-                    <select id="paymentMethod" required>
-                        <option value="">-- Select Method --</option>
+                    <label>Payment Method (Optional)</label>
+                    <select id="paymentMethod" onchange="toggleCustomPaymentMethod(this.value)">
+                        <option value="">-- Not specified --</option>
                         <option value="Cash">Cash</option>
+                        <option value="M-Pesa">M-Pesa</option>
                         <option value="Bank Transfer">Bank Transfer</option>
                         <option value="Cheque">Cheque</option>
                         <option value="Digital Wallet">Digital Wallet</option>
+                        <option value="__other__">Other (specify below)</option>
                     </select>
+                    <input type="text" id="paymentMethodCustom" placeholder="Enter custom payment method" style="display:none; margin-top:6px;" maxlength="100">
                 </div>
-                <div class="form-group">
-                    <label>Receipt File (Optional, .pdf, .jpeg, .png)</label>
+                <div class="form-group" style="display: none;">
+                    <label>Receipt File (Optional)</label>
                     <input type="file" id="paymentReceipt" accept=".pdf, .jpeg, .jpg, .png">
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -644,21 +823,25 @@
             <h3 style="margin-top: 0;">New Expense Voucher Submission</h3>
             <form id="expenseForm" onsubmit="submitExpense(event)" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label>Category/Line Item</label>
-                    <select id="expenseCategory" required>
+                    <label>Category/Line Item *</label>
+                    <select id="expenseCategory" required onchange="toggleCustomExpenseCategory(this.value)">
                         <option value="">-- Select Category --</option>
                         <option value="Office Supplies">Office Supplies</option>
                         <option value="Event Logistics">Event Logistics</option>
                         <option value="Travel">Travel</option>
                         <option value="Refreshments">Refreshments</option>
-                        <option value="Other Operations">Other Operations</option>
+                        <option value="Transport & Fuel">Transport & Fuel</option>
+                        <option value="Communication">Communication</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Other">Other (specify below)</option>
                     </select>
+                    <input type="text" id="expenseCategoryCustom" placeholder="Enter custom category" style="display:none; margin-top:6px;" maxlength="150">
                 </div>
                 <div class="form-group">
                     <label>Amount (Numeric)</label>
                     <input type="number" id="expenseAmount" step="0.01" min="0.01" required>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="display: none;">
                     <label>Receipt File (Optional, Max 10MB)</label>
                     <input type="file" id="expenseReceipt" accept="*/*" onchange="validateExpenseReceipt(this)">
                 </div>

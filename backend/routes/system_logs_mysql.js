@@ -1,6 +1,6 @@
 const express = require('express');
 const { sequelize } = require('../models');
-const { requireAdmin, getFallbackAdminId } = require('../adminContext');
+const { requireAdmin, getFallbackAdminId, getMemberFromRequest } = require('../adminContext');
 
 const router = express.Router();
 
@@ -60,6 +60,8 @@ router.post('/create', async (req, res) => {
 // Gets logs for the admin that owns this member
 router.get('/member/:id', async (req, res) => {
   try {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
     const memberId = Number(req.params.id);
     const approvedRows = await sequelize.query(
       `SELECT admin_id FROM approved_members WHERE id = :id LIMIT 1`,
@@ -102,7 +104,7 @@ router.delete('/delete', async (req, res) => {
     const admin = requireAdmin(req, res);
     if (!admin) return;
     const { ids } = req.body || {};
-    if (!ids || !Array.isArray(ids) || ids.length === 0) return fail(res, 400, 'Missing ids');
+    if (!Array.isArray(ids) || ids.length === 0) return fail(res, 400, 'No IDs provided');
 
     const placeholders = ids.map(() => '?').join(',');
     await sequelize.query(
@@ -123,11 +125,7 @@ router.delete('/keep', async (req, res) => {
     const admin = requireAdmin(req, res);
     if (!admin) return;
     const { ids } = req.body || {};
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      // Keep nothing = delete all
-      await sequelize.query(`DELETE FROM system_logs WHERE admin_id = :adminId`, { type: sequelize.QueryTypes.DELETE, replacements: { adminId: admin.id } });
-      return ok(res, { kept: 0 });
-    }
+    if (!Array.isArray(ids) || ids.length === 0) return fail(res, 400, 'No IDs provided');
     const placeholders = ids.map(() => '?').join(',');
     await sequelize.query(
       `DELETE FROM system_logs WHERE admin_id = ? AND id NOT IN (${placeholders})`,
@@ -137,6 +135,39 @@ router.delete('/keep', async (req, res) => {
   } catch (e) {
     console.error('[logs/keep]', e);
     return fail(res, 500, 'System error keeping logs');
+  }
+});
+
+// GET /api/logs/member-activity/:id
+// Member-safe route: accepts a MEMBER token.
+// Returns the admin's logs for the member's account (used by notifications feed).
+router.get('/member-activity/:id', async (req, res) => {
+  try {
+    const member = getMemberFromRequest(req);
+    if (!member) return fail(res, 401, 'Member session required.');
+
+    const memberId = Number(req.params.id);
+    // Ensure member is only fetching their own logs
+    if (String(member.id) !== String(memberId)) {
+      return fail(res, 403, 'You can only view your own activity logs.');
+    }
+
+    const approvedRows = await sequelize.query(
+      `SELECT admin_id FROM approved_members WHERE id = :id LIMIT 1`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { id: memberId } }
+    );
+    if (!approvedRows.length || !approvedRows[0].admin_id) {
+      return ok(res, []);
+    }
+    const adminId = approvedRows[0].admin_id;
+    const logs = await sequelize.query(
+      `SELECT id, message, timestamp_str, created_at FROM system_logs WHERE admin_id = :adminId ORDER BY created_at DESC LIMIT 50`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { adminId } }
+    );
+    return ok(res, logs);
+  } catch (e) {
+    console.error('[logs/member-activity]', e);
+    return fail(res, 500, 'Error fetching member activity logs');
   }
 });
 

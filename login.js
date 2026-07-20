@@ -1,6 +1,17 @@
 // login.js
 const API = window.__API_BASE__ || '/api';
 
+function togglePasswordVisibility(fieldId, iconEl) {
+    const field = document.getElementById(fieldId);
+    if (!field || !iconEl) return;
+    if (field.type === 'password') {
+        field.type = 'text';
+        iconEl.className = 'fas fa-eye-slash';
+    } else {
+        field.type = 'password';
+        iconEl.className = 'fas fa-eye';
+    }
+}
 
 function goToLogin() {
   window.location.href = "login.html"; 
@@ -11,7 +22,7 @@ function goToCreateAccount() {
 }
 
 function goToHome() {
-  window.location.href = "laddingpage.html"; 
+  window.location.href = "landingpage.html"; 
 }
 document.querySelector('form').addEventListener('submit', function(e) {
     e.preventDefault(); // Halt page bounce mechanisms to intercept processing cleanly
@@ -26,6 +37,10 @@ document.querySelector('form').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
+            // Clear any stale session data from previous timeout
+            sessionStorage.removeItem('homeSessionTimedOut');
+            localStorage.removeItem('disableBlurEffect');
+
             // Stamp admin session so home.html blur gate can verify
             sessionStorage.setItem('adminSession', JSON.stringify({
                 id: data.admin?.id || '',

@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Close dropdown on outside click
   document.addEventListener('click', (e) => {
-    const dd = document.getElementById('hushedDropdownMenu');
+    const dd = document.getElementById('adminAccountDropdown');
     if (dd && !e.target.closest('.menu-dropdown')) dd.style.display = 'none';
     if (
       document.body.classList.contains('sidebar-open') &&
@@ -696,25 +696,25 @@ async function renderLoansTableDashboard() {
     tbody.innerHTML = loans.map((loan, idx) => `
       <tr>
         <td>${idx + 1}</td>
-        <td>
+        <td style="min-width:150px;">
           <strong>${loan.borrower_name}</strong><br>
-          <small>Tracking ID: <code>${loan.id}</code></small>
+          <small>ID: <code>${loan.id}</code></small>
         </td>
-        <td>
+        <td style="width:5%;">
           <input type="checkbox" value="${loan.id}" ${selectedLoanIds.includes(String(loan.id)) ? 'checked' : ''} onchange="toggleLoanSelection('${loan.id}', this.checked)">
         </td>
-        <td>
-          <span>Principal Balance: KES ${parseFloat(loan.amount).toLocaleString()}</span><br>
-          <span style="font-weight:bold; color:${loan.status === 'Active' ? '#ff9800' : '#4caf50'}">Status: ${loan.status}</span>
+        <td style="min-width:180px;">
+          <span>KES ${parseFloat(loan.amount).toLocaleString()}</span><br>
+          <span style="font-weight:bold; color:${loan.status === 'Active' ? '#ff9800' : '#4caf50'}">${loan.status}</span>
         </td>
         <td class="action-button-cell">
           <div class="button-group">
-            <button class="action-btn small" style="background:#4caf50; min-width: 100px;" onclick="settleLoanInstantly('${loan.id}')">Force Settle</button>
+            <button class="action-btn" style="background:#4caf50; padding:5px 8px; font-size:11px;" onclick="settleLoanInstantly('${loan.id}')">Settle</button>
           </div>
         </td>
         <td class="action-button-cell">
           <div class="button-group">
-            <button class="btn-del small" onclick="dropLoanFile('${loan.id}')">Drop</button>
+            <button class="btn-del" style="padding:5px 8px; font-size:11px;" onclick="dropLoanFile('${loan.id}')">Drop</button>
           </div>
         </td>
       </tr>`).join('');
@@ -726,6 +726,14 @@ async function renderLoansTableDashboard() {
 function toggleLoanSelection(loanId, isChecked) {
   if (isChecked) { if (!selectedLoanIds.includes(String(loanId))) selectedLoanIds.push(String(loanId)); }
   else           { selectedLoanIds = selectedLoanIds.filter(id => id !== String(loanId)); }
+}
+
+function toggleAllLoans(isChecked) {
+  const boxes = document.querySelectorAll('#loansTableBody input[type="checkbox"]');
+  boxes.forEach(cb => {
+    cb.checked = isChecked;
+    toggleLoanSelection(cb.value, isChecked);
+  });
 }
 
 function togglePendingMemberSelection(memberId, isChecked) {
@@ -820,10 +828,11 @@ function executeMainMenuAction(selectEl) {
     checkboxes.forEach(cb => cb.checked = false);
     selectedLoanIds = [];
   } else if (action === 'deleteAll') {
+    if (allLoansList.length === 0) return alert('No loan records to delete.');
     showAdminPasswordModal('Delete all loan records', async (pass, modal) => {
       await verifyAdminPassword(pass);
       trackingMetrics.deletedProfilesLog.push(...allLoansList.map(l => ({ ...l, dateDeleted: new Date().toLocaleString() })));
-      await apiCall('loans/drop-many', { method: 'DELETE', body: JSON.stringify({ ids: [] }) });
+      await apiCall('loans/drop-many', { method: 'DELETE', body: JSON.stringify({ ids: allLoansList.map(l => l.id) }) });
       modal.remove();
       selectedLoanIds = [];
       await renderLoansTableDashboard();
@@ -1436,7 +1445,7 @@ function syncComplianceFormView() {
   const mId     = sel.value;
   if (!mId) {
     preview.innerHTML = '';
-    if (notice) notice.innerHTML = 'as i  <strong>Validation Status:</strong> Choose a member record below to trigger the policy verification mechanism.';
+    if (notice) notice.innerHTML = '<strong>Validation Status:</strong> Choose a member record below to trigger the policy verification mechanism.';
     return;
   }
   const member = membersArray.find(m => String(m.id) === mId);
@@ -1445,22 +1454,28 @@ function syncComplianceFormView() {
   const loan     = Number(member.loanAmount || 0);
   const cap      = savings * 3;
   const ok       = loan <= cap;
+  const memberLoans = (allLoansList || []).filter(l => String(l.borrower_id) === String(mId));
+  const loanStatus = memberLoans.length > 0
+    ? memberLoans.map(l => `${l.status} (KES ${Number(l.amount).toLocaleString()})`).join(', ')
+    : 'No Active Loans';
   if (notice) notice.innerHTML = ok
-    ? `a... <strong>Validation Status:</strong> Policy check PASSED for <strong>${member.full_name || member.name}</strong>. Loan within 3x savings ceiling.`
-    : `as i  <strong>Validation Status:</strong> POLICY VIOLATION detected for <strong>${member.full_name || member.name}</strong>. Loan exceeds 3x savings limit!`;
-  preview.innerHTML = `
+    ? `<strong>Validation Status:</strong> Policy check PASSED for <strong>${member.full_name || member.name}</strong>. Loan within 3x savings ceiling.`
+    : `<strong>Validation Status:</strong> POLICY VIOLATION detected for <strong>${member.full_name || member.name}</strong>. Loan exceeds 3x savings limit!`;
+    preview.innerHTML = `
     <div style="font-family:monospace; font-size:12px; line-height:1.8;">
       <strong><h4 style=" text-align: center; text-decoration: underline;">OFFICIAL REGISTRY SHEET</h4></strong><br>
       <br>
       Member: ${member.full_name || member.name}<br>
       Email: <a href="mailto:${member.email}">${member.email}</a><br>
+      Phone: ${member.phone || 'N/A'}<br>
       ID:     ${member.id}<br>
     -----------------------------------------<br>
       Loan Balance:   KES ${loan.toFixed(2)}<br>
+      Loan Status:    ${loanStatus}<br>
       Savings:        KES ${savings.toFixed(2)}<br>
       3x Cap:         KES ${cap.toFixed(2)}<br>
     -----------------------------------------<br>
-      Status: ${ok ? 'a... COMPLIANT' : 'as i  OVER LIMIT'}
+      Status: ${ok ? 'COMPLIANT' : 'OVER LIMIT'}
     </div>`;
 }
 
@@ -1780,7 +1795,11 @@ function buildRegistryText(memberId) {
     const savings = Number(m.savingsAmount || 0);
     const loan = Number(m.loanAmount || 0);
     const cap = savings * 3;
-    return `CHAMA OFFICIAL REGISTRY\nMember: ${m.full_name || m.name}\nEmail: ${m.email}\nPhone: ${m.phone || 'N/A'}\nID: ${m.id}\nLoan Balance: KES ${loan.toFixed(2)}\nSavings: KES ${savings.toFixed(2)}\n3x Cap: KES ${cap.toFixed(2)}\nStatus: ${loan <= cap ? 'COMPLIANT' : 'OVER LIMIT'}`;
+    const memberLoans = (allLoansList || []).filter(l => String(l.borrower_id) === String(memberId));
+    const loanStatus = memberLoans.length > 0
+      ? memberLoans.map(l => `${l.status} (KES ${Number(l.amount).toLocaleString()})`).join(', ')
+      : 'No Active Loans';
+    return `CHAMA OFFICIAL REGISTRY\nMember: ${m.full_name || m.name}\nEmail: ${m.email}\nPhone: ${m.phone || 'N/A'}\nID: ${m.id}\nLoan Balance: KES ${loan.toFixed(2)}\nLoan Status: ${loanStatus}\nSavings: KES ${savings.toFixed(2)}\n3x Cap: KES ${cap.toFixed(2)}\nStatus: ${loan <= cap ? 'COMPLIANT' : 'OVER LIMIT'}`;
   }
 
   const header = ['id','full_name','email','phone','status'].join(',');
@@ -2050,7 +2069,7 @@ function filterMemberGridDisplay(filterMode) {
 }
 
 function toggleHushedMenu() {
-  const menu = document.getElementById('hushedDropdownMenu');
+  const menu = document.getElementById('adminAccountDropdown');
   if (menu) menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
 }
 
@@ -3931,21 +3950,33 @@ async function authorizeExpense(id, action) {
 }
 
 // a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*
-//  SESSION TIMEOUT (5 MINUTES INACTIVITY)
+//  SESSION TIMEOUT (10 MIN INACTIVITY / 30 MIN WITH BLUR LOCK)
 // a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*
 (function() {
     let inactivityTimer;
-    const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const TIMEOUT_BLUR_OFF = 10 * 60 * 1000; // 10 minutes when blur is off
+    const TIMEOUT_BLUR_ON = 30 * 60 * 1000;  // 30 minutes when blur is on
+
+    function getTimeout() {
+        try {
+            var blurOn = document.body.classList.contains('home-admin-locked') ||
+                         sessionStorage.getItem('homeSessionTimedOut') === 'true';
+            return blurOn ? TIMEOUT_BLUR_ON : TIMEOUT_BLUR_OFF;
+        } catch (e) {
+            return TIMEOUT_BLUR_OFF;
+        }
+    }
 
     function resetTimer() {
         clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(logoutDueToInactivity, TIMEOUT_MS);
+        inactivityTimer = setTimeout(logoutDueToInactivity, getTimeout());
     }
 
     function logoutDueToInactivity() {
-        sessionStorage.setItem('homeSessionTimedOut', 'true');
-        if (typeof applyBlurState === 'function') applyBlurState(true);
-        alert("Session expired due to inactivity. The admin console has been locked.");
+        sessionStorage.removeItem('homeSessionTimedOut');
+        localStorage.removeItem('disableBlurEffect');
+        sessionStorage.removeItem('adminSession');
+        window.location.href = 'login.html';
     }
 
     // Use addEventListener to avoid overwriting existing handlers
@@ -3973,6 +4004,8 @@ function toggleAdminDropdown() {
 // a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*
 
 let allMinuteRecords = [];
+let selectedMinuteIds = new Set();
+let activeDetailMinuteId = null;
 
 async function saveMinuteRecord() {
   const title     = (document.getElementById('minuteTitle')?.value || '').trim();
@@ -4011,67 +4044,178 @@ async function saveMinuteRecord() {
 }
 
 async function loadMinuteRegistry() {
-  const container = document.getElementById('minuteRegistryList');
-  if (!container) return;
-  container.innerHTML = '<div style="opacity:0.6; font-style:italic; padding:12px;">Loading minutes registry...</div>';
-
+  const tbody = document.getElementById('minutesTableBody');
   try {
     const data = await apiCall('minutes/list', { method: 'GET' });
     allMinuteRecords = Array.isArray(data) ? data : (Array.isArray(data && data.data) ? data.data : []);
-    renderMinuteCards(allMinuteRecords);
+    selectedMinuteIds.clear();
+    activeDetailMinuteId = null;
+    updateSelectedCount();
+
+    const selectAllCb = document.getElementById('selectAllMinutes');
+    if (selectAllCb) selectAllCb.checked = false;
+
+    if (!tbody) return;
+    if (!allMinuteRecords.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="opacity:0.5; font-style:italic; padding:20px; text-align:center;">No meeting minutes recorded yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = allMinuteRecords.map(function(r, i) {
+      const urlBadge = r.meeting_url
+        ? '<span style="background:#4caf50; color:#fff; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;" title="' + r.meeting_url + '"><i class="fas fa-link"></i> Yes</span>'
+        : '<span style="opacity:0.3; font-size:10px;">No</span>';
+      return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06); cursor:pointer; transition:background 0.15s;" ' +
+        'onmouseover="this.style.background=\'rgba(0,224,255,0.06)\'" onmouseout="this.style.background=\'transparent\'" ' +
+        'onclick="onMinuteRowClick(event, ' + r.id + ')">' +
+        '<td style="padding:10px 8px; text-align:center;"><input type="checkbox" class="minute-row-cb" data-id="' + r.id + '" onclick="event.stopPropagation(); toggleMinuteSelection(' + r.id + ', this.checked)" ' + (selectedMinuteIds.has(r.id) ? 'checked' : '') + '></td>' +
+        '<td style="padding:10px 8px; font-size:12px; opacity:0.5;">' + (i + 1) + '</td>' +
+        '<td style="padding:10px 8px; font-weight:600; color:#e8eaf6;">' + (r.title || 'Untitled') + '</td>' +
+        '<td style="padding:10px 8px; font-size:13px; color:#aaa;">' + (r.date || '-') + '</td>' +
+        '<td style="padding:10px 8px; text-align:center;">' + urlBadge + '</td>' +
+        '<td style="padding:10px 8px; text-align:right;">' +
+          '<button class="action-btn" style="font-size:11px; padding:4px 8px; background:#0077ff; margin:0 2px;" onclick="event.stopPropagation(); viewMinuteDetail(' + r.id + ')"><i class="fas fa-eye"></i></button>' +
+          '<button class="btn-del" style="font-size:11px; padding:4px 8px; margin:0 2px;" onclick="event.stopPropagation(); deleteMinuteRecord(' + r.id + ')"><i class="fas fa-trash"></i></button>' +
+        '</td></tr>';
+    }).join('');
   } catch (err) {
     console.error('[loadMinuteRegistry]', err);
-    container.innerHTML = '<div style="color:#ff9800; padding:12px;">Failed to load: ' + err.message + '</div>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="color:#ff9800; padding:16px; text-align:center;">Failed to load: ' + err.message + '</td></tr>';
   }
 }
 
-function renderMinuteCards(records) {
-  const container = document.getElementById('minuteRegistryList');
-  if (!container) return;
-  if (!records.length) {
-    container.innerHTML = '<div style="opacity:0.6; font-style:italic; padding:12px;">No meeting minutes recorded yet.</div>';
+function onMinuteRowClick(event, id) {
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON' || event.target.closest('button')) return;
+  showMinuteDetailCard(id);
+}
+
+function showMinuteDetailCard(id) {
+  const detailCard = document.getElementById('minuteDetailCard');
+  const r = allMinuteRecords.find(function(m) { return m.id === id; });
+  if (!r || !detailCard) return;
+
+  activeDetailMinuteId = id;
+  detailCard.style.display = 'block';
+  detailCard.style.animation = 'none';
+  detailCard.offsetHeight;
+  detailCard.style.animation = '';
+
+  document.getElementById('detailMinuteTitle').textContent = r.title || 'Untitled Meeting';
+  document.getElementById('detailMinuteMeta').textContent = 'Date: ' + (r.date || '-') + ' | Venue: ' + (r.venue || '-') + ' | Recorded: ' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '-');
+  document.getElementById('detailMinuteBody').textContent = r.body || 'No minutes recorded.';
+  document.getElementById('detailMinuteChair').textContent = r.chair || '-';
+  document.getElementById('detailMinuteSecretary').textContent = r.secretary || '-';
+  document.getElementById('detailMinuteNextDate').textContent = r.next_meeting_date || '-';
+  document.getElementById('detailMinuteAttendees').textContent = r.attendees || '-';
+
+  var agendaSection = document.getElementById('detailMinuteAgendaSection');
+  if (r.agenda && r.agenda.trim()) {
+    agendaSection.style.display = 'block';
+    document.getElementById('detailMinuteAgenda').textContent = r.agenda;
+  } else {
+    agendaSection.style.display = 'none';
+  }
+
+  var urlInput = document.getElementById('meetingUrlInput');
+  if (urlInput) urlInput.value = r.meeting_url || '';
+
+  detailCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function toggleAllMinutes(checked) {
+  selectedMinuteIds.clear();
+  if (checked) {
+    allMinuteRecords.forEach(function(r) { selectedMinuteIds.add(r.id); });
+  }
+  document.querySelectorAll('.minute-row-cb').forEach(function(cb) { cb.checked = checked; });
+  updateSelectedCount();
+}
+
+function toggleMinuteSelection(id, checked) {
+  if (checked) { selectedMinuteIds.add(id); } else { selectedMinuteIds.delete(id); }
+  var allCb = document.getElementById('selectAllMinutes');
+  if (allCb) allCb.checked = selectedMinuteIds.size === allMinuteRecords.length && allMinuteRecords.length > 0;
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  var el = document.getElementById('minuteSelectedCount');
+  if (el) el.textContent = selectedMinuteIds.size > 0 ? selectedMinuteIds.size + ' selected' : '';
+}
+
+function deleteSelectedMinutes() {
+  if (!selectedMinuteIds.size) { alert('No records selected. Use the checkboxes to select minutes.'); return; }
+  if (!confirm('Delete ' + selectedMinuteIds.size + ' selected minute record(s)?')) return;
+  apiCall('minutes/delete-many', {
+    method: 'POST',
+    body: JSON.stringify({ ids: Array.from(selectedMinuteIds) })
+  }).then(function() {
+    selectedMinuteIds.clear();
+    document.getElementById('minuteDetailCard').style.display = 'none';
+    loadMinuteRegistry();
+  }).catch(function(err) {
+    alert('Delete failed: ' + (err.message || 'Unknown error'));
+  });
+}
+
+function deleteAllMinutes() {
+  if (!allMinuteRecords.length) { alert('No records to delete.'); return; }
+  if (!confirm('PERMANENTLY DELETE ALL ' + allMinuteRecords.length + ' MEETING MINUTES? This cannot be undone.')) return;
+  if (!confirm('Are you absolutely sure? All meeting minutes will be lost.')) return;
+  apiCall('minutes/delete-all', {
+    method: 'DELETE'
+  }).then(function() {
+    selectedMinuteIds.clear();
+    document.getElementById('minuteDetailCard').style.display = 'none';
+    loadMinuteRegistry();
+  }).catch(function(err) {
+    alert('Delete all failed: ' + (err.message || 'Unknown error'));
+  });
+}
+
+function viewMinuteDetailFromDropdown() {
+  if (activeDetailMinuteId) viewMinuteDetail(activeDetailMinuteId);
+}
+
+function deleteMinuteFromDropdown() {
+  if (activeDetailMinuteId) deleteMinuteRecord(activeDetailMinuteId);
+}
+
+async function sendMeetingLinkToMembers() {
+  const urlInput = document.getElementById('meetingUrlInput');
+  const statusEl = document.getElementById('meetingUrlStatus');
+
+  if (!activeDetailMinuteId) {
+    if (statusEl) { statusEl.style.color = '#f44336'; statusEl.textContent = 'Please select a meeting minute from the table first.'; }
     return;
   }
-  container.innerHTML = records.map(function(r) {
-    return '<div style="background:rgba(0,0,0,0.3); border-radius:10px; padding:14px; margin-bottom:12px; border:1px solid rgba(0,224,255,0.12);">' +
-      '<div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">' +
-        '<div>' +
-          '<div style="font-size:15px; font-weight:700; color:#00e0ff;">Minutes: ' + (r.title || 'Untitled') + '</div>' +
-          '<div style="font-size:12px; opacity:0.65; margin-top:2px;">Date: ' + (r.date || '-') + ' | Venue: ' + (r.venue || '-') + ' | Chair: ' + (r.chair || '-') + '</div>' +
-          '<div style="font-size:12px; opacity:0.65;">Secretary: ' + (r.secretary || '-') + ' | Next: ' + (r.next_meeting_date || '-') + '</div>' +
-        '</div>' +
-        '<div style="display:flex; gap:6px;">' +
-          '<button class="action-btn" style="font-size:11px; padding:5px 10px; background:#0077ff;" onclick="viewMinuteDetail(' + r.id + ')">View</button>' +
-          '<button class="btn-del" style="font-size:11px; padding:5px 10px;" onclick="deleteMinuteRecord(' + r.id + ')">Delete</button>' +
-        '</div>' +
-      '</div>' +
-      '<div style="margin-top:8px; font-size:12px; color:#81c784;"><strong>Attendees:</strong> ' + (r.attendees || '-') + '</div>' +
-      '<details style="margin-top:8px;">' +
-        '<summary style="cursor:pointer; font-size:12px; color:#00e0ff; opacity:0.8;">View Agenda & Minutes</summary>' +
-        '<div style="margin-top:8px; font-size:13px; background:rgba(255,255,255,0.04); padding:10px; border-radius:6px; white-space:pre-wrap; line-height:1.6;">' +
-          'AGENDA:\n' + (r.agenda || '-') + '\n\nMINUTES:\n' + (r.body || '-') +
-        '</div>' +
-      '</details>' +
-    '</div>';
-  }).join('');
-}
 
-function filterMinuteRegistry() {
-  const q = ((document.getElementById('minuteSearchInput') && document.getElementById('minuteSearchInput').value) || '').toLowerCase().trim();
-  if (!q) { renderMinuteCards(allMinuteRecords); return; }
-  const filtered = allMinuteRecords.filter(function(r) {
-    return (r.title || '').toLowerCase().indexOf(q) > -1 ||
-           (r.date  || '').toLowerCase().indexOf(q) > -1 ||
-           (r.venue || '').toLowerCase().indexOf(q) > -1 ||
-           (r.chair || '').toLowerCase().indexOf(q) > -1;
-  });
-  renderMinuteCards(filtered);
+  const meetingUrl = (urlInput?.value || '').trim();
+  if (!meetingUrl) {
+    if (statusEl) { statusEl.style.color = '#f44336'; statusEl.textContent = 'Please enter a meeting URL.'; }
+    return;
+  }
+
+  try {
+    await apiCall('minutes/update-url', {
+      method: 'POST',
+      body: JSON.stringify({ id: activeDetailMinuteId, meeting_url: meetingUrl })
+    });
+
+    var r = allMinuteRecords.find(function(m) { return m.id === activeDetailMinuteId; });
+    if (r) r.meeting_url = meetingUrl;
+
+    if (statusEl) { statusEl.style.color = '#4caf50'; statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Meeting link sent! Members will see it in their Activities panel.'; }
+    loadMinuteRegistry();
+    setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 5000);
+  } catch (err) {
+    if (statusEl) { statusEl.style.color = '#f44336'; statusEl.textContent = 'Failed to send link: ' + (err.message || 'Unknown error'); }
+  }
 }
 
 function viewMinuteDetail(id) {
   const r = allMinuteRecords.find(function(m) { return m.id === id; });
   if (!r) return;
-  const now = new Date().toLocaleDateString('en-KE', { day:'2-digit', month:'long', year:'numeric' });
   const win = window.open('', '_blank', 'width=780,height=700,scrollbars=yes');
   win.document.write('<!DOCTYPE html><html><head><title>Meeting Minutes</title><style>body{font-family:Segoe UI,sans-serif;padding:40px;color:#111;max-width:740px;margin:auto;}h1{font-size:20px;border-bottom:2px solid #009688;padding-bottom:8px;}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin:16px 0;background:#f5f5f5;padding:12px;border-radius:6px;}h2{font-size:14px;text-transform:uppercase;color:#009688;border-bottom:1px solid #ddd;padding-bottom:4px;}pre{white-space:pre-wrap;font-family:inherit;font-size:13px;line-height:1.7;}@media print{button{display:none;}}</style></head><body>');
   win.document.write('<h1>ELDORET CHAMA TABLE-BANKING</h1>');
@@ -4082,6 +4226,9 @@ function viewMinuteDetail(id) {
   win.document.write('<div><strong>Chairperson:</strong> ' + (r.chair || '-') + '</div>');
   win.document.write('<div><strong>Secretary:</strong> ' + (r.secretary || '-') + '</div>');
   win.document.write('<div><strong>Next Meeting:</strong> ' + (r.next_meeting_date || '-') + '</div>');
+  if (r.meeting_url) {
+    win.document.write('<div><strong>Meeting Link:</strong> <a href="' + r.meeting_url + '" target="_blank">' + r.meeting_url + '</a></div>');
+  }
   win.document.write('</div>');
   win.document.write('<h2>Members Present</h2><pre>' + (r.attendees || '-') + '</pre>');
   win.document.write('<h2>Agenda</h2><pre>' + (r.agenda || '-') + '</pre>');
@@ -4095,6 +4242,9 @@ async function deleteMinuteRecord(id) {
   if (!confirm('Are you sure you want to permanently delete this minute record?')) return;
   try {
     await apiCall('minutes/delete/' + id, { method: 'DELETE' });
+    const detailCard = document.getElementById('minuteDetailCard');
+    if (detailCard) detailCard.style.display = 'none';
+    activeDetailMinuteId = null;
     loadMinuteRegistry();
   } catch (err) {
     alert('Delete failed: ' + (err.message || 'Unknown error'));
@@ -4119,6 +4269,7 @@ function downloadMinutesReport() {
     win.document.write('<div><strong>Chairperson:</strong> ' + (r.chair || '-') + '</div>');
     win.document.write('<div><strong>Secretary:</strong> ' + (r.secretary || '-') + '</div>');
     win.document.write('<div><strong>Next Meeting:</strong> ' + (r.next_meeting_date || '-') + '</div>');
+    if (r.meeting_url) win.document.write('<div><strong>Meeting Link:</strong> <a href="' + r.meeting_url + '" target="_blank">' + r.meeting_url + '</a></div>');
     win.document.write('</div>');
     win.document.write('<p><strong>Members Present:</strong><br>' + (r.attendees || '-').replace(/,/g, '<br>') + '</p>');
     win.document.write('<p><strong>Agenda:</strong></p><pre>' + (r.agenda || '-') + '</pre>');
@@ -4127,5 +4278,13 @@ function downloadMinutesReport() {
   win.document.write('<br><div class="no-print"><button onclick="window.print()" style="background:#009688;color:#fff;border:none;padding:10px 24px;border-radius:6px;cursor:pointer;font-size:14px;">Print / Save as PDF</button></div>');
   win.document.write('</body></html>');
   win.document.close();
+}
+
+function adminLogout() {
+    if (!confirm('Are you sure you want to logout?')) return;
+    sessionStorage.clear();
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('homeSessionTimedOut');
+    window.location.href = 'login.html';
 }
 

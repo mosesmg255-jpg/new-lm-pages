@@ -43,4 +43,10 @@ router.use('/settings', require('./settings_mysql'));
 // Meeting Minutes Registry
 router.use('/minutes', require('./minutes_mysql'));
 
+// Member Messages (member-to-admin inbox, unread badge)
+router.use('/messages', require('./messages_mysql'));
+
+// Live System Updates (real-time event log)
+router.use('/live-updates', require('./live_updates_mysql'));
+
 module.exports = router;

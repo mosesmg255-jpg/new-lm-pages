@@ -184,8 +184,10 @@ async function verifyMemberPin(memberId, pin) {
     const match = await bcrypt.compare(cleanPin, member.transaction_pin);
     if (match) return true;
   }
-  if (member && member.security_pin && cleanPin === String(member.security_pin).trim()) {
-    return true;
+  if (member && member.security_pin) {
+    const stored = String(member.security_pin).trim();
+    const match = stored.startsWith('$2') ? await bcrypt.compare(cleanPin, stored) : cleanPin === stored;
+    if (match) return true;
   }
 
   const [approved] = await sequelize.query(
@@ -196,7 +198,11 @@ async function verifyMemberPin(memberId, pin) {
 
   const row = approved[0];
   if (row.transaction_pin && await bcrypt.compare(cleanPin, row.transaction_pin)) return true;
-  if (row.security_pin && cleanPin === String(row.security_pin).trim()) return true;
+  if (row.security_pin) {
+    const stored = String(row.security_pin).trim();
+    const match = stored.startsWith('$2') ? await bcrypt.compare(cleanPin, stored) : cleanPin === stored;
+    if (match) return true;
+  }
 
   return false;
 }
@@ -284,7 +290,7 @@ router.post('/create', async (req, res) => {
           member_name: member_name || contact?.full_name || 'Member',
           email: email || contact?.email || '',
           phone: phone || contact?.phone || '',
-          security_pin: String(security_pin),
+          security_pin: security_pin ? await bcrypt.hash(String(security_pin), 10) : '',
           transaction_type: transaction_type || 'loan_request',
           amount: Number(amount),
           duration: duration ? Number(duration) : 0,

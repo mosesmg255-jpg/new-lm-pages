@@ -17,21 +17,20 @@ const DB_USER = process.env.MYSQL_USER || process.env.MYSQLUSER || process.env.D
 const DB_PASS = process.env.MYSQL_PASSWORD || process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '';
 const DB_CONNECT_TIMEOUT_MS = numberFromEnv(process.env.MYSQL_CONNECT_TIMEOUT_MS, 5000);
 
-// If you still have MongoDB .env values, this keeps MySQL independent.
 const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASS, {
   host: DB_HOST,
   port: DB_PORT,
   dialect: 'mysql',
-  logging: false,
+  logging: process.env.DB_LOGGING === 'true' ? console.log : false,
   timezone: '+00:00',
   dialectOptions: {
     connectTimeout: DB_CONNECT_TIMEOUT_MS
   },
   pool: {
-    max: 5,
-    min: 0,
-    acquire: DB_CONNECT_TIMEOUT_MS + 5000,
-    idle: 10000
+    max: numberFromEnv(process.env.DB_POOL_MAX, 10),
+    min: numberFromEnv(process.env.DB_POOL_MIN, 2),
+    acquire: numberFromEnv(process.env.DB_POOL_ACQUIRE, 20000),
+    idle: numberFromEnv(process.env.DB_POOL_IDLE, 10000)
   },
   retry: {
     max: 0

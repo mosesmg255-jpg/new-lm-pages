@@ -65,6 +65,7 @@ router.post('/admins/add', async (req, res) => {
     if (!admin) return;
     const { email } = req.body || {};
     if (!email) return fail(res, 400, 'Missing email');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail(res, 400, 'Invalid email format');
 
     await sequelize.query(
       `INSERT IGNORE INTO automation_admins (email, admin_id) VALUES (:email, :admin_id)`,
@@ -169,6 +170,90 @@ router.post('/meetings/create', async (req, res) => {
   } catch (e) {
     console.error('[automation/meetings/create]', e);
     return fail(res, 500, 'Error creating meeting');
+  }
+});
+
+// DELETE /api/automation/meetings/:id
+// Admin deletes a specific meeting by its ID.
+router.delete('/meetings/:id', async (req, res) => {
+  try {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+    const meetingId = Number(req.params.id);
+    if (!meetingId) return fail(res, 400, 'Invalid meeting ID');
+
+    await sequelize.query(
+      `DELETE FROM scheduled_meetings WHERE id = :id AND admin_id = :adminId`,
+      { type: sequelize.QueryTypes.DELETE, replacements: { id: meetingId, adminId: admin.id } }
+    );
+
+    return ok(res, { deleted: true, id: meetingId });
+  } catch (e) {
+    console.error('[automation/meetings/delete]', e);
+    return fail(res, 500, 'Error deleting meeting');
+  }
+});
+
+// GET /api/automation/meetings/member/:memberId/active
+// Active (today & future) meetings for the member's admin — member-safe.
+const { getMemberFromRequest } = require('../adminContext');
+router.get('/meetings/member/:memberId/active', async (req, res) => {
+  try {
+    const memberId = Number(req.params.memberId);
+    const member = getMemberFromRequest(req);
+    const admin = requireAdmin ? null : null; // admin can also call this
+
+    if (!member) return fail(res, 401, 'Member session required');
+    if (String(member.id) !== String(memberId)) return fail(res, 403, 'Access denied');
+
+    const owners = await sequelize.query(
+      `SELECT admin_id FROM approved_members WHERE id = :memberId LIMIT 1`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { memberId } }
+    );
+    if (!owners.length || !owners[0].admin_id) return ok(res, []);
+
+    const rows = await sequelize.query(
+      `SELECT id, title, meeting_date, meeting_time, location, platform, target_group, created_at
+       FROM scheduled_meetings
+       WHERE admin_id = :adminId AND meeting_date >= CURDATE()
+       ORDER BY meeting_date ASC, meeting_time ASC`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { adminId: String(owners[0].admin_id) } }
+    );
+    return ok(res, rows);
+  } catch (e) {
+    console.error('[automation/meetings/active]', e);
+    return fail(res, 500, 'Error fetching active meetings');
+  }
+});
+
+// GET /api/automation/meetings/member/:memberId/past
+// Past meetings (before today) for the member's admin — member-safe.
+router.get('/meetings/member/:memberId/past', async (req, res) => {
+  try {
+    const memberId = Number(req.params.memberId);
+    const member = getMemberFromRequest(req);
+
+    if (!member) return fail(res, 401, 'Member session required');
+    if (String(member.id) !== String(memberId)) return fail(res, 403, 'Access denied');
+
+    const owners = await sequelize.query(
+      `SELECT admin_id FROM approved_members WHERE id = :memberId LIMIT 1`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { memberId } }
+    );
+    if (!owners.length || !owners[0].admin_id) return ok(res, []);
+
+    const rows = await sequelize.query(
+      `SELECT id, title, meeting_date, meeting_time, location, platform, target_group, created_at
+       FROM scheduled_meetings
+       WHERE admin_id = :adminId AND meeting_date < CURDATE()
+       ORDER BY meeting_date DESC, meeting_time DESC
+       LIMIT 50`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { adminId: String(owners[0].admin_id) } }
+    );
+    return ok(res, rows);
+  } catch (e) {
+    console.error('[automation/meetings/past]', e);
+    return fail(res, 500, 'Error fetching past meetings');
   }
 });
 

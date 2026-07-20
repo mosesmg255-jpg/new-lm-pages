@@ -15,6 +15,7 @@
 </head>
 
 <body>
+  <noscript><div style="padding:40px;text-align:center;color:#f44336;font-size:18px;">JavaScript is required for the admin panel. Please enable JavaScript in your browser.</div></noscript>
 
   <div class="top-header" style="display: flex; justify-content: space-between; align-items: center; padding-right: 20px;">
     <div class="header-title-wrap">
@@ -47,6 +48,7 @@
         <div style="font-size:12px; opacity:0.6; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:6px;">Signed in as Admin</div>
         <button class="action-btn" style="width:100%; font-size:12px; background:#0077ff; margin-bottom:6px;" onclick="showSection('members'); document.getElementById('adminAccountDropdown').style.display='none';"> Pending Approvals</button>
         <button class="action-btn" style="width:100%; font-size:12px; background:#f44336;" onclick="promptDisableBlur(); document.getElementById('adminAccountDropdown').style.display='none';"> Block Screen Blur</button>
+        <button class="action-btn" style="width:100%; font-size:12px; background:#b71c1c; margin-top:6px;" onclick="adminLogout();"> <i class="fas fa-sign-out-alt"></i> Logout</button>
       </div>
       <button class="action-btn header-act-btn" style="background:#f44336; font-size: 12px; padding: 8px 16px; margin: 0;" onclick="promptDisableBlur()">Block Screen Blur</button>
       <button type="button" class="action-btn home-access-portal-btn header-act-btn" style="background:#ff9800; font-size: 12px; padding: 8px 16px; margin: 0;" onclick="window.location.href='member.html#access'">Access Portal</button>
@@ -68,6 +70,7 @@
     <button class="nav-btn-node" style="background: linear-gradient(45deg, #9c27b0, #e91e63);"
       onclick="showSection('corporatePortal')">Corporate Portal</button>
     <button class="nav-btn-node" onclick="showSection('settings')">Settings</button>
+    <button class="nav-btn-node" style="background:#b71c1c; color:white; font-weight:700; border:none; margin-top:auto;" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
   </div>
 
   <div class="main-content-wrapper">
@@ -203,41 +206,43 @@
             <input type="number" id="loanAssignAmount" placeholder="e.g. 15000" style="margin-bottom:0;">
           </div>
         </div>
-        <div style="margin-top:12px;">
-          <button class="action-btn" style="width:100%; background:#4caf50;" onclick="executeDirectLoanAssignment()">
+        <div style="margin-top:10px;">
+          <button class="action-btn" style="width:100%; background:#4caf50; padding:7px 14px; font-size:0.85rem;" onclick="executeDirectLoanAssignment()">
             Execute Direct Loan Assignment
           </button>
         </div>
       </div>
 
+      <div class="table-responsive">
       <table id="loansTable">
         <thead>
           <tr>
             <th style="width:5%;">#</th>
-            <th style="width:25%;">Member Details</th>
-            <th style="width:15%;">Selection</th>
-            <th style="width:30%;">Loan Status Rules &amp; Actions</th>
+            <th style="min-width:150px;">Member Details</th>
+            <th style="width:5%;"><input type="checkbox" onchange="toggleAllLoans(this.checked)" title="Select All"></th>
+            <th style="min-width:200px;">Loan Status</th>
             <th class="loan-header-menu">
               <div class="menu-dropdown">
                 <select class="menu-dropdown-select" onchange="executeMainMenuAction(this)">
                   <option value="" selected disabled> Main Menu</option>
-                  <option value="selectAll">1. Select All Members</option>
-                  <option value="deselectAll">2. Deselect All Members</option>
-                  <option value="deleteAll">3. Delete All Members</option>
-                  <option value="viewDeleted">4. View Deleted Members</option>
-                  <option value="viewUpdated">5. View Updated Tracker</option>
+                  <option value="selectAll">1. Select All</option>
+                  <option value="deselectAll">2. Deselect All</option>
+                  <option value="deleteAll">3. Delete All</option>
+                  <option value="viewDeleted">4. View Deleted</option>
+                  <option value="viewUpdated">5. View Tracker</option>
                 </select>
               </div>
             </th>
             <th class="loan-header-action">
               <div class="button-group" style="justify-content:flex-end; width:100%;">
-                <button class="btn-del small" onclick="deleteSelectedMembers()"> Delete Selected</button>
+                <button class="btn-del" style="min-width:0;padding:5px 8px;font-size:11px;" onclick="deleteSelectedMembers()">Delete</button>
               </div>
             </th>
           </tr>
         </thead>
         <tbody id="loansTableBody"></tbody>
       </table>
+      </div>
     </div>
 
     <!--
@@ -1168,67 +1173,126 @@
            10. SAVED MEETING MINUTES REGISTRY
        -->
       <div class="hub-module-card" id="meetingMinutesModule" style="margin-top:10px; border:1px solid rgba(0,224,255,0.2); background:rgba(0,224,255,0.03);">
-        <h3>10. Saved Meeting Minutes Registry</h3>
-        <p style="opacity:0.75; font-size:13px;">Record, store, and compile official Chama meeting minutes for audit and legal reference.</p>
+        <h3 style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <span>10. Saved Meeting Minutes Registry</span>
+          <span style="display:flex; gap:8px; align-items:center; font-size:12px; font-weight:normal;">
+            <span id="minuteSelectedCount" style="color:#ce93d8;"></span>
+            <button class="action-btn" style="background:#0077ff; font-size:11px; padding:6px 10px; margin:0;" onclick="loadMinuteRegistry()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="action-btn" style="background:#ff9800; font-size:11px; padding:6px 10px; margin:0;" onclick="deleteSelectedMinutes()"><i class="fas fa-trash"></i> Delete Selected</button>
+            <button class="btn-del" style="font-size:11px; padding:6px 10px; margin:0;" onclick="deleteAllMinutes()"><i class="fas fa-trash-alt"></i> Delete All</button>
+            <button class="action-btn" style="background:#9c27b0; font-size:11px; padding:6px 10px; margin:0;" onclick="downloadMinutesReport()"><i class="fas fa-download"></i> Compile</button>
+          </span>
+        </h3>
+        <p style="opacity:0.75; font-size:13px;">Select a minute record to view details and post a meeting URL. Use checkboxes for bulk operations.</p>
 
-        <!-- New Entry Form -->
-        <div style="background:rgba(0,0,0,0.25); border-radius:10px; padding:16px; margin-bottom:18px; border:1px solid rgba(0,224,255,0.12);">
-          <h4 style="margin-top:0; color:#00e0ff;"> Record New Meeting</h4>
-          <div class="grid-inputs" style="grid-template-columns:1fr 1fr; gap:12px;">
-            <div>
-              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Meeting Title</label>
-              <input type="text" id="minuteTitle" placeholder="e.g. Monthly AGM - July 2026" style="margin-bottom:0;">
-            </div>
-            <div>
-              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Date</label>
-              <input type="date" id="minuteDate" placeholder="Select meeting date" style="margin-bottom:0;">
-            </div>
-            <div>
-              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Venue / Location</label>
-              <input type="text" id="minuteVenue" placeholder="e.g. Chama Hall, Eldoret" style="margin-bottom:0;">
-            </div>
-            <div>
-              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Chairperson</label>
-              <input type="text" id="minuteChair" placeholder="e.g. Jane Wanjiru" style="margin-bottom:0;">
-            </div>
-            <div style="grid-column:1/-1;">
-              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Members Present (comma-separated)</label>
-              <input type="text" id="minuteAttendees" placeholder="e.g. John Kamau, Mary Achieng, Peter Mwangi" style="margin-bottom:0;">
-            </div>
-            <div style="grid-column:1/-1;">
-              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Agenda Items</label>
-              <textarea id="minuteAgenda" rows="3" placeholder="List agenda topics, one per line..." style="width:100%; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(0,224,255,0.2); color:#e8eaf6; padding:10px; font-family:inherit; font-size:13px; resize:vertical;"></textarea>
-            </div>
-            <div style="grid-column:1/-1;">
-              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Minutes / Discussion Notes</label>
-              <textarea id="minuteBody" rows="5" placeholder="Full meeting notes, decisions made, resolutions, action items..." style="width:100%; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(0,224,255,0.2); color:#e8eaf6; padding:10px; font-family:inherit; font-size:13px; resize:vertical;"></textarea>
-            </div>
-            <div>
-              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Next Meeting Date</label>
-              <input type="date" id="minuteNextDate" placeholder="Select next meeting date" style="margin-bottom:0;">
-            </div>
-            <div>
-              <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Secretary Name</label>
-              <input type="text" id="minuteSecretary" placeholder="Recording Secretary" style="margin-bottom:0;">
-            </div>
-          </div>
-          <button class="action-btn" style="width:100%; background:#009688; margin-top:14px; font-size:14px;" onclick="saveMinuteRecord()">
-             Save Meeting Minutes
-          </button>
+        <!-- Registry Table -->
+        <div style="overflow-x:auto; background:rgba(0,0,0,0.25); border-radius:10px; padding:12px; margin-bottom:18px; border:1px solid rgba(0,224,255,0.12);">
+          <table style="width:100%; border-collapse:collapse; min-width:700px;">
+            <thead>
+              <tr style="border-bottom:2px solid rgba(0,224,255,0.3); font-size:12px; text-transform:uppercase; color:#00e0ff; letter-spacing:0.5px;">
+                <th style="padding:10px 8px; width:40px; text-align:center;"><input type="checkbox" id="selectAllMinutes" onclick="toggleAllMinutes(this.checked)" title="Select All"></th>
+                <th style="padding:10px 8px; width:50px;">#</th>
+                <th style="padding:10px 8px;">Title</th>
+                <th style="padding:10px 8px; width:110px;">Date</th>
+                <th style="padding:10px 8px; width:80px;">URL</th>
+                <th style="padding:10px 8px; width:120px; text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="minutesTableBody">
+              <tr><td colspan="6" style="opacity:0.5; font-style:italic; padding:20px; text-align:center;">Loading meeting minutes...</td></tr>
+            </tbody>
+          </table>
         </div>
 
-        <!-- Registry List -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h4 style="margin:0; color:#81c784;"> Saved Minutes Registry</h4>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="minuteSearchInput" oninput="filterMinuteRegistry()" placeholder="Search by title or date..." style="width:200px; margin-bottom:0; font-size:12px; padding:6px 10px;">
-            <button class="action-btn" style="background:#0077ff; font-size:11px; padding:6px 10px;" onclick="loadMinuteRegistry()"> Refresh</button>
-            <button class="action-btn" style="background:#9c27b0; font-size:11px; padding:6px 10px;" onclick="downloadMinutesReport()"> Compile & Download</button>
+        <!-- 3D Active Detail Card (shown when a minute is selected) -->
+        <div id="minuteDetailCard" style="display:none; background:linear-gradient(145deg, rgba(0,224,255,0.08), rgba(0,0,0,0.4)); border-radius:14px; padding:24px; margin-bottom:18px; border:1px solid rgba(0,224,255,0.3); box-shadow:0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05); transform:perspective(800px) rotateX(1deg); transition:transform 0.3s ease, box-shadow 0.3s ease;" onmouseover="this.style.transform='perspective(800px) rotateX(0deg) scale(1.01)'" onmouseout="this.style.transform='perspective(800px) rotateX(1deg)'">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+            <div>
+              <div id="detailMinuteTitle" style="font-size:20px; font-weight:800; color:#00e0ff; text-shadow:0 0 12px rgba(0,224,255,0.3);"></div>
+              <div id="detailMinuteMeta" style="font-size:12px; opacity:0.65; margin-top:4px;"></div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="action-btn" style="font-size:12px; padding:6px 12px; background:#0077ff;" onclick="viewMinuteDetailFromDropdown()"><i class="fas fa-eye"></i> View Full</button>
+              <button class="btn-del" style="font-size:12px; padding:6px 12px;" onclick="deleteMinuteFromDropdown()"><i class="fas fa-trash"></i> Delete</button>
+            </div>
+          </div>
+
+          <div id="detailMinuteBody" style="font-size:13px; line-height:1.7; color:#ccc; white-space:pre-wrap; background:rgba(255,255,255,0.03); padding:14px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); max-height:300px; overflow-y:auto; margin-bottom:14px;"></div>
+
+          <div id="detailMinuteAgendaSection" style="display:none; margin-bottom:14px;">
+            <div style="font-size:11px; text-transform:uppercase; color:#ce93d8; font-weight:bold; margin-bottom:4px;">Agenda</div>
+            <div id="detailMinuteAgenda" style="font-size:13px; color:#aaa; white-space:pre-wrap; background:rgba(156,39,176,0.06); padding:10px; border-radius:6px; border:1px solid rgba(156,39,176,0.2);"></div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:12px;">
+            <div><span style="color:#81c784; font-weight:bold;">Chairperson:</span> <span id="detailMinuteChair">-</span></div>
+            <div><span style="color:#81c784; font-weight:bold;">Secretary:</span> <span id="detailMinuteSecretary">-</span></div>
+            <div><span style="color:#ff9800; font-weight:bold;">Next Meeting:</span> <span id="detailMinuteNextDate">-</span></div>
+            <div><span style="color:#00e0ff; font-weight:bold;">Attendees:</span> <span id="detailMinuteAttendees">-</span></div>
           </div>
         </div>
-        <div id="minuteRegistryList" style="max-height:420px; overflow-y:auto;">
-          <div style="opacity:0.6; font-style:italic; padding:12px;">Loading minutes registry...</div>
+
+        <!-- Meeting URL Input + Send Link -->
+        <div style="background:rgba(0,0,0,0.25); border-radius:10px; padding:16px; margin-bottom:18px; border:1px solid rgba(156,39,176,0.25);">
+          <h4 style="margin-top:0; color:#ce93d8;"><i class="fas fa-link"></i> Post Meeting Link</h4>
+          <p style="font-size:12px; opacity:0.65; margin-bottom:12px;">Attach an online meeting URL to the selected minute record. Members will see it in their Activities panel.</p>
+          <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+            <div style="flex:1; min-width:250px;">
+              <label style="font-size:11px; color:#00e0ff; font-weight:bold;">Meeting URL</label>
+              <input type="url" id="meetingUrlInput" placeholder="https://meet.google.com/xyz-abc" style="margin-bottom:0;">
+            </div>
+            <button class="action-btn" style="background:linear-gradient(45deg,#7b1fa2,#ce93d8); color:#fff; padding:10px 20px; font-size:13px; font-weight:bold; white-space:nowrap;" onclick="sendMeetingLinkToMembers()"><i class="fas fa-paper-plane"></i> Send Link</button>
+          </div>
+          <div id="meetingUrlStatus" style="font-size:12px; margin-top:8px;"></div>
         </div>
+
+        <!-- Quick New Entry Toggle -->
+        <details style="margin-bottom:12px;">
+          <summary style="cursor:pointer; font-size:13px; color:#00e0ff; font-weight:600;"><i class="fas fa-plus-circle"></i> Record New Meeting Minutes</summary>
+          <div style="background:rgba(0,0,0,0.25); border-radius:10px; padding:16px; margin-top:10px; border:1px solid rgba(0,224,255,0.12);">
+            <div class="grid-inputs" style="grid-template-columns:1fr 1fr; gap:12px;">
+              <div>
+                <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Meeting Title</label>
+                <input type="text" id="minuteTitle" placeholder="e.g. Monthly AGM - July 2026" style="margin-bottom:0;">
+              </div>
+              <div>
+                <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Date</label>
+                <input type="date" id="minuteDate" style="margin-bottom:0;">
+              </div>
+              <div>
+                <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Venue / Location</label>
+                <input type="text" id="minuteVenue" placeholder="e.g. Chama Hall, Eldoret" style="margin-bottom:0;">
+              </div>
+              <div>
+                <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Chairperson</label>
+                <input type="text" id="minuteChair" placeholder="e.g. Jane Wanjiru" style="margin-bottom:0;">
+              </div>
+              <div style="grid-column:1/-1;">
+                <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Members Present (comma-separated)</label>
+                <input type="text" id="minuteAttendees" placeholder="e.g. John Kamau, Mary Achieng, Peter Mwangi" style="margin-bottom:0;">
+              </div>
+              <div style="grid-column:1/-1;">
+                <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Agenda Items</label>
+                <textarea id="minuteAgenda" rows="3" placeholder="List agenda topics, one per line..." style="width:100%; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(0,224,255,0.2); color:#e8eaf6; padding:10px; font-family:inherit; font-size:13px; resize:vertical;"></textarea>
+              </div>
+              <div style="grid-column:1/-1;">
+                <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Minutes / Discussion Notes</label>
+                <textarea id="minuteBody" rows="5" placeholder="Full meeting notes, decisions made, resolutions, action items..." style="width:100%; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(0,224,255,0.2); color:#e8eaf6; padding:10px; font-family:inherit; font-size:13px; resize:vertical;"></textarea>
+              </div>
+              <div>
+                <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Next Meeting Date</label>
+                <input type="date" id="minuteNextDate" style="margin-bottom:0;">
+              </div>
+              <div>
+                <label style="font-size:12px; color:#00e0ff; font-weight:bold;">Secretary Name</label>
+                <input type="text" id="minuteSecretary" placeholder="Recording Secretary" style="margin-bottom:0;">
+              </div>
+            </div>
+            <button class="action-btn" style="width:100%; background:#009688; margin-top:14px; font-size:14px;" onclick="saveMinuteRecord()">
+              <i class="fas fa-save"></i> Save Meeting Minutes
+            </button>
+          </div>
+        </details>
       </div>
 
     </div>
@@ -1759,7 +1823,7 @@
 
   </div><!-- /.main-content-wrapper -->
 
-  <button class="fab" onclick="showSection('members')">+</button>
+  <button class="fab" aria-label="Add new member" onclick="showSection('members')">+</button>
 
   <script src="home.js"></script>
   <script>
@@ -1912,10 +1976,28 @@
 
     // Apply the disable blur effect logic on page load
     window.addEventListener("DOMContentLoaded", async () => {
+        // If session timed out, redirect to login instead of showing blur
+        if (sessionStorage.getItem('homeSessionTimedOut') === 'true') {
+            sessionStorage.removeItem('homeSessionTimedOut');
+            sessionStorage.removeItem('adminSession');
+            localStorage.removeItem('disableBlurEffect');
+            window.location.href = 'login.html';
+            return;
+        }
+
+        // Lock browser back button — admin must re-authenticate
+        history.pushState(null, '', location.href);
+        window.addEventListener('popstate', () => {
+            sessionStorage.removeItem('adminSession');
+            sessionStorage.removeItem('homeSessionTimedOut');
+            localStorage.removeItem('disableBlurEffect');
+            window.location.href = 'login.html';
+        });
+
         try {
             const res = await fetch(`${API}/settings/blur`);
             const data = await res.json();
-            applyBlurState(Boolean(data.blurEnabled || sessionStorage.getItem('homeSessionTimedOut') === 'true'));
+            applyBlurState(Boolean(data.blurEnabled));
         } catch(e) {}
     });
   </script>

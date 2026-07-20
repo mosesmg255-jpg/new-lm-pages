@@ -1,7 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { Repayment, Loan, Member, sequelize } = require('../models');
-const { requireAdmin, getFallbackAdminId } = require('../adminContext');
+const { requireAdmin, getAdminFromRequest, getMemberFromRequest, getFallbackAdminId } = require('../adminContext');
+const { repaymentCreateRules } = require('../validation');
 
 const router = express.Router();
 
@@ -32,27 +33,51 @@ function fail(res, code, message) { return res.status(code).json({ status: 'fail
 })();
 
 // POST /api/repayments/create
-router.post('/create', async (req, res) => {
+router.post('/create', repaymentCreateRules, async (req, res) => {
   try {
+    const admin = getAdminFromRequest(req);
+    const member = getMemberFromRequest(req);
+    if (!admin && !member) {
+      return fail(res, 401, 'Admin or member session required. Please log in again.');
+    }
+
     const { loan_id, member_id, amount, payment_method, pin } = req.body || {};
     if (!loan_id || !member_id || !amount || !pin) return fail(res, 400, 'Missing repayment fields or security PIN');
+
+    // Members can only create repayments for themselves
+    if (member && String(member.id) !== String(member_id)) {
+      return fail(res, 403, 'You can only make repayments for your own loans');
+    }
 
     let pinValid = false;
 
     // Check members table first
-    const member = await Member.findByPk(member_id);
-    if (member && member.transaction_pin) {
-      pinValid = await bcrypt.compare(String(pin), member.transaction_pin);
+    const memberRecord = await Member.findByPk(member_id);
+    if (memberRecord && memberRecord.transaction_pin) {
+      pinValid = await bcrypt.compare(String(pin), memberRecord.transaction_pin);
     }
 
     // Fallback to approved_members
     if (!pinValid) {
       const [approved] = await sequelize.query(
-        `SELECT password FROM approved_members WHERE id = :id LIMIT 1`,
+        `SELECT transaction_pin, security_pin FROM approved_members WHERE id = :id LIMIT 1`,
         { replacements: { id: member_id } }
       );
-      if (approved.length && approved[0].password) {
-        pinValid = await bcrypt.compare(String(pin), approved[0].password);
+      if (approved.length) {
+        if (approved[0].transaction_pin) {
+          if (String(approved[0].transaction_pin).startsWith('$2')) {
+            pinValid = await bcrypt.compare(String(pin), approved[0].transaction_pin);
+          } else {
+            pinValid = String(pin) === String(approved[0].transaction_pin);
+          }
+        }
+        if (!pinValid && approved[0].security_pin) {
+          if (String(approved[0].security_pin).startsWith('$2')) {
+            pinValid = await bcrypt.compare(String(pin), approved[0].security_pin);
+          } else {
+            pinValid = String(pin) === String(approved[0].security_pin);
+          }
+        }
       }
     }
 
@@ -62,6 +87,24 @@ router.post('/create', async (req, res) => {
 
     const loan = await Loan.findByPk(Number(loan_id));
     if (!loan) return fail(res, 404, 'Loan not found');
+
+    // Members can only repay their own loans
+    if (member && String(loan.borrower_id) !== String(member.id)) {
+      return fail(res, 403, 'You can only make repayments on your own loans');
+    }
+
+    // Overpayment protection: check total paid + new amount against loan amount
+    const [sumRow] = await Repayment.findAll({
+      where: { loan_id: Number(loan_id) },
+      attributes: [[Repayment.sequelize.fn('SUM', Repayment.sequelize.col('amount')), 'totalPaid']]
+    });
+    const existingPaid = sumRow?.get('totalPaid') ? Number(sumRow.get('totalPaid')) : 0;
+    if (existingPaid >= Number(loan.amount)) {
+      return fail(res, 400, 'This loan is already fully settled');
+    }
+    if (existingPaid + Number(amount) > Number(loan.amount)) {
+      return fail(res, 400, `Payment of Ksh ${Number(amount)} would exceed remaining balance of Ksh ${(Number(loan.amount) - existingPaid).toFixed(2)}`);
+    }
 
     const repayment = await Repayment.create({
       loan_id: Number(loan_id),
@@ -94,11 +137,21 @@ router.post('/create', async (req, res) => {
 });
 
 // GET /api/repayments/member/:memberId
-// Member-safe read path used by member.html. Ownership is resolved from approved_members.
+// Member-safe read path. Requires admin token OR the member's own token.
 router.get('/member/:memberId', async (req, res) => {
   try {
     const memberId = Number(req.params.memberId);
     if (!memberId) return fail(res, 400, 'Invalid member id');
+
+    const admin = getAdminFromRequest(req);
+    const member = getMemberFromRequest(req);
+
+    if (!admin && !member) {
+      return fail(res, 401, 'Authentication required to view repayment data.');
+    }
+    if (member && !admin && String(member.id) !== String(memberId)) {
+      return fail(res, 403, 'You can only view your own repayments.');
+    }
 
     const owners = await sequelize.query(
       `SELECT admin_id FROM approved_members WHERE id = :memberId LIMIT 1`,

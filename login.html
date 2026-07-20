@@ -5,7 +5,7 @@
   <script src="utils/security.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Money Management System - Login</title>\
+  <title>Money Management System - Login</title>
 
   <!-- Link to external CSS for login page styling -->
   <link rel="stylesheet" href="style/login.css">
@@ -32,10 +32,10 @@
 
           <label for="password">Password</label>
           <div style="position: relative;">
-            <input type="password" id="password" name="password" autocomplete="new-password" placeholder="Password"
+            <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Password"
               required style="width:100%; box-sizing:border-box; padding-right: 40px;">
             <i class="fas fa-eye" style="position:absolute; right:10px; top:12px; color:#aaa; cursor:pointer;"
-              onclick="const pwd = document.getElementById('password'); if(pwd.type==='password'){pwd.type='text'; this.className='fas fa-eye-slash';}else{pwd.type='password'; this.className='fas fa-eye';}"></i>
+              onclick="togglePasswordVisibility('password', this)"></i>
           </div>
 
           <button type="submit" class="btn btn-login">LOGIN</button>
@@ -75,7 +75,7 @@
               <input type="password" id="recoveryNewPassword" required placeholder="Enter new password"
                 style="width: 100%; padding: 10px; padding-right: 40px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; background: rgba(255,255,255,0.12); color: #fff; box-sizing:border-box;">
               <i class="fas fa-eye" style="position:absolute; right:10px; top:12px; color:#aaa; cursor:pointer;"
-                onclick="const recPwd = document.getElementById('recoveryNewPassword'); if(recPwd.type==='password'){recPwd.type='text'; this.className='fas fa-eye-slash';}else{recPwd.type='password'; this.className='fas fa-eye';}"></i>
+                onclick="togglePasswordVisibility('recoveryNewPassword', this)"></i>
             </div>
             <button type="button" class="btn btn-create" onclick="submitAIVerifiedRecovery(event)"
               style="width: 100%;">Update Password</button>
@@ -91,6 +91,13 @@
       })();
     </script>
     <script src="login.js"></script>
+    <script>
+      history.pushState(null, '', location.href);
+      history.pushState(null, '', location.href);
+      window.addEventListener('popstate', () => {
+        history.pushState(null, '', location.href);
+      });
+    </script>
 </body>
 
 </html>

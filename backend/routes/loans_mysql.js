@@ -1,7 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { Loan, Member, sequelize } = require('../models');
-const { getAdminFromRequest, requireAdmin, getFallbackAdminId } = require('../adminContext');
+const { getAdminFromRequest, requireAdmin, getMemberFromRequest, getFallbackAdminId } = require('../adminContext');
+const { loanCreateRules } = require('../validation');
 
 const router = express.Router();
 
@@ -45,12 +46,19 @@ function loanDTO(l) {
 })();
 
 // POST /api/loans/create
-router.post('/create', async (req, res) => {
+router.post('/create', loanCreateRules, async (req, res) => {
   try {
     const admin = getAdminFromRequest(req);
+    const member = getMemberFromRequest(req);
+    if (!admin && !member) {
+      return res.status(401).json({ status: 'fail', message: 'Admin or member session required.' });
+    }
     const { member_id, amount, duration, interest_rate, borrower_name, pin, admin_override } = req.body || {};
     if (!member_id || !amount) return fail(res, 400, 'Missing loan fields');
     if (admin_override && !admin) return fail(res, 401, 'Admin session expired. Please log in again.');
+    if (!admin && !admin_override && member && String(member.id) !== String(member_id)) {
+      return fail(res, 403, 'Members can only create loans for themselves');
+    }
 
     let borrowerNameClean = borrower_name;
     let pinValid = false;
@@ -62,14 +70,14 @@ router.post('/create', async (req, res) => {
     }
 
     // Check members table first
-    const member = await Member.findByPk(member_id);
-    if (member) {
-      if (!ownerAdminId) ownerAdminId = member.admin_id || null;
-      if (admin_override && member.admin_id && String(member.admin_id) !== admin.id) return fail(res, 403, 'Forbidden');
-      if (!pinValid && pin && member.transaction_pin) {
-        pinValid = await bcrypt.compare(String(pin), member.transaction_pin);
+    const memberRec = await Member.findByPk(member_id);
+    if (memberRec) {
+      if (!ownerAdminId) ownerAdminId = memberRec.admin_id || null;
+      if (admin && memberRec.admin_id && String(memberRec.admin_id) !== admin.id) return fail(res, 403, 'Forbidden');
+      if (!pinValid && pin && memberRec.transaction_pin) {
+        pinValid = await bcrypt.compare(String(pin), memberRec.transaction_pin);
       }
-      if (!borrowerNameClean) borrowerNameClean = member.full_name;
+      if (!borrowerNameClean) borrowerNameClean = memberRec.full_name;
     }
 
     // Fallback to approved_members
@@ -80,13 +88,17 @@ router.post('/create', async (req, res) => {
       );
       if (approved.length) {
         if (!ownerAdminId) ownerAdminId = approved[0].admin_id || null;
-        if (admin_override && approved[0].admin_id && String(approved[0].admin_id) !== admin.id) return fail(res, 403, 'Forbidden');
+        if (admin && approved[0].admin_id && String(approved[0].admin_id) !== admin.id) return fail(res, 403, 'Forbidden');
         if (!borrowerNameClean) borrowerNameClean = approved[0].full_name;
         if (approved[0].transaction_pin) {
           pinValid = await bcrypt.compare(String(pin), approved[0].transaction_pin);
         }
         if (!pinValid && approved[0].security_pin) {
-            pinValid = String(pin) === String(approved[0].security_pin);
+            if (String(approved[0].security_pin).startsWith('$2')) {
+                pinValid = await bcrypt.compare(String(pin), approved[0].security_pin);
+            } else {
+                pinValid = String(pin) === String(approved[0].security_pin);
+            }
         }
       }
     }
@@ -103,7 +115,14 @@ router.post('/create', async (req, res) => {
           if (!ownerAdminId) ownerAdminId = approved[0].admin_id || null;
         }
       }
-      return fail(res, 403, 'Missing or incorrect security PIN');
+      if (!member) {
+        return fail(res, 403, 'Missing or incorrect security PIN');
+      }
+      // Members with valid sessions can create loans without PIN
+      if (member) {
+        pinValid = true;
+        if (!borrowerNameClean) borrowerNameClean = member.full_name;
+      }
     }
 
     const loan = await Loan.create({
@@ -137,11 +156,22 @@ router.get('/all', async (req, res) => {
 });
 
 // GET /api/loans/member/:memberId
-// Member-safe read path used by member.html. Ownership is resolved from approved_members.
+// Member-safe read path used by member.html.
+// Requires: admin token OR the member whose ID matches.
 router.get('/member/:memberId', async (req, res) => {
   try {
     const memberId = Number(req.params.memberId);
     if (!memberId) return fail(res, 400, 'Invalid member id');
+
+    const admin = getAdminFromRequest(req);
+    const member = getMemberFromRequest(req);
+
+    if (!admin && !member) {
+      return fail(res, 401, 'Authentication required to view loan data.');
+    }
+    if (member && !admin && String(member.id) !== String(memberId)) {
+      return fail(res, 403, 'You can only view your own loans.');
+    }
 
     const owners = await sequelize.query(
       `SELECT admin_id FROM approved_members WHERE id = :memberId LIMIT 1`,

@@ -1,14 +1,32 @@
 {
   "name": "lm-project",
   "version": "1.0.0",
-  "description": "Loan Management System",
+  "description": "Loan Management System - Chama Table Banking Cooperative",
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
+    "test": "jest --forceExit --detectOpenHandles",
+    "test:watch": "jest --watch --forceExit",
+    "test:coverage": "jest --coverage --forceExit",
+    "import-schema": "node backend/import_schema.js",
     "backend:test": "node backend/deep_integration_test.js"
   },
-  "keywords": [],
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/__tests__/**/*.test.js", "**/*.test.js"],
+    "collectCoverageFrom": [
+      "backend/**/*.js",
+      "!backend/node_modules/**",
+      "!backend/uploads/**",
+      "!backend/start_bg.js",
+      "!backend/start_and_test.js",
+      "!backend/test_*.js",
+      "!backend/import_schema.js",
+      "!backend/verify_schema.js"
+    ]
+  },
+  "keywords": ["loan", "management", "chama", "banking"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -18,10 +36,17 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.4.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.0.0",
     "multer": "^2.2.0",
     "mysql2": "^3.22.5",
     "openai": "^4.0.0",
     "sequelize": "^6.35.0",
+    "uuid": "^11.1.0",
     "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "jest": "^30.0.4",
+    "supertest": "^7.1.0"
   }
 }

@@ -1,11 +1,13 @@
+*, *::before, *::after { box-sizing: border-box; }
  body {
       margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #2e7d32, #4fc3f7); /* dull green + sky blue */
+      background: linear-gradient(135deg, #2e7d32, #4fc3f7);
       height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
+      overflow: auto;
     }
 
     .error-container {
@@ -13,7 +15,7 @@
       background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(12px);
       border-radius: 16px;
-      overflow: auto;
+      overflow: hidden;
       box-shadow: 0 8px 25px rgba(0,0,0,0.4);
       width: 700px;
       max-width: 95%;
@@ -29,6 +31,8 @@
       font-size: 1.2rem;
       font-weight: bold;
       text-shadow: 1px 3px 8px rgba(0,0,0,0.6);
+      min-width: 0;
+      overflow: hidden;
     }
 
     .right-panel {
@@ -39,6 +43,8 @@
       justify-content: center;
       color: #fff;
       text-align: center;
+      min-width: 0;
+      overflow: auto;
     }
 
     h2 {

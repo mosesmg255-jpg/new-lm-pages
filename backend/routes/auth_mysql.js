@@ -3,6 +3,7 @@ const router = express.Router();
 const { sequelize } = require('../models');
 const bcrypt = require('bcryptjs');
 const { signAdminToken } = require('../adminContext');
+const { registerRules, loginRules } = require('../validation');
 
 (async () => {
     try {
@@ -204,7 +205,7 @@ router.post('/forgot-password', async (req, res) => {
             { replacements: { email, token } }
         );
 
-        return res.json({ status: 'success', message: 'Reset link generated', token });
+        return res.json({ status: 'success', message: 'If an account exists with that email, a reset link has been generated.', token });
     } catch (e) {
         console.error(e);
         return res.json({ status: 'error', message: 'System error' });
