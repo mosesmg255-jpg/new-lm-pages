@@ -426,34 +426,38 @@
       </div>
 
 
-      <!-- 3b. Meeting Minutes Draft Generator -->
+      <!-- 3b. Meeting Minutes Registry (Compact Quick-View) -->
       <div class="hub-module-card" style="border:1px solid rgba(156,39,176,0.3); background:rgba(156,39,176,0.04);">
-        <h3 style="color:#ce93d8;">3b. Meeting Minutes Draft Generator</h3>
-        <p style="font-size:12px; color:#aaa; margin-bottom:16px;">Fill in the meeting details and generate a formatted chama minutes document.</p>
-        <div class="split-pane">
-          <div>
-            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:14px;">              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Meeting Date</label><input type="date" id="minutesMeetingDate" placeholder="Select meeting date" style="margin-bottom:0;"></div>
-              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Next Meeting Date</label><input type="date" id="minutesNextMeetingDate" placeholder="Select next meeting date" style="margin-bottom:0;"></div>
-              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Meeting Title / Type</label><input type="text" id="minutesMeetingTitle" placeholder="e.g. Monthly General Meeting" style="margin-bottom:0;"></div>
-              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Meeting Venue</label><input type="text" id="minutesVenue" placeholder="e.g. Community Hall, Eldoret" style="margin-bottom:0;"></div>
-              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Chairperson</label><input type="text" id="minutesChairperson" placeholder="e.g. Chairperson full name" style="margin-bottom:0;"></div>
-              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Secretary</label><input type="text" id="minutesSecretary" placeholder="e.g. Secretary full name" style="margin-bottom:0;"></div>
-              <div style="grid-column:1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Members Present</label><textarea id="minutesAttendees" placeholder="e.g. John Kamau, Mary Achieng, Peter Mwangi" style="min-height:70px; margin-bottom:0; font-size:13px;"></textarea></div>
-              <div style="grid-column:1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Agenda Items</label><textarea id="minutesAgenda" placeholder="e.g. Loan approvals, savings review, new member admissions" style="min-height:70px; margin-bottom:0; font-size:13px;"></textarea></div>
-              <div style="grid-column:1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Discussions and Decisions Made</label><textarea id="minutesDecisions" placeholder="e.g. Treasurer reported balance; loan request approved; contribution amount reviewed" style="min-height:90px; margin-bottom:0; font-size:13px;"></textarea></div>
-              <div style="grid-column:1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Action Items and Assignments</label><textarea id="minutesActionItems" placeholder="e.g. Treasurer to disburse approved loans; secretary to circulate next meeting notice" style="min-height:70px; margin-bottom:0; font-size:13px;"></textarea></div>
-            </div>
-            <button class="action-btn" style="background:linear-gradient(45deg,#7b1fa2,#ce93d8); color:#fff; width:100%; padding:10px 20px; font-size:13px; font-weight:bold; overflow:auto;" onclick="generateMeetingMinutes()">Generate Minutes</button>
-          </div>
-          <div>
-            <div style="font-size:11px; text-transform:uppercase; margin-bottom:6px; color:#ce93d8; font-weight:bold;">Generated Minutes Preview</div>
-            <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
-              <button class="action-btn" id="minutesDownloadBtn" style="background:#009688; padding:6px 10px; font-size:13px; display:none; overflow:auto;" onclick="downloadMeetingMinutes()">Download</button>
-              <button class="action-btn" id="minutesShareBtn" style="background:#0077ff; padding:6px 10px; font-size:13px; display:none; overflow:auto;" onclick="shareMeetingMinutesEmail()">Share Email</button>
-              <span id="minutesStatusBadge" style="font-size:11px; color:#aaa;">No minutes generated yet.</span>
-            </div>
-            <div id="minutesPreviewContainer" class="pdf-preview-box" style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(156,39,176,0.25); border-radius:10px; padding:24px; font-family:'Courier New', monospace; font-size:13px; line-height:1.8; color:#e0e0e0; white-space:pre-wrap; max-height:500px; overflow-y:auto; width:100%;"></div>
-          </div>
+        <h3 style="color:#ce93d8; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <span>3b. Meeting Minutes Registry</span>
+          <span style="display:flex; gap:8px; align-items:center; font-size:12px; font-weight:normal;">
+            <span id="card3bMinuteCount" style="color:#ce93d8;"></span>
+            <button class="action-btn" style="background:#0077ff; font-size:11px; padding:6px 10px; margin:0;" onclick="loadCard3bRegistry()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="action-btn" style="background:linear-gradient(45deg,#7b1fa2,#ce93d8); font-size:11px; padding:6px 10px; margin:0;" onclick="document.getElementById('meetingMinutesModule')?.scrollIntoView({behavior:'smooth'})"><i class="fas fa-plus"></i> Generate New</button>
+          </span>
+        </h3>
+        <p style="font-size:12px; color:#aaa; margin-bottom:12px;">Quick view of recent meeting minutes. Click a row to view full details in the registry below.</p>
+
+        <div style="overflow-x:auto; background:rgba(0,0,0,0.25); border-radius:10px; padding:12px; border:1px solid rgba(156,39,176,0.15); max-height:320px; overflow-y:auto;">
+          <table style="width:100%; border-collapse:collapse; min-width:500px;">
+            <thead>
+              <tr style="border-bottom:2px solid rgba(156,39,176,0.3); font-size:11px; text-transform:uppercase; color:#ce93d8; letter-spacing:0.5px;">
+                <th style="padding:8px 6px; width:40px; text-align:center;">#</th>
+                <th style="padding:8px 6px;">Title</th>
+                <th style="padding:8px 6px; width:100px;">Date</th>
+                <th style="padding:8px 6px; width:120px;">Venue</th>
+                <th style="padding:8px 6px; width:90px; text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="card3bRegistryBody">
+              <tr><td colspan="5" style="opacity:0.5; font-style:italic; padding:20px; text-align:center;">Loading minutes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px;">
+          <span id="card3bSummary" style="opacity:0.6;"></span>
+          <a href="#meetingMinutesModule" style="color:#ce93d8; text-decoration:none; font-weight:600;" onclick="document.getElementById('meetingMinutesModule')?.scrollIntoView({behavior:'smooth'}); event.preventDefault();">View Full Registry <i class="fas fa-arrow-right" style="font-size:10px;"></i></a>
         </div>
       </div>
 

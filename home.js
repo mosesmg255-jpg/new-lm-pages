@@ -4434,3 +4434,69 @@ function adminLogout() {
     window.location.href = 'login.html';
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  CARD 3b — COMPACT MEETING MINUTES REGISTRY
+// ═══════════════════════════════════════════════════════════════
+
+async function loadCard3bRegistry() {
+  const tbody = document.getElementById('card3bRegistryBody');
+  const countEl = document.getElementById('card3bMinuteCount');
+  const summaryEl = document.getElementById('card3bSummary');
+  if (!tbody) return;
+
+  try {
+    const rows = await apiCall('minutes/all', { method: 'GET' });
+    const minutes = Array.isArray(rows) ? rows : (rows?.data || []);
+
+    if (countEl) countEl.textContent = minutes.length + ' record' + (minutes.length !== 1 ? 's' : '');
+
+    if (!minutes.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="opacity:0.5; font-style:italic; padding:20px; text-align:center;">No meeting minutes recorded yet. Click "Generate New" to create one.</td></tr>';
+      if (summaryEl) summaryEl.textContent = '';
+      return;
+    }
+
+    const sorted = [...minutes].sort((a, b) => new Date(b.meeting_date || b.created_at) - new Date(a.meeting_date || a.created_at));
+    const recent = sorted[0];
+    if (summaryEl) summaryEl.textContent = 'Most recent: ' + (recent.meeting_date || recent.created_at || 'Unknown');
+
+    tbody.innerHTML = sorted.slice(0, 20).map((m, i) => {
+      const title = (m.title || m.meeting_title || 'Untitled').substring(0, 40);
+      const date = m.meeting_date ? new Date(m.meeting_date).toLocaleDateString() : (m.created_at ? new Date(m.created_at).toLocaleDateString() : '—');
+      const venue = (m.venue || '—').substring(0, 25);
+      return '<tr style="border-bottom:1px solid rgba(156,39,176,0.1); cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background=\'rgba(156,39,176,0.08)\'" onmouseout="this.style.background=\'transparent\'" onclick="scrollToMinuteFromCard3b(' + m.id + ')">' +
+        '<td style="padding:8px 6px; text-align:center; font-size:12px; opacity:0.6;">' + (i + 1) + '</td>' +
+        '<td style="padding:8px 6px; font-weight:bold; color:#ce93d8;">' + title + '</td>' +
+        '<td style="padding:8px 6px; font-size:11px; opacity:0.8;">' + date + '</td>' +
+        '<td style="padding:8px 6px; font-size:11px; opacity:0.8;">' + venue + '</td>' +
+        '<td style="padding:8px 6px; text-align:right;">' +
+          '<button class="action-btn" style="background:rgba(255,255,255,0.1); font-size:10px; padding:4px 8px; margin:0;" onclick="event.stopPropagation(); scrollToMinuteFromCard3b(' + m.id + ')">View</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  } catch (err) {
+    console.error('Error loading card 3b registry:', err);
+    tbody.innerHTML = '<tr><td colspan="5" style="color:red; text-align:center; padding:20px;">Failed to load minutes registry</td></tr>';
+  }
+}
+
+function scrollToMinuteFromCard3b(id) {
+  const module = document.getElementById('meetingMinutesModule');
+  if (module) {
+    module.scrollIntoView({ behavior: 'smooth' });
+    if (typeof loadMinuteRegistry === 'function') {
+        loadMinuteRegistry(); // ensure the registry is loaded
+    }
+  }
+}
+
+// Ensure loadCard3bRegistry is called when the dashboard loads or when the page initializes.
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if(typeof loadCard3bRegistry === 'function') {
+            loadCard3bRegistry();
+        }
+    }, 1000);
+});
+
+
