@@ -697,12 +697,16 @@ function renderAllLists() {
 }
 
 function populateLoanAssigneeDropdown() {
-  const sel = document.getElementById('loanAssigneeSelector');
-  if (!sel) return;
-  sel.innerHTML = membersArray.length === 0
+  const options = membersArray.length === 0
     ? '<option value="">-- No Approved Members Available --</option>'
     : '<option value="">-- Choose an Approved Member --</option>' +
       membersArray.map(m => `<option value="${m.id}|${m.full_name || m.name}">${m.full_name || m.name} (ID: ${m.id})</option>`).join('');
+
+  const sel = document.getElementById('loanAssigneeSelector');
+  if (sel) sel.innerHTML = options;
+
+  const mpesaSel = document.getElementById('mpesaB2cAssignee');
+  if (mpesaSel) mpesaSel.innerHTML = options;
 }
 
 // a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*
@@ -757,6 +761,71 @@ async function executeDirectLoanAssignment() {
     alert(e.message || 'Unable to create loan.');
   }
 }
+
+// ── M-Pesa STK Admin Functions ─────────────────────────────────────────────
+function openAdminStkModal() {
+  const assigneeVal = document.getElementById('mpesaB2cAssignee')?.value;
+  const amount = parseFloat(document.getElementById('mpesaB2cAmount')?.value);
+  if (!assigneeVal || isNaN(amount) || amount <= 0) {
+    return alert('Please select a recipient member and enter a valid amount.');
+  }
+  const [, memberName] = assigneeVal.split('|');
+  const modal = document.getElementById('adminStkModal');
+  const promptText = document.getElementById('adminStkPromptText');
+  const pinInput = document.getElementById('adminStkPinInput');
+  const errorMsg = document.getElementById('adminStkErrorMsg');
+  if (modal && promptText && pinInput) {
+    promptText.textContent = `Send KES ${amount.toLocaleString()} to ${memberName} via M-Pesa?`;
+    pinInput.value = '';
+    if (errorMsg) errorMsg.style.display = 'none';
+    modal.style.display = 'flex';
+    pinInput.focus();
+  }
+}
+
+function closeAdminStkModal() {
+  const modal = document.getElementById('adminStkModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function executeAdminMpesaSend() {
+  const pinInput = document.getElementById('adminStkPinInput');
+  const errorMsg = document.getElementById('adminStkErrorMsg');
+  const pin = pinInput ? pinInput.value.trim() : '';
+  if (pin.length < 4) {
+    if (errorMsg) { errorMsg.textContent = 'Invalid PIN format.'; errorMsg.style.display = 'block'; }
+    return;
+  }
+  closeAdminStkModal();
+
+  const assigneeVal = document.getElementById('mpesaB2cAssignee')?.value;
+  const amtInput = document.getElementById('mpesaB2cAmount');
+  const amount = parseFloat(amtInput?.value);
+  const [memberId, memberName] = (assigneeVal || '|').split('|');
+
+  try {
+    await apiCall('mpesa/transaction', {
+      method: 'POST',
+      body: JSON.stringify({
+        member_id: memberId,
+        member_name: memberName,
+        amount: amount,
+        purpose: 'send_money',
+        status: 'completed',
+        mpesa_receipt: 'ADMIN-B2C-' + Date.now().toString().slice(-6)
+      })
+    });
+    logNotification(`M-Pesa STK: Sent KES ${amount.toLocaleString()} to <strong>${memberName}</strong> (B2C Disbursed).`);
+    pushMemberNotification(`M-Pesa: You have received KES ${amount.toLocaleString()} from Administration.`);
+    if (amtInput) amtInput.value = '';
+    const mpesaSel = document.getElementById('mpesaB2cAssignee');
+    if (mpesaSel) mpesaSel.value = '';
+    showAdminToast(`✅ Successfully disbursed KES ${amount.toLocaleString()} to ${memberName} via M-Pesa.`, 'success');
+  } catch (e) {
+    showAdminToast('❌ M-Pesa Transfer Failed: ' + (e.message || 'Error processing transaction.'), 'error');
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────
 
 async function renderLoansTableDashboard() {
   const tbody = document.getElementById('loansTableBody');

@@ -213,6 +213,29 @@
         </div>
       </div>
 
+      <!-- M-Pesa B2C Send Money (separate from loan) -->
+      <div class="hub-module-card" style="margin-bottom:18px;">
+        <h3><i class="fas fa-mobile-alt" style="color:#00e0ff;"></i> M-Pesa B2C (Send Money)</h3>
+        <p style="font-size:12px; opacity:0.8; margin-top:-8px; margin-bottom:10px;">Send money directly to a member via M-Pesa without creating a loan record.</p>
+        <div class="grid-inputs" style="grid-template-columns: 2fr 1fr; gap: 10px;">
+          <div>
+            <label style="font-size:12px; opacity:0.8; font-weight:bold;">Recipient Member</label>
+            <select id="mpesaB2cAssignee" style="margin-bottom:0;">
+              <option value="">-- Choose an Approved Member --</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; opacity:0.8; font-weight:bold;">Amount (KES)</label>
+            <input type="number" id="mpesaB2cAmount" placeholder="e.g. 5000" style="margin-bottom:0;">
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="action-btn" style="width:100%; background:linear-gradient(135deg,#4caf50,#009688); padding:7px 14px; font-size:0.85rem;" onclick="openAdminStkModal()">
+            <i class="fas fa-mobile-alt"></i> Execute M-Pesa Transfer
+          </button>
+        </div>
+      </div>
+
       <div class="table-responsive">
       <table id="loansTable">
         <thead>
@@ -2007,6 +2030,49 @@
     <div style="background: #111b2f; border: 1px solid rgba(0, 224, 255, 0.3); border-radius: 12px; padding: 25px; width: 90%; max-width: 800px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); max-height: 85vh; overflow-y: auto;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
         <h3 style="margin: 0; color: #00e0ff; display: flex; align-items: center; gap: 8px;"><i class="fas fa-trash-alt"></i> Deleted Member & Transaction Tracker</h3>
+        <button onclick="document.getElementById('deletedRecordsModal').style.display = 'none'" style="background: none; border: none; font-size: 20px; color: #aaa; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#f44336'" onmouseout="this.style.color='#aaa'">x</button>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <thead>
+          <tr style="border-bottom: 2px solid rgba(0,224,255,0.2); color: #00e0ff; font-weight: bold;">
+            <th style="padding: 10px 6px; width: 8%;">#</th>
+            <th style="padding: 10px 6px; width: 22%;">Tracking ID</th>
+            <th style="padding: 10px 6px; width: 35%;">Borrower Name</th>
+            <th style="padding: 10px 6px; width: 20%;">Amount (KES)</th>
+            <th style="padding: 10px 6px; width: 15%;">Status</th>
+          </tr>
+        </thead>
+        <tbody id="deletedRecordsTableBody" style="color: #ccc;">
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 20px; opacity: 0.6; font-style: italic;">No deleted transaction records compiled.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- M-Pesa STK Admin Modal -->
+  <div id="adminStkModal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; backdrop-filter:blur(10px);">
+    <div style="background:#fff; border-radius:16px; padding:28px 24px; width:90%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,0.6); font-family:inherit; text-align:center;">
+      <div style="font-size:2.2rem; margin-bottom:10px;">📱</div>
+      <p id="adminStkPromptText" style="font-size:1rem; font-weight:600; color:#1a1a2e; margin-bottom:18px; line-height:1.5;">Confirm M-Pesa Transfer</p>
+      <input type="password" id="adminStkPinInput" maxlength="6" placeholder="Enter M-PESA PIN" style="width:100%; padding:14px 10px; font-size:1.3rem; letter-spacing:4px; border:2px solid #ddd; border-radius:8px; text-align:center; box-sizing:border-box; margin-bottom:8px; outline:none; transition:border 0.2s;" oninput="document.getElementById('adminStkErrorMsg').style.display='none'">
+      <p id="adminStkErrorMsg" style="color:#e53935; font-size:12px; display:none; margin:6px 0 12px;"></p>
+      <div style="display:flex; border-top:1px solid #eee; margin-top:8px;">
+        <button type="button" onclick="closeAdminStkModal()" style="flex:1; padding:14px; border:none; background:transparent; color:#007bff; font-weight:600; cursor:pointer; font-size:14px; border-right:1px solid #eee;">Cancel</button>
+        <button type="button" onclick="executeAdminMpesaSend()" style="flex:1; padding:14px; border:none; background:transparent; color:#e53935; font-weight:700; cursor:pointer; font-size:14px;">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trash Container Section in Settings -->
+  <!-- Trash Container is loaded dynamically via JS when Settings tab is opened -->
+
+  <!-- Deleted Records Tracker Modal Popup -->
+  <div id="deletedRecordsModal" style="display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(10, 18, 40, 0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); align-items: center; justify-content: center; animation: gateAppear 0.3s ease-out;">
+    <div style="background: #111b2f; border: 1px solid rgba(0, 224, 255, 0.3); border-radius: 12px; padding: 25px; width: 90%; max-width: 800px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); max-height: 85vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+        <h3 style="margin: 0; color: #00e0ff; display: flex; align-items: center; gap: 8px;"><i class="fas fa-trash-alt"></i> Deleted Member &amp; Transaction Tracker</h3>
         <button onclick="document.getElementById('deletedRecordsModal').style.display = 'none'" style="background: none; border: none; font-size: 20px; color: #aaa; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#f44336'" onmouseout="this.style.color='#aaa'">x</button>
       </div>
       <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
