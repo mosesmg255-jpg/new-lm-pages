@@ -341,6 +341,84 @@ async function deleteCheckedNotifications() {
   }
 }
 
+let removedNotificationsChecked = [];
+
+async function openRemovedNotificationsModal() {
+  const old = document.getElementById('removedNotifsModal');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'removedNotifsModal';
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; display:flex; justify-content:center; align-items:center;';
+  overlay.innerHTML = `
+    <div style="background:#1a1d23; border-radius:10px; width:95%; max-width:800px; max-height:80vh; display:flex; flex-direction:column; border:1px solid rgba(255,255,255,0.1);">
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.1);">
+        <h3 style="margin:0; color:#fff;">Removed Notification Logs</h3>
+        <button onclick="document.getElementById('removedNotifsModal').remove()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;">x</button>
+      </div>
+      <div style="padding:12px 20px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="action-btn" style="background:#4caf50;" onclick="restoreSelectedRemovedNotifs()">Restore Selected</button>
+        <button class="action-btn" style="background:#2196f3;" onclick="restoreAllRemovedNotifs()">Restore All</button>
+      </div>
+      <div id="removedNotifsContent" style="color:#aaa; text-align:center; padding:20px; font-style:italic;">Loading removed logs...</div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  removedNotificationsChecked = [];
+  try {
+    const rows = await apiCall('logs/deleted', { method: 'GET' });
+    const content = document.getElementById('removedNotifsContent');
+    if (!content) return;
+
+    if (!rows || rows.length === 0) {
+      content.innerHTML = '<p style="opacity:0.6;">No removed notifications found.</p>';
+      return;
+    }
+
+    content.innerHTML = rows.map(n => `
+      <div class="notification-item" style="display:flex; gap:12px; align-items:flex-start; padding:10px; background:rgba(255,255,255,0.03); border-radius:6px; border-left:4px solid #f44336; margin-bottom:6px;">
+        <input type="checkbox" style="width:auto; margin-top:4px; cursor:pointer;" value="${n.id}" onchange="toggleRemovedNotifCheck('${n.id}', this.checked)">
+        <div style="flex:1;">
+          <div style="font-size:0.95rem;">${n.message}</div>
+          <span style="font-size:12px; opacity:0.5; display:block; margin-top:4px;">Removed: ${n.deleted_at}</span>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    const content = document.getElementById('removedNotifsContent');
+    if (content) content.innerHTML = '<p style="color:#f44336;">Error: ' + e.message + '</p>';
+  }
+}
+
+function toggleRemovedNotifCheck(id, isChecked) {
+  if (isChecked) { if (!removedNotificationsChecked.includes(id)) removedNotificationsChecked.push(id); }
+  else { removedNotificationsChecked = removedNotificationsChecked.filter(x => x !== id); }
+}
+
+async function restoreSelectedRemovedNotifs() {
+  try {
+    const res = await apiCall('logs/restore', { method: 'POST', body: JSON.stringify({ ids: removedNotificationsChecked }) });
+    alert(`Restored ${res?.restored || removedNotificationsChecked.length} notification(s).`);
+    await loadNotificationsFromDB();
+    renderNotifications();
+    openRemovedNotificationsModal();
+  } catch (e) {
+    alert('Restore failed: ' + e.message);
+  }
+}
+
+async function restoreAllRemovedNotifs() {
+  try {
+    const res = await apiCall('logs/restore', { method: 'POST', body: JSON.stringify({ ids: [] }) });
+    alert(`Restored ${res?.restored || 0} notification(s).`);
+    await loadNotificationsFromDB();
+    renderNotifications();
+    openRemovedNotificationsModal();
+  } catch (e) {
+    alert('Restore failed: ' + e.message);
+  }
+}
+
 function pushMemberNotification(message) {
   try {
     const raw = localStorage.getItem('memberNotifications');

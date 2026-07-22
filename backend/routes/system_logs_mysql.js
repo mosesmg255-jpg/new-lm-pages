@@ -10,7 +10,8 @@ function fail(res, code, message) { return res.status(code).json({ status: 'fail
 (async () => {
   const statements = [
     `ALTER TABLE system_logs ADD COLUMN admin_id VARCHAR(50) DEFAULT NULL`,
-    `ALTER TABLE system_logs ADD INDEX idx_system_logs_admin (admin_id)`
+    `ALTER TABLE system_logs ADD INDEX idx_system_logs_admin (admin_id)`,
+    `ALTER TABLE system_logs ADD COLUMN deleted_at DATETIME DEFAULT NULL`
   ];
   for (const statement of statements) {
     try { await sequelize.query(statement); } catch (_) {}
@@ -87,7 +88,7 @@ router.get('/all', async (req, res) => {
     const admin = requireAdmin(req, res);
     if (!admin) return;
     const rows = await sequelize.query(
-      `SELECT id, message, timestamp_str FROM system_logs WHERE admin_id = :adminId ORDER BY created_at DESC LIMIT 500`,
+      `SELECT id, message, timestamp_str FROM system_logs WHERE admin_id = :adminId AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 500`,
       { type: sequelize.QueryTypes.SELECT, replacements: { adminId: admin.id } }
     );
     return ok(res, rows);
@@ -98,7 +99,7 @@ router.get('/all', async (req, res) => {
 });
 
 // DELETE /api/logs/delete
-// body: { ids: [...] }  - delete only selected
+// body: { ids: [...] }  - soft-delete selected
 router.delete('/delete', async (req, res) => {
   try {
     const admin = requireAdmin(req, res);
@@ -108,8 +109,8 @@ router.delete('/delete', async (req, res) => {
 
     const placeholders = ids.map(() => '?').join(',');
     await sequelize.query(
-      `DELETE FROM system_logs WHERE admin_id = ? AND id IN (${placeholders})`,
-      { type: sequelize.QueryTypes.DELETE, replacements: [admin.id, ...ids] }
+      `UPDATE system_logs SET deleted_at = NOW() WHERE admin_id = ? AND id IN (${placeholders}) AND deleted_at IS NULL`,
+      { type: sequelize.QueryTypes.UPDATE, replacements: [admin.id, ...ids] }
     );
     return ok(res, { deleted: ids.length });
   } catch (e) {
@@ -119,7 +120,7 @@ router.delete('/delete', async (req, res) => {
 });
 
 // DELETE /api/logs/keep
-// body: { ids: [...] }  - keep only selected, delete all others
+// body: { ids: [...] }  - soft-delete all except selected
 router.delete('/keep', async (req, res) => {
   try {
     const admin = requireAdmin(req, res);
@@ -128,8 +129,8 @@ router.delete('/keep', async (req, res) => {
     if (!Array.isArray(ids) || ids.length === 0) return fail(res, 400, 'No IDs provided');
     const placeholders = ids.map(() => '?').join(',');
     await sequelize.query(
-      `DELETE FROM system_logs WHERE admin_id = ? AND id NOT IN (${placeholders})`,
-      { type: sequelize.QueryTypes.DELETE, replacements: [admin.id, ...ids] }
+      `UPDATE system_logs SET deleted_at = NOW() WHERE admin_id = ? AND id NOT IN (${placeholders}) AND deleted_at IS NULL`,
+      { type: sequelize.QueryTypes.UPDATE, replacements: [admin.id, ...ids] }
     );
     return ok(res, { kept: ids.length });
   } catch (e) {
@@ -168,6 +169,54 @@ router.get('/member-activity/:id', async (req, res) => {
   } catch (e) {
     console.error('[logs/member-activity]', e);
     return fail(res, 500, 'Error fetching member activity logs');
+  }
+});
+
+// GET /api/logs/deleted
+// List soft-deleted notifications for this admin
+router.get('/deleted', async (req, res) => {
+  try {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+    const rows = await sequelize.query(
+      `SELECT id, message, timestamp_str, deleted_at FROM system_logs WHERE admin_id = :adminId AND deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 500`,
+      { type: sequelize.QueryTypes.SELECT, replacements: { adminId: admin.id } }
+    );
+    return ok(res, rows);
+  } catch (e) {
+    console.error('[logs/deleted]', e);
+    return fail(res, 500, 'System error fetching deleted logs');
+  }
+});
+
+// POST /api/logs/restore
+// body: { ids: [...] }  - restore soft-deleted notifications (empty array = restore all)
+router.post('/restore', async (req, res) => {
+  try {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+    const { ids } = req.body || {};
+
+    let restored;
+    if (Array.isArray(ids) && ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',');
+      const [result] = await sequelize.query(
+        `UPDATE system_logs SET deleted_at = NULL WHERE admin_id = ? AND id IN (${placeholders}) AND deleted_at IS NOT NULL`,
+        { type: sequelize.QueryTypes.UPDATE, replacements: [admin.id, ...ids] }
+      );
+      restored = result.affectedRows || 0;
+    } else {
+      const [result] = await sequelize.query(
+        `UPDATE system_logs SET deleted_at = NULL WHERE admin_id = ? AND deleted_at IS NOT NULL`,
+        { type: sequelize.QueryTypes.UPDATE, replacements: [admin.id] }
+      );
+      restored = result.affectedRows || 0;
+    }
+
+    return ok(res, { restored });
+  } catch (e) {
+    console.error('[logs/restore]', e);
+    return fail(res, 500, 'System error restoring logs');
   }
 });
 
