@@ -24,25 +24,52 @@ function goToCreateAccount() {
 function goToHome() {
   window.location.href = "landingpage.html"; 
 }
-document.querySelector('form').addEventListener('submit', function(e) {
+
+document.querySelector('form').addEventListener('submit', async function(e) {
     e.preventDefault(); // Intercept form submission
 
     const formData = new FormData(this);
     const formObj = Object.fromEntries(formData.entries());
 
-    const email = formObj.adminEmail || formObj.email || document.getElementById('adminEmail')?.value;
-    const password = formObj.adminPassword || formObj.password || document.getElementById('adminPassword')?.value;
+    // Use correct field names from HTML form: "identifier" and "password"
+    const email = formObj.identifier || formObj.email || formObj.adminEmail;
+    const password = formObj.password || formObj.adminPassword;
 
-    if (!email || !password) {
-        alert('Please enter both email and password.');
-        return;
+    try {
+        // Send login request to backend API
+        const response = await fetch(`${API}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: email, password })
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            // Successful login
+            const adminName = data.admin.full_name || data.admin.name || 'Admin';
+            
+            // Store admin info in localStorage or sessionStorage
+            if (data.token) {
+                localStorage.setItem('admin_token', data.token);
+            }
+            localStorage.setItem('admin_name', adminName);
+            localStorage.setItem('admin_id', data.admin.id);
+            localStorage.setItem('admin_email', data.admin.email);
+
+            // Show welcome message
+            alert(`Welcome back, ${adminName}!`);
+            
+            // Redirect to home page
+            window.location.href = data.redirect || 'home.html';
+        } else {
+            // Failed login - show backend error message
+            alert(data.message || 'Invalid email or password.');
+        }
+    } catch (err) {
+        console.error('Login Error:', err);
+        alert('A system error occurred. Please try again.');
     }
-
-    // Save credentials to sessionStorage and launch authentication scanner popup
-    sessionStorage.setItem('pending_email', email);
-    sessionStorage.setItem('pending_password', password);
-
-    window.location.href = 'invalidcredentials.html';
 });
 
 // Admin Password Recovery Logic
@@ -152,3 +179,4 @@ function submitAIVerifiedRecovery(e) {
         alert("Server communication error.");
     });
 }
+
