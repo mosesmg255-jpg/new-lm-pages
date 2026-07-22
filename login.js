@@ -35,12 +35,6 @@ document.querySelector('form').addEventListener('submit', async function(e) {
     const email = formObj.identifier || formObj.email || formObj.adminEmail;
     const password = formObj.password || formObj.adminPassword;
 
-    // Validate fields are not empty
-    if (!email || !password) {
-        alert('Please enter both email and password.');
-        return;
-    }
-
     try {
         // Send login request to backend API
         const response = await fetch(`${API}/auth/login`, {
@@ -69,7 +63,7 @@ document.querySelector('form').addEventListener('submit', async function(e) {
             // Redirect to home page
             window.location.href = data.redirect || 'home.html';
         } else {
-            // Failed login
+            // Failed login - show backend error message
             alert(data.message || 'Invalid email or password.');
         }
     } catch (err) {
