@@ -30,7 +30,7 @@ const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:4000,http
   .split(',').map(s => s.trim());
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || ALLOWED_ORIGINS.includes(origin) || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin) || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.endsWith('github.io')) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

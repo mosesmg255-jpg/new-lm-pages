@@ -51,13 +51,7 @@ const SYSTEM_SYNC_KEYS = {
 
 // a"a" API Base a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"a"
 // Use an explicit API base when available; if opened via file:// fallback to localhost:3000
-const API = (function(){
-  if (window.__API_BASE__) return window.__API_BASE__;
-  try {
-    if (window.location && window.location.protocol === 'file:') return 'http://127.0.0.1:3000/api';
-  } catch(e) {}
-  return '/api';
-})();
+const API = window.__API_BASE__ || '/api';
 
 function getAdminSession() {
   try {
