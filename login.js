@@ -30,8 +30,9 @@ document.querySelector('form').addEventListener('submit', function(e) {
     const formData = new FormData(this);
     const formObj = Object.fromEntries(formData.entries());
 
-    const email = formObj.adminEmail || formObj.email || document.getElementById('adminEmail')?.value;
-    const password = formObj.adminPassword || formObj.password || document.getElementById('adminPassword')?.value;
+    // Use correct field names from HTML form: "identifier" and "password"
+    const email = formObj.identifier || formObj.email || formObj.adminEmail;
+    const password = formObj.password || formObj.adminPassword;
 
     if (!email || !password) {
         alert('Please enter both email and password.');
@@ -152,3 +153,4 @@ function submitAIVerifiedRecovery(e) {
         alert("Server communication error.");
     });
 }
+
