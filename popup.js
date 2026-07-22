@@ -21,9 +21,9 @@ if (statusType === 'success') {
 
 // Action Redirections
 function goToCreateAccount() {
-    window.location.href = "createaccount.html";
+    window.location.href = "login.html";
 }
 
 function goToHome() {
-    window.location.href = "home.html";
+    window.location.href = "landingpage.html";
 }

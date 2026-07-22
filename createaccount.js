@@ -50,22 +50,13 @@ document.querySelector('form').addEventListener('submit', async (e) => {
         const result = await response.json();
         if (result.redirect) {
             window.location.href = result.redirect;
-        } else if (result.success) {
-            alert('Account created successfully!');
-            window.location.href = 'login.html';
+        } else if (result.success || result.status === 'success') {
+            window.location.href = 'popup.html?status=success&message=' + encodeURIComponent('Account created successfully! Click OK to return to login.');
         } else {
-            alert('Registration failed. Please check your details and try again.');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerText = 'Create Account';
-            }
+            window.location.href = 'popup.html?status=error&message=' + encodeURIComponent(result.message || 'Registration failed. User may already exist.');
         }
     } catch (err) {
         console.error('Registration failed:', err);
-        alert('Network error. Please try again.');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerText = 'Create Account';
-        }
+        window.location.href = 'popup.html?status=error&message=' + encodeURIComponent('Network error. Unable to complete registration.');
     }
 });

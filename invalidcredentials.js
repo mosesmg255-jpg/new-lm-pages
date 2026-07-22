@@ -30,15 +30,27 @@
                 } 
                 // 2. Direct drop routing if attempts reach 0
                 else if (data.status === 'lockout') {
-                    window.location.href = data.redirect;
+                    window.location.href = data.redirect || 'invalidcredentials.html';
                 } 
                 // 3. Match Approved State
                 else if (data.status === 'success') {
-                    showSuccess(data.message);
+                    sessionStorage.removeItem('homeSessionTimedOut');
+                    localStorage.removeItem('disableBlurEffect');
+                    sessionStorage.setItem('adminSession', JSON.stringify({
+                        id: data.admin?.id || '',
+                        name: data.admin?.full_name || data.admin?.name || '',
+                        email: data.admin?.email || '',
+                        phone: data.admin?.phone || '',
+                        role: 'admin',
+                        timestamp: Date.now(),
+                        token: data.token || ''
+                    }));
+                    localStorage.setItem('disableBlurEffect', 'true');
+                    showSuccess(data.message || 'Access Approved. Credentials Confirmed.');
                 } 
                 // 4. Access Denied State
                 else {
-                    showFailure(data.message, data.attempts);
+                    showFailure(data.message || 'Invalid username or password.', data.attempts !== undefined ? data.attempts : 3);
                 }
             })
             .catch(error => {
