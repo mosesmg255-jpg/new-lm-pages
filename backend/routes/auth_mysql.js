@@ -4,6 +4,7 @@ const { sequelize } = require('../models');
 const bcrypt = require('bcryptjs');
 const { signAdminToken } = require('../adminContext');
 const { registerRules, loginRules } = require('../validation');
+const { sendPasswordResetEmail } = require('../mailer');
 
 (async () => {
     try {
@@ -205,7 +206,12 @@ router.post('/forgot-password', async (req, res) => {
             { replacements: { email, token } }
         );
 
-        return res.json({ status: 'success', message: 'If an account exists with that email, a reset link has been generated.', token });
+        // Deliver the token out-of-band (email) instead of returning it in the
+        // API response. Returning it directly would let anyone who knows an
+        // admin's email address take over the account with no verification.
+        await sendPasswordResetEmail(email, token);
+
+        return res.json({ status: 'success', message: 'If an account exists with that email, a reset link has been generated.' });
     } catch (e) {
         console.error(e);
         return res.json({ status: 'error', message: 'System error' });
