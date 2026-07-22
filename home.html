@@ -153,9 +153,38 @@
                 </tr>
               </tbody>
             </table>
-          </div>
         </div>
       </div>
+
+      <!-- M-Pesa STK Push Queue (Authorization Panel) -->
+      <div class="approval-panel" style="margin-top:20px; padding:16px; background: rgba(76,175,80,0.08); border-radius:12px; border:1px solid rgba(76,175,80,0.18);">
+        <h3 style="color:#81c784; margin-top:0; display:flex; justify-content:space-between; align-items:center;">
+          <span>M-Pesa Approval Queue</span>
+          <span style="display:flex; gap:8px;">
+            <button class="action-btn" style="background:#0077ff; font-size:11px; padding:6px 10px;" onclick="loadMpesaTransactions()"> <i class="fas fa-sync-alt"></i> Refresh Queue</button>
+          </span>
+        </h3>
+        <div style="overflow-x: auto; width: 100%;">
+          <table id="mpesaApprovalsTable" style="width:100%; border-collapse:collapse; margin-top:10px; min-width: 600px;">
+            <thead>
+              <tr>
+                <th style="width:8%">ID</th>
+                <th style="width:25%">Member</th>
+                <th style="width:15%">Amount</th>
+                <th style="width:20%">Phone</th>
+                <th style="width:15%">Purpose</th>
+                <th style="width:17%">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="mpesaApprovalsTableBody">
+              <tr>
+                <td colspan="6" style="opacity:0.6; font-style:italic; padding:10px;">No transactions pending approval.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
 
       <h3 style="margin-top:24px; display:flex; justify-content:space-between; align-items:center;">
         <span>Approved Members Pool (Verified Access)</span>
@@ -1196,6 +1225,55 @@
 
         </div><!-- /#safeguardPanel -->
       </div><!-- /.hub-module-card Safeguard Wrapper -->
+
+      <!--
+           9b. Meeting Scheduler
+       -->
+      <div class="hub-module-card" id="meetingSchedulerModule" style="margin-top:10px; border:1px solid rgba(156,39,176,0.3); background:rgba(156,39,176,0.04);">
+        <h3 style="color:#ce93d8; display:flex; justify-content:space-between; align-items:center;">
+          <span>9b. Meeting Scheduler</span>
+          <button class="action-btn" style="background:#0077ff; font-size:11px; padding:6px 10px;" onclick="loadMeetings()"><i class="fas fa-sync-alt"></i> Refresh</button>
+        </h3>
+        <p style="font-size:12px; color:#aaa; margin-bottom:16px;">Schedule new meetings and manage scheduled agendas for members.</p>
+        
+        <div class="split-pane">
+          <div>
+            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:14px;">
+              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Meeting Title</label><input type="text" id="schedTitle" placeholder="e.g. Monthly General Meeting" style="margin-bottom:0;"></div>
+              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Type</label>
+                <select id="schedType" style="margin-bottom:0; background:#222; color:#fff; border:1px solid #444; height:36px; padding:6px; border-radius:6px; width:100%;">
+                  <option value="regular">Regular</option>
+                  <option value="emergency">Emergency</option>
+                  <option value="special">Special</option>
+                </select>
+              </div>
+              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Date</label><input type="date" id="schedDate" style="margin-bottom:0;"></div>
+              <div><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Time</label><input type="time" id="schedTime" style="margin-bottom:0;"></div>
+              <div style="grid-column: 1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Venue</label><input type="text" id="schedVenue" placeholder="e.g. Community Hall, Eldoret" style="margin-bottom:0;"></div>
+              <div style="grid-column: 1/-1;"><label style="font-size:11px; color:#ce93d8; font-weight:bold; text-transform:uppercase;">Agenda Description</label><textarea id="schedDescription" placeholder="Meeting goals, discussion points..." style="min-height:70px; margin-bottom:0; font-size:13px;"></textarea></div>
+            </div>
+            <button class="action-btn" style="background:linear-gradient(45deg,#7b1fa2,#ce93d8); color:#fff; width:100%; padding:10px 20px; font-size:13px; font-weight:bold;" onclick="createMeeting()">Schedule Meeting</button>
+          </div>
+          <div>
+            <div style="font-size:11px; text-transform:uppercase; margin-bottom:6px; color:#ce93d8; font-weight:bold;">Upcoming Scheduled Meetings</div>
+            <div style="overflow-x:auto; background:rgba(0,0,0,0.25); border-radius:10px; padding:12px; border:1px solid rgba(156,39,176,0.15); max-height:280px; overflow-y:auto;">
+              <table style="width:100%; border-collapse:collapse; min-width:400px;">
+                <thead>
+                  <tr style="border-bottom:2px solid rgba(156,39,176,0.3); font-size:11px; text-transform:uppercase; color:#ce93d8;">
+                    <th style="padding:8px 6px;">Title</th>
+                    <th style="padding:8px 6px; width:80px;">Date</th>
+                    <th style="padding:8px 6px; width:70px;">Status</th>
+                    <th style="padding:8px 6px; width:100px; text-align:right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="meetingsTableBody">
+                  <tr><td colspan="4" style="opacity:0.5; font-style:italic; padding:20px; text-align:center;">No scheduled meetings.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!--
            10. SAVED MEETING MINUTES REGISTRY

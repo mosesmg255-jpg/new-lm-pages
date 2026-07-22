@@ -7,12 +7,15 @@ const defineContribution = require('./Contribution');
 const defineExpenseClaim = require('./ExpenseClaim');
 const defineMemberSaving = require('./MemberSaving');
 
+const defineMpesaTransaction = require('./MpesaTransaction');
+
 const Member = defineMember(sequelize);
 const Loan = defineLoan(sequelize);
 const Repayment = defineRepayment(sequelize);
 const Contribution = defineContribution(sequelize);
 const ExpenseClaim = defineExpenseClaim(sequelize);
 const MemberSaving = defineMemberSaving(sequelize);
+const MpesaTransaction = defineMpesaTransaction(sequelize);
 
 // --- Model Associations ---
 // Loan belongs to a member (borrower)
@@ -39,6 +42,10 @@ Member.hasMany(ExpenseClaim, { foreignKey: 'member_id', as: 'expenseClaims' });
 MemberSaving.belongsTo(Member, { foreignKey: 'member_id', as: 'member' });
 Member.hasMany(MemberSaving, { foreignKey: 'member_id', as: 'savings' });
 
+// MpesaTransaction belongs to a Member
+MpesaTransaction.belongsTo(Member, { foreignKey: 'member_id', as: 'member' });
+Member.hasMany(MpesaTransaction, { foreignKey: 'member_id', as: 'mpesaTransactions' });
+
 module.exports = {
   sequelize,
   Member,
@@ -46,5 +53,6 @@ module.exports = {
   Repayment,
   Contribution,
   ExpenseClaim,
-  MemberSaving
+  MemberSaving,
+  MpesaTransaction
 };

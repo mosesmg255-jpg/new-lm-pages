@@ -2400,3 +2400,97 @@ function escHtml(str) {
 function escAttr(str) {
     return escHtml(str).replace(/'/g, '&#39;');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  M-PESA STK PUSH (Member Portal)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function openStkModal(opts = {}) {
+    const old = document.getElementById('memberStkModal');
+    if (old) old.remove();
+
+    const phone = CURRENT_SESSION?.phone || '';
+    const modal = document.createElement('div');
+    modal.id = 'memberStkModal';
+    modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9999; display:flex; justify-content:center; align-items:center;';
+    modal.innerHTML = `
+    <div style="background:#1a1d23; border-radius:14px; width:95%; max-width:440px; padding:28px; border:1px solid rgba(76,175,80,0.35); box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 style="margin:0; color:#81c784; font-size:18px;"><i class="fas fa-mobile-alt"></i> Pay via M-Pesa</h3>
+        <button onclick="closeStkModal()" style="background:rgba(255,255,255,0.1); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:16px;">×</button>
+      </div>
+      <div id="stkModalStatus" style="display:none; padding:10px 14px; border-radius:8px; margin-bottom:14px; font-size:13px;"></div>
+      <label style="font-size:11px; color:#81c784; text-transform:uppercase; font-weight:bold; display:block; margin-bottom:4px;">Amount (KES)</label>
+      <input type="number" id="stkAmount" placeholder="e.g. 500" value="${opts.amount || ''}" min="1" style="margin-bottom:14px;">
+      <label style="font-size:11px; color:#81c784; text-transform:uppercase; font-weight:bold; display:block; margin-bottom:4px;">M-Pesa Phone Number</label>
+      <input type="text" id="stkPhone" placeholder="e.g. 0712345678" value="${phone}" style="margin-bottom:14px;">
+      <label style="font-size:11px; color:#81c784; text-transform:uppercase; font-weight:bold; display:block; margin-bottom:4px;">Purpose</label>
+      <select id="stkPurpose" style="margin-bottom:20px; background:#222; color:#fff; border:1px solid #444; height:40px; padding:8px; border-radius:8px; width:100%;">
+        <option value="Contribution">Monthly Contribution</option>
+        <option value="Loan Repayment">Loan Repayment</option>
+        <option value="Registration Fee">Registration Fee</option>
+        <option value="Fine/Penalty">Fine/Penalty</option>
+      </select>
+      <button id="stkSubmitBtn" style="width:100%; background:linear-gradient(135deg,#4caf50,#2e7d32); color:#fff; border:none; padding:14px; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; letter-spacing:0.5px;" onclick="initiateStkPush(event)">
+        <i class="fas fa-paper-plane"></i> Send STK Push to My Phone
+      </button>
+      <p style="font-size:11px; color:#666; text-align:center; margin:12px 0 0;">A prompt will appear on your phone. Enter your M-Pesa PIN to confirm payment.</p>
+    </div>`;
+    document.body.appendChild(modal);
+
+    if (opts.purpose) {
+        const sel = document.getElementById('stkPurpose');
+        if (sel) sel.value = opts.purpose;
+    }
+}
+
+function closeStkModal() {
+    const modal = document.getElementById('memberStkModal');
+    if (modal) modal.remove();
+}
+
+async function initiateStkPush(event) {
+    if (event) event.preventDefault();
+    const amount = document.getElementById('stkAmount')?.value?.trim();
+    const phone = document.getElementById('stkPhone')?.value?.trim();
+    const purpose = document.getElementById('stkPurpose')?.value;
+    const statusEl = document.getElementById('stkModalStatus');
+    const btn = document.getElementById('stkSubmitBtn');
+
+    if (!amount || Number(amount) < 1) {
+        if (statusEl) { statusEl.style.display='block'; statusEl.style.background='rgba(244,67,54,0.15)'; statusEl.style.color='#f44336'; statusEl.textContent = 'Please enter a valid amount.'; }
+        return;
+    }
+    if (!phone) {
+        if (statusEl) { statusEl.style.display='block'; statusEl.style.background='rgba(244,67,54,0.15)'; statusEl.style.color='#f44336'; statusEl.textContent = 'Please enter your M-Pesa phone number.'; }
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending STK Push...'; }
+    if (statusEl) { statusEl.style.display='block'; statusEl.style.background='rgba(255,152,0,0.15)'; statusEl.style.color='#ff9800'; statusEl.textContent = 'Initiating STK Push. Please wait...'; }
+
+    try {
+        await apiRequest('mpesa/stk-push', {
+            method: 'POST',
+            body: JSON.stringify({
+                amount,
+                phone,
+                purpose,
+                member_id: CURRENT_SESSION?.id,
+                admin_id: CURRENT_SESSION?.admin_id
+            })
+        });
+        if (statusEl) { statusEl.style.background='rgba(76,175,80,0.15)'; statusEl.style.color='#4caf50'; statusEl.textContent = '✓ STK Push sent! Check your phone and enter your M-Pesa PIN to complete payment.'; }
+        if (btn) { btn.innerHTML = '<i class="fas fa-check"></i> STK Sent!'; btn.style.background='#2e7d32'; }
+        setTimeout(closeStkModal, 5000);
+    } catch (err) {
+        if (statusEl) { statusEl.style.background='rgba(244,67,54,0.15)'; statusEl.style.color='#f44336'; statusEl.textContent = 'Failed: ' + (err.message || 'Unknown error'); }
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send STK Push to My Phone'; }
+    }
+}
+
+// submitPayment — alias for backward compat
+async function submitPayment(event) {
+    return initiateStkPush(event);
+}
+

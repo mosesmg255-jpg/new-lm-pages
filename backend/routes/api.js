@@ -43,6 +43,12 @@ router.use('/settings', require('./settings_mysql'));
 // Meeting Minutes Registry
 router.use('/minutes', require('./minutes_mysql'));
 
+// M-Pesa Integration
+router.use('/mpesa', require('./mpesa_mysql'));
+
+// Meeting Scheduler
+router.use('/meetings', require('./meetings_mysql'));
+
 // Member Messages (member-to-admin inbox, unread badge)
 router.use('/messages', require('./messages_mysql'));
 

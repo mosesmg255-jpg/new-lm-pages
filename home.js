@@ -4496,7 +4496,197 @@ document.addEventListener('DOMContentLoaded', () => {
         if(typeof loadCard3bRegistry === 'function') {
             loadCard3bRegistry();
         }
+        if(typeof loadMpesaTransactions === 'function') {
+            loadMpesaTransactions();
+        }
+        if(typeof loadMeetings === 'function') {
+            loadMeetings();
+        }
     }, 1000);
 });
+
+// ═══════════════════════════════════════════════════════════════
+//  M-PESA TRANSACTIONS (Admin Portal)
+// ═══════════════════════════════════════════════════════════════
+
+async function loadMpesaTransactions() {
+  const tbody = document.getElementById('mpesaApprovalsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="opacity:0.5; padding:10px; text-align:center; font-style:italic;">Loading M-Pesa transactions...</td></tr>';
+  try {
+    const rows = await apiCall('mpesa/transactions', { method: 'GET' });
+    const txs = Array.isArray(rows) ? rows : (rows?.data || []);
+    const pending = txs.filter(t => t.status === 'paid_pending_approval');
+
+    if (!pending.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="opacity:0.5; padding:10px; text-align:center; font-style:italic;">No transactions pending approval.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = pending.map(t => {
+      const memberName = t.member?.full_name || t.member_id || 'Unknown';
+      const amount = 'KES ' + parseFloat(t.amount || 0).toLocaleString();
+      const phone = t.phone || '—';
+      const purpose = t.purpose || 'General';
+      return `<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+        <td style="padding:8px 6px;"><code>${t.id}</code></td>
+        <td style="padding:8px 6px;"><strong>${memberName}</strong></td>
+        <td style="padding:8px 6px; color:#4caf50; font-weight:bold;">${amount}</td>
+        <td style="padding:8px 6px;">${phone}</td>
+        <td style="padding:8px 6px;">${purpose}</td>
+        <td style="padding:8px 6px; text-align:right; display:flex; gap:6px; justify-content:flex-end;">
+          <button class="action-btn" style="background:#4caf50; font-size:11px; padding:5px 10px; margin:0;" onclick="approveMpesaTx(${t.id})"><i class="fas fa-check"></i> Approve</button>
+          <button class="action-btn" style="background:#f44336; font-size:11px; padding:5px 10px; margin:0;" onclick="denyMpesaTx(${t.id})"><i class="fas fa-times"></i> Deny</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#f44336; padding:10px; text-align:center;">Error: ${err.message}</td></tr>`;
+  }
+}
+
+async function approveMpesaTx(id) {
+  if (!confirm(`Approve M-Pesa Transaction #${id}? This will create a corresponding contribution or repayment record.`)) return;
+  try {
+    await apiCall('mpesa/approve', { method: 'POST', body: JSON.stringify({ id }) });
+    logNotification(`M-Pesa Transaction #${id} approved.`);
+    alert('Transaction approved successfully!');
+    loadMpesaTransactions();
+  } catch (err) {
+    alert('Approval failed: ' + err.message);
+  }
+}
+
+async function denyMpesaTx(id) {
+  if (!confirm(`Deny M-Pesa Transaction #${id}?`)) return;
+  try {
+    await apiCall('mpesa/deny', { method: 'POST', body: JSON.stringify({ id }) });
+    logNotification(`M-Pesa Transaction #${id} denied.`);
+    alert('Transaction denied.');
+    loadMpesaTransactions();
+  } catch (err) {
+    alert('Deny failed: ' + err.message);
+  }
+}
+
+// Admin-initiated STK Push
+function openAdminStkModal() {
+  const old = document.getElementById('adminStkModal');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.id = 'adminStkModal';
+  modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9999; display:flex; justify-content:center; align-items:center;';
+  modal.innerHTML = `
+    <div style="background:#1a1d23; border-radius:12px; width:95%; max-width:480px; padding:24px; border:1px solid rgba(76,175,80,0.3);">
+      <h3 style="color:#81c784; margin:0 0 16px;">Send M-Pesa STK Push</h3>
+      <label style="font-size:11px; color:#81c784; text-transform:uppercase; font-weight:bold;">Member Phone</label>
+      <input type="text" id="adminStkPhone" placeholder="e.g. 0712345678" style="margin-bottom:12px;">
+      <label style="font-size:11px; color:#81c784; text-transform:uppercase; font-weight:bold;">Amount (KES)</label>
+      <input type="number" id="adminStkAmount" placeholder="e.g. 1000" style="margin-bottom:12px;">
+      <label style="font-size:11px; color:#81c784; text-transform:uppercase; font-weight:bold;">Purpose</label>
+      <select id="adminStkPurpose" style="margin-bottom:16px; background:#222; color:#fff; border:1px solid #444; height:36px; padding:6px; border-radius:6px; width:100%;">
+        <option value="Contribution">Contribution</option>
+        <option value="Loan Repayment">Loan Repayment</option>
+        <option value="Registration Fee">Registration Fee</option>
+        <option value="Fine/Penalty">Fine/Penalty</option>
+      </select>
+      <div style="display:flex; gap:10px;">
+        <button class="action-btn" style="background:#4caf50; flex:1;" onclick="executeAdminMpesaSend()">Send STK Push</button>
+        <button class="action-btn" style="background:#555; flex:1;" onclick="document.getElementById('adminStkModal').remove()">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function executeAdminMpesaSend() {
+  const phone = document.getElementById('adminStkPhone')?.value?.trim();
+  const amount = document.getElementById('adminStkAmount')?.value?.trim();
+  const purpose = document.getElementById('adminStkPurpose')?.value;
+  if (!phone || !amount) { alert('Phone and Amount are required.'); return; }
+  try {
+    await apiCall('mpesa/stk-push', { method: 'POST', body: JSON.stringify({ phone, amount, purpose }) });
+    alert(`STK Push sent to ${phone}! Ask member to check their phone and enter M-Pesa PIN.`);
+    document.getElementById('adminStkModal')?.remove();
+    setTimeout(loadMpesaTransactions, 5000);
+  } catch (err) {
+    alert('STK Push failed: ' + err.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MEETING SCHEDULER (Admin Portal)
+// ═══════════════════════════════════════════════════════════════
+
+async function createMeeting() {
+  const title = document.getElementById('schedTitle')?.value?.trim();
+  const date = document.getElementById('schedDate')?.value;
+  const time = document.getElementById('schedTime')?.value;
+  const venue = document.getElementById('schedVenue')?.value?.trim();
+  const type = document.getElementById('schedType')?.value;
+  const description = document.getElementById('schedDescription')?.value?.trim();
+
+  if (!title) { alert('Meeting title is required.'); return; }
+  if (!date) { alert('Meeting date is required.'); return; }
+  if (!time) { alert('Meeting time is required.'); return; }
+
+  try {
+    await apiCall('meetings/create', {
+      method: 'POST',
+      body: JSON.stringify({ title, date, time, venue, type, description })
+    });
+    logNotification(`Meeting scheduled: "${title}" on ${date}`);
+    alert('Meeting scheduled successfully!');
+    // Clear form
+    ['schedTitle','schedDate','schedTime','schedVenue','schedDescription'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    loadMeetings();
+  } catch (err) {
+    alert('Failed to schedule meeting: ' + err.message);
+  }
+}
+
+async function loadMeetings() {
+  const tbody = document.getElementById('meetingsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="4" style="opacity:0.5; padding:10px; text-align:center; font-style:italic;">Loading meetings...</td></tr>';
+  try {
+    const rows = await apiCall('meetings/all', { method: 'GET' });
+    const meetings = Array.isArray(rows) ? rows : (rows?.data || []);
+
+    if (!meetings.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="opacity:0.5; padding:20px; text-align:center; font-style:italic;">No scheduled meetings yet.</td></tr>';
+      return;
+    }
+
+    const statusColor = { scheduled: '#ff9800', ongoing: '#4caf50', completed: '#2196f3', cancelled: '#f44336' };
+
+    tbody.innerHTML = meetings.map(m => {
+      const color = statusColor[m.status] || '#aaa';
+      return `<tr style="border-bottom:1px solid rgba(156,39,176,0.1); cursor:pointer;" onmouseover="this.style.background='rgba(156,39,176,0.08)'" onmouseout="this.style.background='transparent'">
+        <td style="padding:8px 6px; font-weight:bold; color:#ce93d8;">${m.title}</td>
+        <td style="padding:8px 6px; font-size:11px; opacity:0.8;">${m.date ? new Date(m.date).toLocaleDateString() : '—'}</td>
+        <td style="padding:8px 6px;"><span style="color:${color}; font-size:11px; font-weight:bold; text-transform:uppercase;">${m.status}</span></td>
+        <td style="padding:8px 6px; text-align:right;">
+          <button class="action-btn" style="background:#f44336; font-size:10px; padding:4px 8px; margin:0;" onclick="deleteMeeting(${m.id})"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="color:#f44336; padding:10px; text-align:center;">Error: ${err.message}</td></tr>`;
+  }
+}
+
+async function deleteMeeting(id) {
+  if (!confirm('Delete this meeting?')) return;
+  try {
+    await apiCall(`meetings/delete/${id}`, { method: 'DELETE' });
+    loadMeetings();
+  } catch (err) {
+    alert('Delete failed: ' + err.message);
+  }
+}
+
 
 
