@@ -4,13 +4,14 @@
 <head>
   <script src="utils/security.js"></script>
   <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Eldoret Chama Table-Banking Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description"
     content="Eldoret Chama Table-Banking Admin Portal - Loan Management, Member Registry, Treasurer Console">
-  <link rel="stylesheet" href="style/home.css">
-  <link rel="stylesheet" href="style/designTokens.css">
-  <script src="home-listeners.js"></script>
+  <link rel="stylesheet" href="style/home.css?v=20260722">
+  <link rel="stylesheet" href="style/designTokens.css?v=20260722">
+  <script src="home-listeners.js?v=20260722"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -1849,13 +1850,15 @@
 
   <button class="fab" aria-label="Add new member" onclick="showSection('members')">+</button>
 
-  <script src="home.js"></script>
+  <script src="home.js?v=20260722"></script>
   <script>
     async function promptDisableBlur() {
       // First, fetch current state
       let currentState = document.body.classList.contains("home-admin-locked");
       try {
-         const res = await fetch(`${API}/settings/blur`);
+        const res = await fetch('/api/settings/blur', {
+          headers: { 'authorization': 'tok:'+sessionStorage.getItem('adminToken') }
+        });
          const data = await res.json();
          currentState = Boolean(currentState || data.blurEnabled);
       } catch(e) {}

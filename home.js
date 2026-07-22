@@ -77,7 +77,12 @@ async function apiCall(path, options = {}) {
     headers,
     credentials: 'same-origin',
   });
-  const body = await res.json();
+  let body;
+  try {
+    body = await res.json();
+  } catch (e) {
+    throw new Error(`Invalid JSON response from ${path}`);
+  }
   if (!res.ok) throw new Error(body.message || `API error: ${path}`);
   return body.data ?? body;
 }
@@ -646,10 +651,10 @@ async function handleApprovalDecision(memberId, action) {
 }
 
 async function registerMember() {
-  const full_name = document.getElementById('memberName').value.trim();
-  const email     = document.getElementById('memberEmail').value.trim();
-  const phone     = document.getElementById('memberPhone').value.trim();
-  const password  = document.getElementById('memberPassword').value.trim();
+  const full_name = document.getElementById('memberName')?.value.trim();
+  const email     = document.getElementById('memberEmail')?.value.trim();
+  const phone     = document.getElementById('memberPhone')?.value.trim();
+  const password  = document.getElementById('memberPassword')?.value.trim();
   const emailRe   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (!full_name)          return alert('Please enter a Full Name.');
@@ -667,10 +672,10 @@ async function registerMember() {
     alert(`Member request submitted. Security PIN: ${pin}`);
     localStorage.setItem(SYSTEM_SYNC_KEYS.POOL_UPDATED, Date.now().toString());
     await loadVerificationDashboard();
-    document.getElementById('memberName').value     = '';
-    document.getElementById('memberEmail').value    = '';
-    document.getElementById('memberPhone').value    = '';
-    document.getElementById('memberPassword').value = '';
+    if (document.getElementById('memberName')) document.getElementById('memberName').value = '';
+    if (document.getElementById('memberEmail')) document.getElementById('memberEmail').value = '';
+    if (document.getElementById('memberPhone')) document.getElementById('memberPhone').value = '';
+    if (document.getElementById('memberPassword')) document.getElementById('memberPassword').value = '';
   } catch (e) {
     alert(e.message || 'Unable to submit member request.');
   }
@@ -730,10 +735,10 @@ function handleLoanAssigneeChange() {
 //  LOANS DASHBOARD  (DB-backed: loans table)
 // a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*a*
 async function executeDirectLoanAssignment() {
-  const assigneeVal = document.getElementById('loanAssigneeSelector').value;
+  const assigneeVal = document.getElementById('loanAssigneeSelector')?.value;
   const amtInput    = document.getElementById('loanAssignAmount');
   const amount      = parseFloat(amtInput.value);
-  const pin         = document.getElementById('loanAssignPin').value;
+  const pin         = document.getElementById('loanAssignPin')?.value;
 
   if (!assigneeVal || isNaN(amount) || amount <= 0) return alert('Please map structural parameters accurately before provision allocation run.');
   if (amount > trackingMetrics.capitalFloundLimitSetting) return alert(`Operational Reject: Loan value exceeds locked capital limit (Max: KES ${trackingMetrics.capitalFloundLimitSetting}).`);
@@ -747,8 +752,8 @@ async function executeDirectLoanAssignment() {
     logNotification(`Treasurer Action: Assigned direct loan to <strong>${memberName}</strong> a" KES ${amount.toLocaleString()}`);
     pushMemberNotification(`New outstanding balance allocated to your registry: KES ${amount}`);
     amtInput.value = '';
-    document.getElementById('loanAssignPin').value = '';
-    document.getElementById('loanAssigneeSelector').value = '';
+    if (document.getElementById('loanAssignPin')) document.getElementById('loanAssignPin').value = '';
+    if (document.getElementById('loanAssigneeSelector')) document.getElementById('loanAssigneeSelector').value = '';
     await renderLoansTableDashboard();
     await loadDashboardTiles();
   } catch (e) {
@@ -1504,25 +1509,25 @@ function handleTxDropdownChange() {
   if (!dropdown) return;
   const member = membersArray.find(m => String(m.id) === dropdown.value);
   if (member) {
-    document.getElementById('secLoanAmount').value    = member.loanAmount    || '';
-    document.getElementById('secSavingsAmount').value = member.savingsAmount || '';
+    if (document.getElementById('secLoanAmount')) document.getElementById('secLoanAmount').value = member.loanAmount    || '';
+    if (document.getElementById('secSavingsAmount')) document.getElementById('secSavingsAmount').value = member.savingsAmount || '';
     calculateSecEligibility();
   } else {
-    document.getElementById('secLoanAmount').value    = '';
-    document.getElementById('secSavingsAmount').value = '';
+    if (document.getElementById('secLoanAmount')) document.getElementById('secLoanAmount').value = '';
+    if (document.getElementById('secSavingsAmount')) document.getElementById('secSavingsAmount').value = '';
     document.getElementById('secEligibilityOutput').innerText = 'KES 0.00';
   }
 }
 
 function calculateSecEligibility() {
-  const savings   = parseFloat(document.getElementById('secSavingsAmount').value) || 0;
+  const savings   = parseFloat(document.getElementById('secSavingsAmount')?.value) || 0;
   const maxLimit  = savings * 3;
   document.getElementById('secEligibilityOutput').innerText = `KES ${maxLimit.toFixed(2)}`;
 }
 
 async function submitLoanTx() {
   const dropdown = document.getElementById('secTxDropdown');
-  const amount   = parseFloat(document.getElementById('secLoanAmount').value) || 0;
+  const amount   = parseFloat(document.getElementById('secLoanAmount')?.value) || 0;
   if (!dropdown.value) return alert('Select a target member profile first.');
 
   const member = membersArray.find(m => String(m.id) === dropdown.value);
@@ -1548,7 +1553,7 @@ async function submitLoanTx() {
 
 async function submitSavingsTx() {
   const dropdown = document.getElementById('secTxDropdown');
-  const amount   = parseFloat(document.getElementById('secSavingsAmount').value) || 0;
+  const amount   = parseFloat(document.getElementById('secSavingsAmount')?.value) || 0;
   if (!dropdown.value) return alert('Select a target member profile first.');
 
   try {
@@ -2634,9 +2639,9 @@ async function submitCorporateTask() {
     });
 
     // Clear input fields
-    document.getElementById('taskTitle').value = '';
-    document.getElementById('taskDesc').value = '';
-    document.getElementById('taskDeadline').value = '';
+    if (document.getElementById('taskTitle')) document.getElementById('taskTitle').value = '';
+    if (document.getElementById('taskDesc')) document.getElementById('taskDesc').value = '';
+    if (document.getElementById('taskDeadline')) document.getElementById('taskDeadline').value = '';
 
     showToast(`Task successfully routed! Status: ${result.status}`, 'success');
     logNotification(`Corporate Portal: Submitted and routed administrative task a" "${title}"`);
@@ -2682,9 +2687,9 @@ async function submitCorporateBooking() {
       })
     });
 
-    document.getElementById('bookingTitle').value = '';
-    document.getElementById('bookingStart').value = '';
-    document.getElementById('bookingEnd').value = '';
+    if (document.getElementById('bookingTitle')) document.getElementById('bookingTitle').value = '';
+    if (document.getElementById('bookingStart')) document.getElementById('bookingStart').value = '';
+    if (document.getElementById('bookingEnd')) document.getElementById('bookingEnd').value = '';
 
     showToast('Boardroom reservation confirmed!', 'success');
     logNotification(`Corporate Portal: Confirmed boardroom booking a" "${title}"`);
@@ -2704,7 +2709,7 @@ async function uploadCorporateDocument() {
       body: JSON.stringify({ filename })
     });
 
-    document.getElementById('docUploadName').value = '';
+    if (document.getElementById('docUploadName')) document.getElementById('docUploadName').value = '';
 
     showToast('Document uploaded to AWS S3 bucket!', 'success');
     logNotification(`Corporate Portal: Uploaded document "${filename}" to S3 storage bucket "${result.s3_bucket}"`);
@@ -2765,9 +2770,9 @@ async function submitCorporateComm() {
       body: JSON.stringify({ source, sender, subject, content })
     });
 
-    document.getElementById('commSender').value = '';
-    document.getElementById('commSubject').value = '';
-    document.getElementById('commContent').value = '';
+    if (document.getElementById('commSender')) document.getElementById('commSender').value = '';
+    if (document.getElementById('commSubject')) document.getElementById('commSubject').value = '';
+    if (document.getElementById('commContent')) document.getElementById('commContent').value = '';
 
     showToast('Communication notification logged!', 'success');
     logNotification(`Corporate Portal: Logged incoming ${source} from "${sender}"`);
@@ -2793,8 +2798,8 @@ async function submitCorporateTravel() {
       })
     });
 
-    document.getElementById('travelDest').value = '';
-    document.getElementById('travelNotes').value = '';
+    if (document.getElementById('travelDest')) document.getElementById('travelDest').value = '';
+    if (document.getElementById('travelNotes')) document.getElementById('travelNotes').value = '';
 
     showToast('Travel itinerary registered successfully!', 'success');
     logNotification(`Corporate Portal: Logged travel plan to ${destination} for executive ID [${executive_id}]`);
@@ -2822,7 +2827,7 @@ async function submitCorporateExpense() {
       })
     });
 
-    document.getElementById('expenseAmount').value = '';
+    if (document.getElementById('expenseAmount')) document.getElementById('expenseAmount').value = '';
 
     showToast('Expense claim submitted for review!', 'success');
     logNotification(`Corporate Portal: Submitted reimbursement claim of KES ${Number(amount).toLocaleString()} with S3 attachment`);
@@ -2986,7 +2991,7 @@ async function saveSafeguardBudget() {
     ['sgBudgetName','sgBudgetAllocated','sgBudgetSpend','sgBudgetIncome'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = '';
     });
-    document.getElementById('sgBudgetVarianceDisplay').textContent = 'KES 0.00 (0.00%)';
+    if (document.getElementById('sgBudgetVarianceDisplay')) document.getElementById('sgBudgetVarianceDisplay').textContent = 'KES 0.00 (0.00%)';
     showToast('Budget entry saved successfully!', 'success');
     logNotification(`Safeguard: New budget entry a" "${name}" (${category}, FY${year})`);
     await loadSafeguardBudgets();
@@ -3187,8 +3192,8 @@ async function addFundingSource() {
     ['sgFundName','sgFundBody','sgFundAwarded','sgFundTarget','sgFundReceived'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = '';
     });
-    document.getElementById('sgFundProgressBar').style.width = '0%';
-    document.getElementById('sgFundProgressPct').textContent = '0%';
+    if (document.getElementById('sgFundProgressBar')) document.getElementById('sgFundProgressBar').style.width = '0%';
+    if (document.getElementById('sgFundProgressPct')) document.getElementById('sgFundProgressPct').textContent = '0%';
     showToast(`Funding source registered: "${name}"`, 'success');
     logNotification(`Safeguard: Funding source registered a" "${name}" (${type})`);
     await loadFundingSources();
@@ -3355,9 +3360,9 @@ function runWhatIfSimulation() {
   const resRate  = parseInt(resSlider.value);
   const base     = parseFloat(baseInput?.value) || 500000;
 
-  document.getElementById('sgWhatIfRevenueVal').textContent  = `${revRate >= 0 ? '+' : ''}${revRate}%`;
-  document.getElementById('sgWhatIfCostVal').textContent     = `${costRate >= 0 ? '+' : ''}${costRate}%`;
-  document.getElementById('sgWhatIfReserveVal').textContent  = `${resRate}%`;
+  if (document.getElementById('sgWhatIfRevenueVal')) document.getElementById('sgWhatIfRevenueVal').textContent = `${revRate >= 0 ? '+' : ''}${revRate}%`;
+  if (document.getElementById('sgWhatIfCostVal')) document.getElementById('sgWhatIfCostVal').textContent = `${costRate >= 0 ? '+' : ''}${costRate}%`;
+  if (document.getElementById('sgWhatIfReserveVal')) document.getElementById('sgWhatIfReserveVal').textContent = `${resRate}%`;
 
   const projRevenue  = base * (1 + revRate  / 100);
   const projCosts    = base * (1 + costRate / 100) * 0.8; // assume 80% cost base
@@ -3766,8 +3771,8 @@ async function addFixedAsset() {
      'sgAssetInsStart','sgAssetInsExpiry','sgAssetPremium'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = '';
     });
-    document.getElementById('sgAssetNBV').textContent = 'KES 0.00';
-    document.getElementById('sgInsExpiryWarning').style.display = 'none';
+    if (document.getElementById('sgAssetNBV')) document.getElementById('sgAssetNBV').textContent = 'KES 0.00';
+    if (document.getElementById('sgInsExpiryWarning')) document.getElementById('sgInsExpiryWarning').style.display = 'none';
     showToast(`Asset registered: "${name}"`, 'success');
     logNotification(`Safeguard: Asset registered a" "${name}" (${document.getElementById('sgAssetCategory')?.value})`);
     await loadFixedAssets();
@@ -4241,18 +4246,18 @@ function showMinuteDetailCard(id) {
   detailCard.offsetHeight;
   detailCard.style.animation = '';
 
-  document.getElementById('detailMinuteTitle').textContent = r.title || 'Untitled Meeting';
-  document.getElementById('detailMinuteMeta').textContent = 'Date: ' + (r.date || '-') + ' | Venue: ' + (r.venue || '-') + ' | Recorded: ' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '-');
-  document.getElementById('detailMinuteBody').textContent = r.body || 'No minutes recorded.';
-  document.getElementById('detailMinuteChair').textContent = r.chair || '-';
-  document.getElementById('detailMinuteSecretary').textContent = r.secretary || '-';
-  document.getElementById('detailMinuteNextDate').textContent = r.next_meeting_date || '-';
-  document.getElementById('detailMinuteAttendees').textContent = r.attendees || '-';
+  if (document.getElementById('detailMinuteTitle')) document.getElementById('detailMinuteTitle').textContent = r.title || 'Untitled Meeting';
+  if (document.getElementById('detailMinuteMeta')) document.getElementById('detailMinuteMeta').textContent = 'Date: ' + (r.date || '-') + ' | Venue: ' + (r.venue || '-') + ' | Recorded: ' + (r.created_at ? new Date(r.created_at).toLocaleDateString() : '-');
+  if (document.getElementById('detailMinuteBody')) document.getElementById('detailMinuteBody').textContent = r.body || 'No minutes recorded.';
+  if (document.getElementById('detailMinuteChair')) document.getElementById('detailMinuteChair').textContent = r.chair || '-';
+  if (document.getElementById('detailMinuteSecretary')) document.getElementById('detailMinuteSecretary').textContent = r.secretary || '-';
+  if (document.getElementById('detailMinuteNextDate')) document.getElementById('detailMinuteNextDate').textContent = r.next_meeting_date || '-';
+  if (document.getElementById('detailMinuteAttendees')) document.getElementById('detailMinuteAttendees').textContent = r.attendees || '-';
 
   var agendaSection = document.getElementById('detailMinuteAgendaSection');
   if (r.agenda && r.agenda.trim()) {
     agendaSection.style.display = 'block';
-    document.getElementById('detailMinuteAgenda').textContent = r.agenda;
+    if (document.getElementById('detailMinuteAgenda')) document.getElementById('detailMinuteAgenda').textContent = r.agenda;
   } else {
     agendaSection.style.display = 'none';
   }
@@ -4292,7 +4297,7 @@ function deleteSelectedMinutes() {
     body: JSON.stringify({ ids: Array.from(selectedMinuteIds) })
   }).then(function() {
     selectedMinuteIds.clear();
-    document.getElementById('minuteDetailCard').style.display = 'none';
+    if (document.getElementById('minuteDetailCard')) document.getElementById('minuteDetailCard').style.display = 'none';
     loadMinuteRegistry();
   }).catch(function(err) {
     alert('Delete failed: ' + (err.message || 'Unknown error'));
@@ -4307,7 +4312,7 @@ function deleteAllMinutes() {
     method: 'DELETE'
   }).then(function() {
     selectedMinuteIds.clear();
-    document.getElementById('minuteDetailCard').style.display = 'none';
+    if (document.getElementById('minuteDetailCard')) document.getElementById('minuteDetailCard').style.display = 'none';
     loadMinuteRegistry();
   }).catch(function(err) {
     alert('Delete all failed: ' + (err.message || 'Unknown error'));

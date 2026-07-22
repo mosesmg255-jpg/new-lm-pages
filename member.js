@@ -170,8 +170,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const resetToken = urlParams.get('reset_token');
     if (resetToken) {
         showRecoveryUI(new Event('load'));
-        document.getElementById('recoveryStep1').style.display = 'none';
-        document.getElementById('recoveryStep3').style.display = 'block';
+        if (document.getElementById('recoveryStep1')) document.getElementById('recoveryStep1').style.display = 'none';
+        if (document.getElementById('recoveryStep3')) document.getElementById('recoveryStep3').style.display = 'block';
         window.activeResetToken = resetToken;
     }
 
@@ -260,8 +260,8 @@ async function refreshStateSync() {
  */
 async function handleMemberLogin(event) {
     event.preventDefault();
-    const identity = document.getElementById("loginIdentity").value.trim();
-    const pass = document.getElementById("loginPassword").value;
+    const identity = document.getElementById("loginIdentity")?.value.trim();
+    const pass = document.getElementById("loginPassword")?.value;
 
     try {
         const data = await apiRequest('members/login', {
@@ -322,13 +322,13 @@ function showRecoveryUI(e) {
     Array.from(document.getElementById("authSection").children[0].children).forEach(el => {
         if(el.id !== 'recoveryModal') el.style.display = 'none';
     });
-    document.getElementById("recoveryModal").style.display = 'block';
+    if (document.getElementById("recoveryModal")) document.getElementById("recoveryModal").style.display = 'block';
     
     // Reset steps
-    document.getElementById("recoveryStep1").style.display = 'block';
-    document.getElementById("recoveryStep3").style.display = 'none';
-    document.getElementById("recoveryEmail").value = "";
-    document.getElementById("recoveryNewPassword").value = "";
+    if (document.getElementById("recoveryStep1")) document.getElementById("recoveryStep1").style.display = 'block';
+    if (document.getElementById("recoveryStep3")) document.getElementById("recoveryStep3").style.display = 'none';
+    if (document.getElementById("recoveryEmail")) document.getElementById("recoveryEmail").value = "";
+    if (document.getElementById("recoveryNewPassword")) document.getElementById("recoveryNewPassword").value = "";
 }
 
 function hideRecoveryUI() {
@@ -336,7 +336,7 @@ function hideRecoveryUI() {
     Array.from(document.getElementById("authSection").children[0].children).forEach(el => {
         if(el.id !== 'recoveryModal') el.style.display = 'block';
     });
-    document.getElementById("recoveryModal").style.display = 'none';
+    if (document.getElementById("recoveryModal")) document.getElementById("recoveryModal").style.display = 'none';
     
     // Clear URL if token was present
     if (window.location.search.includes('reset_token')) {
@@ -346,7 +346,7 @@ function hideRecoveryUI() {
 
 async function requestPasswordReset(event) {
     event.preventDefault();
-    const email = document.getElementById("recoveryEmail").value.trim();
+    const email = document.getElementById("recoveryEmail")?.value.trim();
     if(!email) return;
     
     const btn = document.getElementById("btnRequestReset");
@@ -373,11 +373,11 @@ async function requestPasswordReset(event) {
                 token: token
             }).then(() => {
                 alert("Secure reset link sent to your email!");
-                document.getElementById('simulatedEmailBox').style.display = 'block';
+                if (document.getElementById('simulatedEmailBox')) document.getElementById('simulatedEmailBox').style.display = 'block';
                 document.getElementById('simulatedEmailBox').innerHTML = '<strong>Email Dispatched successfully!</strong> Please check your inbox and spam folders.';
             }).catch(err => {
                 console.error("EmailJS Error:", err);
-                document.getElementById("simulatedEmailBox").style.display = 'block';
+                if (document.getElementById("simulatedEmailBox")) document.getElementById("simulatedEmailBox").style.display = 'block';
                 const linkEl = document.getElementById("simulatedEmailLink");
                 linkEl.href = resetLink;
                 linkEl.innerText = "Simulated Click to Reset";
@@ -395,7 +395,7 @@ async function requestPasswordReset(event) {
 
 async function submitAIVerifiedRecovery(event) {
     event.preventDefault();
-    const newPass = document.getElementById("recoveryNewPassword").value;
+    const newPass = document.getElementById("recoveryNewPassword")?.value;
     const token = window.activeResetToken;
     
     if(!newPass || !token) {
@@ -418,11 +418,11 @@ async function submitAIVerifiedRecovery(event) {
 
 async function handleMemberRegister(event) {
     event.preventDefault();
-    const name = document.getElementById("regName").value.trim();
-    const email = document.getElementById("regEmail").value.trim();
-    const phone = document.getElementById("regPhone").value.trim();
-    const password = document.getElementById("regPassword").value;
-    const pin = document.getElementById("regPin").value;
+    const name = document.getElementById("regName")?.value.trim();
+    const email = document.getElementById("regEmail")?.value.trim();
+    const phone = document.getElementById("regPhone")?.value.trim();
+    const password = document.getElementById("regPassword")?.value;
+    const pin = document.getElementById("regPin")?.value;
 
     if (document.getElementById("settingSimulatedDelay")?.checked) {
         await new Promise(r => setTimeout(r, 600));
@@ -622,7 +622,7 @@ function showSessionTimeoutGate() {
     timeoutMsg.innerHTML = `
         <h3 style="color: #ef4444; margin-bottom: 1rem;">Session Expired</h3>
         <p style="margin-bottom: 1.5rem; color: #cbd5e1;">Your session timed out due to 5 minutes of inactivity. Please sign in again.</p>
-        <button onclick="location.reload()" style="
+        <button onclick="window.location.href='landingpage.html'" style="
             background: #38bdf8;
             color: #000;
             border: none;
@@ -647,7 +647,7 @@ function executeLogoutSequence(e) {
         localStorage.removeItem('disableBlurEffect');
         localStorage.removeItem('memberAccessGranted');
         CURRENT_SESSION = null;
-        window.location.reload();
+        window.location.href = 'landingpage.html';
     }
 }
 
@@ -743,7 +743,12 @@ async function apiRequest(path, options = {}) {
         credentials: 'same-origin',
         ...options
     });
-    const data = await response.json();
+    let data;
+    try {
+        data = await response.json();
+    } catch (e) {
+        throw new Error(`Invalid JSON response from ${path}`);
+    }
     if (!response.ok) {
         throw new Error(data.message || 'Back-end communication failure.');
     }
@@ -932,22 +937,22 @@ let pendingTransactionCallback = null;
 
 function promptForTransactionPin(callback) {
     pendingTransactionCallback = callback;
-    document.getElementById("transactionPinInput").value = '';
-    document.getElementById("securityPinModal").style.display = 'flex';
+    if (document.getElementById("transactionPinInput")) document.getElementById("transactionPinInput").value = '';
+    if (document.getElementById("securityPinModal")) document.getElementById("securityPinModal").style.display = 'flex';
 }
 
 function cancelTransactionPin() {
     pendingTransactionCallback = null;
-    document.getElementById("securityPinModal").style.display = 'none';
+    if (document.getElementById("securityPinModal")) document.getElementById("securityPinModal").style.display = 'none';
 }
 
 function confirmTransactionPin() {
-    const pin = document.getElementById("transactionPinInput").value;
+    const pin = document.getElementById("transactionPinInput")?.value;
     if (pin.length !== 4) {
         alert("Please enter a valid 4-digit PIN.");
         return;
     }
-    document.getElementById("securityPinModal").style.display = 'none';
+    if (document.getElementById("securityPinModal")) document.getElementById("securityPinModal").style.display = 'none';
     if (pendingTransactionCallback) {
         pendingTransactionCallback(pin);
         pendingTransactionCallback = null;
@@ -963,8 +968,8 @@ async function processLoanApplication(event) {
     event.preventDefault();
     if (!CURRENT_SESSION) return;
 
-    const amt = parseFloat(document.getElementById("loanAmount").value);
-    const dur = parseInt(document.getElementById("loanDuration").value);
+    const amt = parseFloat(document.getElementById("loanAmount")?.value);
+    const dur = parseInt(document.getElementById("loanDuration")?.value);
 
     promptForTransactionPin(async (pin) => {
 
@@ -997,8 +1002,8 @@ async function processLoanApplication(event) {
 
 async function processLoanSettlement(event) {
     event.preventDefault();
-    const targetId = document.getElementById("payLoanSelect").value;
-    const payVal = parseFloat(document.getElementById("payAmount").value);
+    const targetId = document.getElementById("payLoanSelect")?.value;
+    const payVal = parseFloat(document.getElementById("payAmount")?.value);
     const method = document.querySelector('input[name="payMethod"]:checked').value;
 
     if (!targetId || !CURRENT_SESSION) return;
@@ -1520,7 +1525,7 @@ function rebuildMetricsDashboard() {
 
             allTx.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
-            const filterVal = document.getElementById('ledgerTypeFilter') ? document.getElementById('ledgerTypeFilter').value : 'all';
+            const filterVal = document.getElementById('ledgerTypeFilter') ? document.getElementById('ledgerTypeFilter')?.value : 'all';
             const filtered = filterVal === 'all' ? allTx : allTx.filter(tx => tx.type === filterVal);
 
             const totalIn = allTx.filter(tx => tx.type === 'Contribution').reduce((s, tx) => s + parseFloat(tx.amount || 0), 0);
@@ -1650,9 +1655,9 @@ function executeSystemReset() {
 
 async function updateMemberCredentials(event) {
     event.preventDefault();
-    const currentPassword = document.getElementById('currentPassword').value;
-    const newPassword = document.getElementById('newPassword').value;
-    const newPin = document.getElementById('newPin').value;
+    const currentPassword = document.getElementById('currentPassword')?.value;
+    const newPassword = document.getElementById('newPassword')?.value;
+    const newPin = document.getElementById('newPin')?.value;
     const statusEl = document.getElementById('credUpdateStatus');
 
     if (!currentPassword) {
@@ -1705,9 +1710,9 @@ async function updateMemberCredentials(event) {
 
 async function updateMemberProfile(event) {
     event.preventDefault();
-    const name = document.getElementById('profileName').value.trim();
-    const phone = document.getElementById('profilePhone').value.trim();
-    const email = document.getElementById('profileEmail').value.trim();
+    const name = document.getElementById('profileName')?.value.trim();
+    const phone = document.getElementById('profilePhone')?.value.trim();
+    const email = document.getElementById('profileEmail')?.value.trim();
     const statusEl = document.getElementById('profileUpdateStatus');
 
     if (!name && !phone && !email) {
@@ -1795,23 +1800,23 @@ function toggleCustomExpenseCategory(val) {
  * NEW OPERATIONAL WORKFLOW MODALS (Payment & Expenses)
  * ========================================================================== */
 function openPaymentModal() {
-    document.getElementById('paymentModal').style.display = 'flex';
+    if (document.getElementById('paymentModal')) document.getElementById('paymentModal').style.display = 'flex';
     document.getElementById('paymentForm').reset();
-    document.getElementById('memberSearchDropdown').style.display = 'none';
+    if (document.getElementById('memberSearchDropdown')) document.getElementById('memberSearchDropdown').style.display = 'none';
     const customMethod = document.getElementById('paymentMethodCustom');
     if (customMethod) { customMethod.style.display = 'none'; customMethod.value = ''; }
     
     if (CURRENT_SESSION) {
-        document.getElementById('paymentMemberId').value = CURRENT_SESSION.id;
-        document.getElementById('paymentMemberSearch').value = CURRENT_SESSION.full_name || CURRENT_SESSION.name || '';
+        if (document.getElementById('paymentMemberId')) document.getElementById('paymentMemberId').value = CURRENT_SESSION.id;
+        if (document.getElementById('paymentMemberSearch')) document.getElementById('paymentMemberSearch').value = CURRENT_SESSION.full_name || CURRENT_SESSION.name || '';
     } else {
-        document.getElementById('paymentMemberId').value = '';
-        document.getElementById('paymentMemberSearch').value = '';
+        if (document.getElementById('paymentMemberId')) document.getElementById('paymentMemberId').value = '';
+        if (document.getElementById('paymentMemberSearch')) document.getElementById('paymentMemberSearch').value = '';
     }
 }
 
 function openExpenseModal() {
-    document.getElementById('expenseModal').style.display = 'flex';
+    if (document.getElementById('expenseModal')) document.getElementById('expenseModal').style.display = 'flex';
     document.getElementById('expenseForm').reset();
     const customCat = document.getElementById('expenseCategoryCustom');
     if (customCat) { customCat.style.display = 'none'; customCat.value = ''; }
@@ -1868,9 +1873,9 @@ async function filterMemberSearch(query) {
 }
 
 function selectPaymentMember(id, name) {
-    document.getElementById('paymentMemberId').value = id;
-    document.getElementById('paymentMemberSearch').value = name;
-    document.getElementById('memberSearchDropdown').style.display = 'none';
+    if (document.getElementById('paymentMemberId')) document.getElementById('paymentMemberId').value = id;
+    if (document.getElementById('paymentMemberSearch')) document.getElementById('paymentMemberSearch').value = name;
+    if (document.getElementById('memberSearchDropdown')) document.getElementById('memberSearchDropdown').style.display = 'none';
 }
 
 function validateExpenseReceipt(input) {
@@ -1884,8 +1889,8 @@ function validateExpenseReceipt(input) {
 
 async function submitPayment(event) {
     event.preventDefault();
-    const memberId = document.getElementById('paymentMemberId').value;
-    const searchVal = document.getElementById('paymentMemberSearch').value.trim();
+    const memberId = document.getElementById('paymentMemberId')?.value;
+    const searchVal = document.getElementById('paymentMemberSearch')?.value.trim();
     
     let finalMemberId = memberId;
     if (!finalMemberId && searchVal && CURRENT_SESSION) {
@@ -1895,7 +1900,7 @@ async function submitPayment(event) {
         return alert('Please select a member from the dropdown or type a name.');
     }
     
-    const amountVal = document.getElementById('paymentAmount').value;
+    const amountVal = document.getElementById('paymentAmount')?.value;
     if (!amountVal || parseFloat(amountVal) <= 0) {
         return alert('Please enter a valid amount greater than 0.');
     }
@@ -1904,9 +1909,9 @@ async function submitPayment(event) {
     formData.append('member_id', finalMemberId);
     formData.append('amount', amountVal);
     
-    const method = document.getElementById('paymentMethod').value;
+    const method = document.getElementById('paymentMethod')?.value;
     if (method === '__other__') {
-        const custom = document.getElementById('paymentMethodCustom').value.trim();
+        const custom = document.getElementById('paymentMethodCustom')?.value.trim();
         if (custom) formData.append('payment_method', custom);
     } else if (method) {
         formData.append('payment_method', method);
@@ -1923,10 +1928,10 @@ async function submitPayment(event) {
         
         // Notify admin via logs mechanism (dashboard message)
         const payerName = searchVal || CURRENT_SESSION.full_name || CURRENT_SESSION.name || 'Member';
-        const methodStr = method === '__other__' ? document.getElementById('paymentMethodCustom').value.trim() : method;
+        const methodStr = method === '__other__' ? document.getElementById('paymentMethodCustom')?.value.trim() : method;
         postApprovalRequestToAdmin(`Member ${payerName} recorded a manual contribution of Ksh ${amountVal} via ${methodStr}.`, 'contribution');
         
-        document.getElementById('paymentModal').style.display = 'none';
+        if (document.getElementById('paymentModal')) document.getElementById('paymentModal').style.display = 'none';
         await loadMemberPortalData();
         rebuildMetricsDashboard();
     } catch (e) {
@@ -1942,15 +1947,15 @@ async function submitExpense(event) {
     const formData = new FormData();
     formData.append('member_id', CURRENT_SESSION.id);
     
-    const categoryVal = document.getElementById('expenseCategory').value;
+    const categoryVal = document.getElementById('expenseCategory')?.value;
     if (categoryVal === 'Other') {
-        const custom = document.getElementById('expenseCategoryCustom').value.trim();
+        const custom = document.getElementById('expenseCategoryCustom')?.value.trim();
         if (!custom) return alert('Please enter a custom category name.');
         formData.append('category', custom);
     } else {
         formData.append('category', categoryVal);
     }
-    formData.append('amount', document.getElementById('expenseAmount').value);
+    formData.append('amount', document.getElementById('expenseAmount')?.value);
     
     // Receipt upload disabled as per requirement
     
@@ -1960,8 +1965,8 @@ async function submitExpense(event) {
             body: formData
         });
         alert('Expense claim submitted and routed to Head Treasurer for authorization.');
-        postNotificationToChannels(`Expense claim submitted: ${categoryVal} Ksh ${document.getElementById('expenseAmount').value}.`, 'expense');
-        document.getElementById('expenseModal').style.display = 'none';
+        postNotificationToChannels(`Expense claim submitted: ${categoryVal} Ksh ${document.getElementById('expenseAmount')?.value}.`, 'expense');
+        if (document.getElementById('expenseModal')) document.getElementById('expenseModal').style.display = 'none';
         await loadMemberPortalData();
         rebuildMetricsDashboard();
     } catch (e) {

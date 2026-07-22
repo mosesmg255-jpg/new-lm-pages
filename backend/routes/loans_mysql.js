@@ -73,7 +73,7 @@ router.post('/create', loanCreateRules, async (req, res) => {
     const memberRec = await Member.findByPk(member_id);
     if (memberRec) {
       if (!ownerAdminId) ownerAdminId = memberRec.admin_id || null;
-      if (admin && memberRec.admin_id && String(memberRec.admin_id) !== admin.id) return fail(res, 403, 'Forbidden');
+      if (!admin_override && admin && memberRec.admin_id && String(memberRec.admin_id) !== admin.id) return fail(res, 403, 'Forbidden');
       if (!pinValid && pin && memberRec.transaction_pin) {
         pinValid = await bcrypt.compare(String(pin), memberRec.transaction_pin);
       }
@@ -88,7 +88,7 @@ router.post('/create', loanCreateRules, async (req, res) => {
       );
       if (approved.length) {
         if (!ownerAdminId) ownerAdminId = approved[0].admin_id || null;
-        if (admin && approved[0].admin_id && String(approved[0].admin_id) !== admin.id) return fail(res, 403, 'Forbidden');
+        if (!admin_override && admin && approved[0].admin_id && String(approved[0].admin_id) !== admin.id) return fail(res, 403, 'Forbidden');
         if (!borrowerNameClean) borrowerNameClean = approved[0].full_name;
         if (approved[0].transaction_pin) {
           pinValid = await bcrypt.compare(String(pin), approved[0].transaction_pin);
