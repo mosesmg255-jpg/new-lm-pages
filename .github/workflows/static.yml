@@ -33,11 +33,19 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Prepare static files
+        run: |
+          mkdir -p deploy
+          cp *.html deploy/ 2>/dev/null || true
+          cp *.js deploy/ 2>/dev/null || true
+          cp *.css deploy/ 2>/dev/null || true
+          cp *.webp deploy/ 2>/dev/null || true
+          cp *.png deploy/ 2>/dev/null || true
+          cp -r style deploy/ 2>/dev/null || true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          path: './deploy'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
