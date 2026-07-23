@@ -738,11 +738,21 @@ async function apiRequest(path, options = {}) {
         headers['Authorization'] = 'Bearer ' + CURRENT_SESSION.token;
     }
 
-    const response = await fetch(url, {
-        headers,
-        credentials: 'same-origin',
-        ...options
-    });
+    let response;
+    try {
+        response = await fetch(url, {
+            headers,
+            credentials: 'same-origin',
+            ...options
+        });
+    } catch (networkError) {
+        // Network error or backend unavailable
+        if (window.location.hostname.endsWith('github.io')) {
+            throw new Error('Backend server is not available on GitHub Pages. This application requires a backend server to function. Please run this locally with npm start or deploy the backend to Railway.');
+        }
+        throw new Error(`Network error: ${networkError.message}. Please check your connection.`);
+    }
+    
     let data;
     try {
         data = await response.json();
