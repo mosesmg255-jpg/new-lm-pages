@@ -212,7 +212,12 @@
             if (customBackend) {
                 apiBase = customBackend.replace(/\/$/, '') + '/api';
             } else if (window.location.hostname.endsWith('github.io')) {
+                // Try Railway backend, but allow fallback if it fails
                 apiBase = defaultRailwayUrl + '/api';
+                // Store for potential manual override
+                if (!localStorage.getItem('railway_backend_url')) {
+                    localStorage.setItem('railway_backend_url', defaultRailwayUrl);
+                }
             }
         }
     }
