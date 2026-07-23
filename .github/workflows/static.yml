@@ -36,12 +36,19 @@ jobs:
       - name: Prepare static files
         run: |
           mkdir -p deploy
-          cp *.html deploy/ 2>/dev/null || true
-          cp *.js deploy/ 2>/dev/null || true
-          cp *.css deploy/ 2>/dev/null || true
-          cp *.webp deploy/ 2>/dev/null || true
-          cp *.png deploy/ 2>/dev/null || true
-          cp -r style deploy/ 2>/dev/null || true
+          echo "Copying HTML files..."
+          cp *.html deploy/ 2>/dev/null || echo "No HTML files found"
+          echo "Copying JS files..."
+          cp *.js deploy/ 2>/dev/null || echo "No JS files found"
+          echo "Copying CSS files..."
+          cp *.css deploy/ 2>/dev/null || echo "No CSS files found"
+          echo "Copying image files..."
+          cp *.webp deploy/ 2>/dev/null || echo "No webp files found"
+          cp *.png deploy/ 2>/dev/null || echo "No png files found"
+          echo "Copying style folder..."
+          cp -r style deploy/ 2>/dev/null || echo "No style folder found"
+          echo "Deploy directory contents:"
+          ls -la deploy/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
