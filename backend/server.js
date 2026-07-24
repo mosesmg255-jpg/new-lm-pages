@@ -210,9 +210,16 @@ async function startServer() {
     res.redirect('/member.html');
   });
 
-  app.use((req, res) => {
+    app.use((req, res) => {
     res.status(404).json({ status: 'fail', message: 'Not found' });
   });
+
+  // --- JSON Error Handler (must be last) ---
+  app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err.message);
+    res.status(err.status || 500).json({ status: 'fail', message: err.message || 'Server error' });
+  });
+
 
   server = app.listen(PORT, HOST, () => {
     const localHost = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
