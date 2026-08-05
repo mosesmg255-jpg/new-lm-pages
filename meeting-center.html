@@ -1,2205 +1,1238 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="utils/security.js"></script>
   <meta charset="UTF-8">
-  <title>Meeting Center - TLMS</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="TLMS Meeting Center - schedule meetings, manage attendance, and generate minutes.">
-  <link rel="stylesheet" href="style/home.css">
-  <link rel="stylesheet" href="style/designTokens.css">
+  <title>Meeting Center - Loan Management System</title>
   <style>
-    .meeting-dashboard-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-    .meeting-card {
-      background: rgba(0, 0, 0, 0.18);
-      border: 1px solid rgba(0, 224, 255, 0.15);
-      border-radius: 12px;
-      padding: 18px 16px;
-      min-height: 120px;
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+      color: #333;
+    }
+
+    /* Navigation Bar */
+    .meeting-nav {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 15px 20px;
       display: flex;
-      flex-direction: column;
+      align-items: center;
       justify-content: space-between;
-    }
-    .meeting-card h3 {
-      margin: 0 0 10px;
-      font-size: 0.95rem;
-      color: #00e0ff;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .meeting-card strong {
-      font-size: 1.8rem;
-      color: #fff;
-    }
-    .meeting-banner {
-      margin: 18px 0 24px;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 12px;
-      align-items: center;
-    }
-    .meeting-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-    .meeting-actions .main-btn {
-      background: linear-gradient(90deg,#00e0ff,#0077ff);
-      border:none;
-      color:#000;
-      padding:10px 16px;
-      border-radius:10px;
-      font-weight:700;
-      cursor:pointer;
-      min-width:212px;
-    }
-    .meeting-actions .dropdown-wrap {
-      position: relative;
-      display: inline-block;
-    }
-    .meeting-actions .dropdown-button {
-      background: rgba(255,255,255,0.08);
-      border:1px solid rgba(255,255,255,0.08);
-      color:#fff;
-      padding:10px 16px;
-      border-radius:10px;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .meeting-actions .dropdown-menu {
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      min-width: 220px;
-      background: rgba(10,18,40,0.98);
-      border: 1px solid rgba(0,224,255,0.12);
-      border-radius: 10px;
-      box-shadow: 0 16px 40px rgba(0,0,0,0.35);
-      padding: 10px;
-      display: none;
-      z-index: 1000;
-    }
-    .meeting-actions .dropdown-menu.active {
-      display: block;
-    }
-    .meeting-actions .dropdown-menu button {
-      width: 100%;
-      text-align: left;
-      border: none;
-      background: transparent;
-      color: #e8eaf6;
-      padding: 10px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .meeting-actions .dropdown-menu button:hover {
-      background: rgba(0, 224, 255, 0.1);
-    }
-    .meeting-section {
-      background: rgba(0, 0, 0, 0.18);
-      border: 1px solid rgba(0, 224, 255, 0.15);
-      border-radius: 12px;
-      padding: 18px;
-      margin-bottom: 20px;
-    }
-    .meeting-section h2 {
-      margin-top: 0;
-      color: #fff;
-      font-size: 1.2rem;
-    }
-    .meeting-section .section-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-    .meeting-section .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .meeting-section label {
-      font-size: 12px;
-      opacity: 0.75;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .meeting-section input,
-    .meeting-section select,
-    .meeting-section textarea {
-      width: 100%;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px;
-      background: rgba(255,255,255,0.05);
-      color: #e8eaf6;
-      padding: 10px 12px;
-      font-size: 13px;
-    }
-    .meeting-section textarea {
-      resize: vertical;
-      min-height: 80px;
-    }
-    .meeting-section .full-width {
-      grid-column: 1 / -1;
-    }
-    .meeting-table-wrapper {
-      overflow-x: auto;
-      margin-top: 12px;
-    }
-    .meeting-table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 960px;
-    }
-    .meeting-table th,
-    .meeting-table td {
-      padding: 12px 10px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      color: #dfe7ff;
-      font-size: 13px;
-      text-align: left;
-    }
-    .meeting-table th {
-      color: #a3dafe;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      background: rgba(255,255,255,0.02);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
       position: sticky;
       top: 0;
+      z-index: 1000;
     }
-    .meeting-table tr:hover {
-      background: rgba(0, 224, 255, 0.07);
-    }
-    .meeting-table .action-buttons button {
-      margin-right: 8px;
-      margin-bottom: 4px;
-    }
-    .meeting-tags {
+
+    .nav-left {
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .meeting-tag {
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.08);
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      color: #cfd8fc;
-    }
-    .advanced-features-container {
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid rgba(0, 224, 255, 0.2);
-      border-radius: 16px;
-      padding: 24px;
-      margin-top: 24px;
-    }
-    .advanced-features-header {
-      display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid rgba(0, 224, 255, 0.15);
+      gap: 15px;
     }
-    .advanced-features-header h2 {
-      margin: 0;
-      color: #00e0ff;
-      font-size: 1.3rem;
-    }
-    .advanced-features-tabs {
+
+    .nav-title {
+      color: white;
+      font-size: 20px;
+      font-weight: 700;
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 20px;
+      align-items: center;
+      gap: 10px;
     }
-    .advanced-tab {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: #a3dafe;
-      padding: 10px 16px;
+
+    .nav-title span {
+      font-size: 24px;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Navigation Buttons */
+    .nav-btn {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 10px 20px;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255,255,255,0.3);
+      transform: translateY(-2px);
+    }
+
+    .nav-btn.primary {
+      background: white;
+      color: #667eea;
       font-weight: 600;
-      transition: all 0.2s;
     }
-    .advanced-tab:hover {
-      background: rgba(0, 224, 255, 0.1);
-      border-color: rgba(0, 224, 255, 0.3);
+
+    .nav-btn.primary:hover {
+      background: #f0f0f0;
     }
-    .advanced-tab.active {
-      background: linear-gradient(90deg, rgba(0, 224, 255, 0.2), rgba(0, 119, 255, 0.2));
-      border-color: #00e0ff;
-      color: #fff;
+
+    /* Dropdown Container */
+    .dropdown {
+      position: relative;
     }
-    .advanced-feature-panel {
+
+    .dropdown-content {
       display: none;
-      animation: fadeIn 0.3s ease;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      background: white;
+      min-width: 350px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 10px;
+      z-index: 1001;
     }
-    .advanced-feature-panel.active {
+
+    .dropdown.active .dropdown-content {
       display: block;
+      animation: slideDown 0.3s ease;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
-    .feature-subsection {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .feature-subsection h3 {
-      margin: 0 0 12px;
-      color: #e0f7ff;
-      font-size: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .feature-subsection h3 i {
-      color: #00e0ff;
-    }
-    .permission-tier {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-    .permission-tier label {
-      flex: 1;
-      font-size: 13px;
-      color: #dfe7ff;
-    }
-    .permission-tier select {
-      width: auto;
-      min-width: 120px;
-    }
-    .hyperlink-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .hyperlink-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 6px;
-    }
-    .hyperlink-item a {
-      color: #00e0ff;
-      text-decoration: none;
-      font-size: 13px;
-    }
-    .hyperlink-item a:hover {
-      text-decoration: underline;
-    }
-    .version-log {
-      max-height: 200px;
-      overflow-y: auto;
-    }
-    .version-entry {
-      padding: 8px 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 12px;
-    }
-    .version-entry:last-child {
-      border-bottom: none;
-    }
-    .version-entry .timestamp {
-      color: #a3dafe;
-      font-size: 11px;
-    }
-    .version-entry .editor {
-      color: #4caf50;
-      font-weight: 600;
-    }
-    .checkbox-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 10px;
-    }
-    .checkbox-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 6px;
-    }
-    .checkbox-item input[type="checkbox"] {
-      width: auto;
-      cursor: pointer;
-    }
-    .checkbox-item label {
-      font-size: 12px;
-      color: #dfe7ff;
-      cursor: pointer;
-    }
-    .okr-mapping {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .okr-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-      background: rgba(0, 224, 255, 0.08);
-      border-left: 3px solid #00e0ff;
-      border-radius: 6px;
-    }
-    .okr-item span {
-      font-size: 13px;
-      color: #e0f7ff;
-    }
-    .success-criteria {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .criteria-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-      background: rgba(76, 175, 80, 0.08);
-      border-left: 3px solid #4caf50;
-      border-radius: 6px;
-    }
-    .criteria-item input {
-      flex: 1;
-      font-size: 13px;
-    }
-    .agenda-item {
-      display: grid;
-      grid-template-columns: 40px 1fr auto auto;
-      gap: 10px;
-      align-items: center;
-      padding: 12px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-    .agenda-item .drag-handle {
-      color: #666;
-      cursor: move;
-    }
-    .agenda-item input {
-      font-size: 13px;
-    }
-    .agenda-item .time-input {
-      width: 80px;
-    }
-    .agenda-item .owner-select {
-      width: 120px;
-    }
-    .timer-display {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      background: rgba(255, 193, 7, 0.15);
-      border: 1px solid rgba(255, 193, 7, 0.3);
-      border-radius: 6px;
-      color: #ffc107;
-      font-weight: 600;
-      font-size: 14px;
-    }
-    .parking-lot {
-      background: rgba(156, 39, 176, 0.08);
-      border: 1px dashed rgba(156, 39, 176, 0.3);
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .parking-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-    .parking-item:last-child {
-      margin-bottom: 0;
-    }
-    .sentiment-tag {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-    .sentiment-blocker {
-      background: rgba(244, 67, 54, 0.15);
-      color: #f44336;
-      border: 1px solid rgba(244, 67, 54, 0.3);
-    }
-    .sentiment-risk {
-      background: rgba(255, 152, 0, 0.15);
-      color: #ff9800;
-      border: 1px solid rgba(255, 152, 0, 0.3);
-    }
-    .sentiment-innovation {
-      background: rgba(76, 175, 80, 0.15);
-      color: #4caf50;
-      border: 1px solid rgba(76, 175, 80, 0.3);
-    }
-    .artifact-preview {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-    .artifact-icon {
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 224, 255, 0.15);
-      border-radius: 8px;
-      color: #00e0ff;
-    }
-    .qa-item {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding: 12px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-    .qa-question {
-      font-size: 13px;
-      color: #e0f7ff;
-      font-style: italic;
-    }
-    .qa-answer {
-      font-size: 12px;
-      color: #a3dafe;
-      padding-left: 16px;
-      border-left: 2px solid #00e0ff;
-    }
-    .executive-summary {
-      background: linear-gradient(135deg, rgba(0, 224, 255, 0.1), rgba(0, 119, 255, 0.1));
-      border: 1px solid rgba(0, 224, 255, 0.2);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .executive-summary p {
-      margin: 0;
-      font-size: 14px;
-      color: #e0f7ff;
-      line-height: 1.6;
-    }
-    .decision-log {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .decision-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 12px;
-      background: rgba(76, 175, 80, 0.08);
-      border-left: 3px solid #4caf50;
-      border-radius: 6px;
-    }
-    .decision-item .decision-time {
-      font-size: 11px;
-      color: #a3dafe;
-      min-width: 60px;
-    }
-    .decision-item .decision-text {
-      flex: 1;
-      font-size: 13px;
-      color: #e0f7ff;
-    }
-    .task-matrix {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .task-item {
-      display: grid;
-      grid-template-columns: 1fr auto auto auto;
-      gap: 10px;
-      align-items: center;
-      padding: 12px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 8px;
-    }
-    .task-item .task-name {
-      font-size: 13px;
-      color: #e0f7ff;
-    }
-    .task-item .task-owner {
-      font-size: 12px;
-      color: #a3dafe;
-    }
-    .task-item .status-select {
-      width: 120px;
-    }
-    .sync-flag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-    }
-    .sync-flag.synced {
-      background: rgba(76, 175, 80, 0.15);
-      color: #4caf50;
-    }
-    .sync-flag.pending {
-      background: rgba(255, 152, 0, 0.15);
-      color: #ff9800;
-    }
-    .recording-section {
-      background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(233, 30, 99, 0.1));
-      border: 1px solid rgba(244, 67, 54, 0.2);
+
+    /* Popup Styles */
+    .popup {
+      background: white;
       border-radius: 12px;
       padding: 20px;
     }
-    .recording-controls {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .record-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 24px;
-      border-radius: 8px;
-      border: none;
+
+    .popup-title {
+      font-size: 16px;
       font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
+      color: #333;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f0f0f0;
     }
-    .record-btn.recording {
-      background: #f44336;
-      color: #fff;
-      animation: pulse 1.5s infinite;
+
+    .popup-section {
+      margin-bottom: 15px;
     }
-    .record-btn.not-recording {
-      background: #4caf50;
-      color: #fff;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-    .recordings-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .recording-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 8px;
-    }
-    .recording-item .recording-info {
-      flex: 1;
-    }
-    .recording-item .recording-name {
+
+    .popup-label {
       font-size: 13px;
-      color: #e0f7ff;
-      font-weight: 600;
+      font-weight: 500;
+      color: #666;
+      margin-bottom: 8px;
+      display: block;
     }
-    .recording-item .recording-duration {
-      font-size: 11px;
-      color: #a3dafe;
-    }
-    .recording-item .recording-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .recording-item button {
-      padding: 6px 12px;
+
+    .popup-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
       border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    .popup-input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .popup-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      background: white;
+    }
+
+    .popup-button {
+      background: #667eea;
+      color: white;
       border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.3s;
+    }
+
+    .popup-button:hover {
+      background: #5568d3;
+    }
+
+    .popup-button.secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .popup-button.secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .popup-button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    /* Member List */
+    .member-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+    }
+
+    .member-item {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background 0.2s;
+    }
+
+    .member-item:hover {
+      background: #f9f9f9;
+    }
+
+    .member-item:last-child {
+      border-bottom: none;
+    }
+
+    .member-checkbox {
+      margin-right: 10px;
+    }
+
+    .member-name {
+      flex: 1;
+      font-size: 14px;
+    }
+
+    .member-status {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    /* Minute Structure */
+    .minute-container {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .minute-header {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+
+    .minute-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .minute-section {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-content {
+      margin-left: 30px;
+    }
+
+    .field-group {
+      margin-bottom: 15px;
+    }
+
+    .field-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #666;
+      margin-bottom: 5px;
+      display: block;
+    }
+
+    .field-input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    .field-input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .field-textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      min-height: 80px;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    .field-textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    /* Agenda Items */
+    .agenda-item {
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 15px;
+      border-left: 4px solid #667eea;
+    }
+
+    .agenda-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .agenda-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .agenda-time {
+      font-size: 13px;
+      color: #666;
+      background: #e3f2fd;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    /* Data Tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .data-table th {
+      background: #f5f5f5;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .data-table tr:hover {
+      background: #f9f9f9;
+    }
+
+    .action-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
+      margin-right: 5px;
     }
-    .recording-item .play-btn {
-      background: #00e0ff;
-      color: #000;
+
+    .action-btn.delete {
+      background: #fee;
+      color: #c33;
     }
-    .recording-item .delete-btn {
-      background: #f44336;
-      color: #fff;
+
+    .action-btn.restore {
+      background: #efe;
+      color: #3c3;
     }
-    .meeting-cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 16px;
-      margin-top: 12px;
+
+    .action-btn.edit {
+      background: #eef;
+      color: #33c;
     }
-    .meeting-flow-card {
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid rgba(0, 224, 255, 0.15);
+
+    /* Status Badge */
+    .status-badge {
+      padding: 4px 8px;
       border-radius: 12px;
-      padding: 16px;
-      position: relative;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-badge.not-started {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .status-badge.in-progress {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .status-badge.completed {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    /* Feature List */
+    .feature-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .feature-item {
       display: flex;
-      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .feature-item.deleted {
+      background: #fee;
+      opacity: 0.7;
+    }
+
+    .feature-text {
+      flex: 1;
+      font-size: 14px;
+    }
+
+    .feature-actions {
+      display: flex;
+      gap: 5px;
+    }
+
+    /* Resource Links */
+    .resource-item {
+      display: flex;
+      align-items: center;
       gap: 10px;
-      transition: transform 0.2s, box-shadow 0.2s;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      margin-bottom: 8px;
     }
-    .meeting-flow-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0, 224, 255, 0.1);
+
+    .resource-icon {
+      font-size: 20px;
     }
-    .meeting-flow-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      padding-bottom: 8px;
+
+    .resource-link {
+      color: #667eea;
+      text-decoration: none;
+      font-size: 14px;
     }
-    .meeting-flow-title {
-      font-size: 1.1rem;
-      color: #00e0ff;
-      font-weight: 700;
-      margin: 0 0 4px 0;
+
+    .resource-link:hover {
+      text-decoration: underline;
     }
-    .meeting-flow-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: #a3dafe;
-    }
-    .meeting-flow-details {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+
+    /* Add Button */
+    .add-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
       font-size: 13px;
-      color: #e0f7ff;
-    }
-    .meeting-flow-details div {
       display: flex;
-      flex-direction: column;
-    }
-    .meeting-flow-details div span:first-child {
-      font-size: 11px;
-      opacity: 0.6;
-      text-transform: uppercase;
-      margin-bottom: 2px;
-    }
-    .meeting-flow-desc {
-      font-size: 12px;
-      color: rgba(255,255,255,0.7);
-      margin-top: 4px;
-      border-top: 1px solid rgba(255,255,255,0.05);
-      padding-top: 8px;
-    }
-    .meeting-flow-footer {
-      display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-top: auto;
-      padding-top: 12px;
+      gap: 5px;
     }
-    .meeting-panel {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 20px;
+
+    .add-btn:hover {
+      background: #5568d3;
     }
-    .meeting-panel-col {
+
+    /* More Menu */
+    .more-menu {
+      min-width: 200px;
+    }
+
+    .more-item {
+      padding: 12px 15px;
+      cursor: pointer;
+      transition: background 0.2s;
       display: flex;
-      flex-direction: column;
-      gap: 16px;
+      align-items: center;
+      gap: 10px;
     }
-    .meeting-panel-card {
-      background: rgba(0,0,0,0.18);
-      border: 1px solid rgba(0,224,255,0.12);
-      border-radius: 12px;
-      padding: 16px;
+
+    .more-item:hover {
+      background: #f5f5f5;
     }
-    .meeting-panel-card h3 {
-      margin-top: 0;
-      font-size: 1rem;
-      color: #e0f7ff;
+
+    .more-item:first-child {
+      border-radius: 8px 8px 0 0;
     }
-    @media (max-width: 980px) {
-      .meeting-section .section-row,
-      .meeting-panel {
-        grid-template-columns: 1fr;
-      }
-      .meeting-actions {
+
+    .more-item:last-child {
+      border-radius: 0 0 8px 8px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .meeting-nav {
         flex-direction: column;
-        align-items: stretch;
+        gap: 10px;
       }
-      .meeting-actions .main-btn,
-      .meeting-actions .dropdown-button {
-        width: 100%;
+
+      .nav-right {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .minute-container {
+        padding: 0 10px;
       }
     }
   </style>
 </head>
-<body data-page="meeting-center">
-  <div class="top-header">
-    <div class="header-title-wrap">
-      <button type="button" class="sidebar-toggle" onclick="toggleSidebarNav()" aria-label="Toggle navigation" aria-expanded="false">Menu</button>
-      <h1 class="header-desktop-title">TLMS Meeting Center</h1>
-      <h1 class="header-mobile-title">Meeting Center</h1>
+<body>
+  <!-- Meeting Center Navigation Bar -->
+  <nav class="meeting-nav">
+    <div class="nav-left">
+      <div class="nav-title">
+        <span>ðŸ“…</span> Meeting Center
+      </div>
     </div>
-    <div class="top-header-actions">
-      <button class="action-btn" style="background:linear-gradient(90deg,#00e0ff,#0077ff); color:#000; font-weight:700;" onclick="window.location.href='home.html'">Back to Dashboard</button>
+    
+    <div class="nav-right">
+      <!-- Download Button -->
+      <button class="nav-btn" onclick="downloadMinute()">
+        ðŸ“¥ Download
+      </button>
+
+      <!-- Share Link Dropdown -->
+      <div class="dropdown" id="shareDropdown">
+        <button class="nav-btn" onclick="toggleDropdown('shareDropdown')">
+          ðŸ”— Share Link â–¼
+        </button>
+        <div class="dropdown-content">
+          <div class="popup">
+            <div class="popup-title">Share Meeting Link</div>
+            
+            <div class="popup-section">
+              <label class="popup-label">Select Members</label>
+              <select class="popup-select" id="memberSelect">
+                <option value="all">Select All Approved Members</option>
+                <option value="individual">Select Individual Members</option>
+              </select>
+            </div>
+
+            <div class="popup-section" id="individualMemberSection" style="display: none;">
+              <label class="popup-label">Choose Members</label>
+              <div class="member-list" id="memberList">
+                <div class="member-item">
+                  <input type="checkbox" class="member-checkbox" id="member1">
+                  <label for="member1" class="member-name">John Doe</label>
+                  <span class="member-status">Approved</span>
+                </div>
+                <div class="member-item">
+                  <input type="checkbox" class="member-checkbox" id="member2">
+                  <label for="member2" class="member-name">Jane Smith</label>
+                  <span class="member-status">Approved</span>
+                </div>
+                <div class="member-item">
+                  <input type="checkbox" class="member-checkbox" id="member3">
+                  <label for="member3" class="member-name">Mike Johnson</label>
+                  <span class="member-status">Approved</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="popup-section">
+              <label class="popup-label">Meeting Link</label>
+              <input type="url" class="popup-input" id="meetingLink" placeholder="https://zoom.us/j/123456789">
+            </div>
+
+            <div class="popup-button-group">
+              <button class="popup-button" onclick="submitMeetingLink()">Submit Link</button>
+              <button class="popup-button secondary" onclick="toggleDropdown('shareDropdown')">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- View and Manage Invitations -->
+      <button class="nav-btn primary" onclick="viewInvitations()">
+        ðŸ“‹ View & Manage Invitations
+      </button>
+
+      <!-- Menu (3 dots) Dropdown -->
+      <div class="dropdown" id="menuDropdown">
+        <button class="nav-btn" onclick="toggleDropdown('menuDropdown')">
+          â‹® Menu â–¼
+        </button>
+        <div class="dropdown-content">
+          <div class="popup">
+            <div class="popup-title">Meeting Features</div>
+            
+            <div class="popup-section">
+              <button class="popup-button" onclick="showFeaturePopup()" style="width: 100%;">
+                âœï¸ Add/Update Feature
+              </button>
+            </div>
+
+            <div class="popup-section">
+              <button class="popup-button secondary" onclick="showAllFeatures()" style="width: 100%;">
+                ðŸ“‹ View All Features
+              </button>
+            </div>
+
+            <div class="popup-section">
+              <button class="popup-button secondary" onclick="showFeatureTable()" style="width: 100%;">
+                ðŸ“Š Feature Data Table
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- More Button -->
+      <div class="dropdown" id="moreDropdown">
+        <button class="nav-btn" onclick="toggleDropdown('moreDropdown')">
+          âš™ï¸ More â–¼
+        </button>
+        <div class="dropdown-content more-menu">
+          <div class="more-item" onclick="manageStructure()">
+            ðŸ—ï¸ Manage Structure
+          </div>
+          <div class="more-item" onclick="manageRecords()">
+            ðŸ“ Manage Records
+          </div>
+          <div class="more-item" onclick="manageTemplates()">
+            ðŸ“„ Manage Templates
+          </div>
+          <div class="more-item" onclick="manageSettings()">
+            âš™ï¸ Settings
+          </div>
+          <div class="more-item" onclick="exportData()">
+            ðŸ“¤ Export Data
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Feature Popup -->
+  <div id="featurePopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); z-index: 2000; min-width: 400px;">
+    <div class="popup-title">Add/Update Feature</div>
+    
+    <div class="popup-section">
+      <label class="popup-label">Feature Description</label>
+      <input type="text" class="popup-input" id="featureInput" placeholder="Enter feature to update">
+    </div>
+
+    <div class="popup-section">
+      <label class="popup-label">Additional Notes</label>
+      <textarea class="field-textarea" id="featureNotes" placeholder="Add any additional notes..."></textarea>
+    </div>
+
+    <div class="popup-button-group">
+      <button class="popup-button" onclick="addFeature()">+ Add Feature</button>
+      <button class="popup-button secondary" onclick="closeFeaturePopup()">Cancel</button>
     </div>
   </div>
 
-  <main style="padding: 24px;">
-    <section class="meeting-banner">
-      <div>
-        <h2 style="margin:0 0 8px; color:#fff;">Meeting Minutes Generator</h2>
-        <p style="margin:0; opacity:0.7; max-width:720px;">Generate complete meeting minutes with a simple, streamlined interface.</p>
-      </div>
-      <div>
-        <div class="meeting-actions">
-          <button class="main-btn" style="background:#4caf50; color:#fff;" onclick="openGenerateMinutesDialog()">📄 Generate Minutes</button>
-        </div>
-      </div>
-    </section>
+  <!-- All Features Popup -->
+  <div id="allFeaturesPopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); z-index: 2000; min-width: 500px; max-height: 80vh; overflow-y: auto;">
+    <div class="popup-title">All Features in Minute</div>
+    
+    <div class="feature-list" id="featureListContainer">
+      <!-- Features will be dynamically added here -->
+    </div>
 
-    <section class="meeting-section">
-      <h2>Meeting Details</h2>
-      <div class="section-row">
+    <div class="popup-button-group">
+      <button class="popup-button secondary" onclick="closeAllFeaturesPopup()">Close</button>
+    </div>
+  </div>
+
+  <!-- Overlay -->
+  <div id="overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1500;" onclick="closeAllPopups()"></div>
+
+  <!-- Minute Container -->
+  <div class="minute-container">
+    <!-- Meeting Header -->
+    <div class="minute-header">
+      <div class="minute-title">
+        <span>ðŸ“…</span>
+        <input type="text" class="field-input" id="meetingTitle" placeholder="Meeting Title" style="font-size: 24px; font-weight: 700; border: none; background: transparent; padding: 0;">
+      </div>
+    </div>
+
+    <!-- Overview & Logistics -->
+    <div class="minute-section">
+      <div class="section-title">
+        <span>ðŸ“‹</span> Overview & Logistics
+      </div>
+      <div class="section-content">
         <div class="field-group">
-          <label>Meeting Title</label>
-          <input type="text" id="meetingTitle" placeholder="Board strategy meeting" />
+          <label class="field-label">Date & Time</label>
+          <input type="text" class="field-input" id="dateTime" placeholder="e.g., October 12, 2026 | 10:00 AM - 10:45 AM EST">
         </div>
+        
         <div class="field-group">
-          <label>Meeting Type</label>
-          <select id="meetingType">
-            <option value="Board">Board Meeting</option>
-            <option value="Executive">Executive Committee</option>
-            <option value="Loan">Loan Committee</option>
-            <option value="Finance">Finance Committee</option>
-            <option value="AGM">Annual General Meeting (AGM)</option>
-            <option value="SGM">Special General Meeting (SGM)</option>
-            <option value="Custom">Custom</option>
-          </select>
+          <label class="field-label">Location / Link</label>
+          <input type="text" class="field-input" id="location" placeholder="e.g., Conference Room B / Zoom Link">
         </div>
+        
         <div class="field-group">
-          <label>Date</label>
-          <input type="date" id="meetingDate" />
+          <label class="field-label">Facilitator</label>
+          <input type="text" class="field-input" id="facilitator" placeholder="Name">
         </div>
+        
         <div class="field-group">
-          <label>Time</label>
-          <input type="time" id="meetingStartTime" />
+          <label class="field-label">Note-Taker</label>
+          <input type="text" class="field-input" id="noteTaker" placeholder="Name">
         </div>
+        
         <div class="field-group">
-          <label>Venue</label>
-          <input type="text" id="meetingVenue" placeholder="Chama Boardroom" />
+          <label class="field-label">Timekeeper</label>
+          <input type="text" class="field-input" id="timekeeper" placeholder="Name">
         </div>
+        
         <div class="field-group">
-          <label>Online Meeting Link</label>
-          <input type="url" id="meetingLink" placeholder="https://meet.example.com/meeting" />
-        </div>
-      </div>
-    </section>
-
-    <section class="meeting-section">
-      <h2>Meeting Minutes</h2>
-      <div class="section-row">
-        <div class="field-group full-width">
-          <label>Template</label>
-          <select id="minutesTemplate" onchange="applyMinutesTemplate()">
-            <option value="Board">Board Meeting</option>
-            <option value="Executive">Executive Committee Meeting</option>
-            <option value="Loan">Loan Committee Meeting</option>
-            <option value="Finance">Finance Committee Meeting</option>
-            <option value="AGM">Annual General Meeting (AGM)</option>
-            <option value="SGM">Special General Meeting (SGM)</option>
-            <option value="Custom">Custom Template</option>
-          </select>
-        </div>
-        <div class="field-group full-width">
-          <label>Minutes Content</label>
-          <textarea id="minutesBody" placeholder="Meeting discussion, resolutions, action items, decisions..." style="min-height: 300px;"></textarea>
-        </div>
-      </div>
-      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top: 16px;">
-        <button class="action-btn" style="background:#4caf50; color:#fff;" onclick="saveMinutesRecord()">Save Minutes</button>
-        <button class="action-btn" style="background:#0077ff;" onclick="downloadMinutesReport()">Download</button>
-        <button class="action-btn" style="background:#555;" onclick="window.print()">Print</button>
-      </div>
-    </section>
-
-    <section class="meeting-section">
-      <h2>Send Meeting Link to Members</h2>
-      <div class="section-row">
-        <div class="field-group full-width">
-          <label>Select Members</label>
-          <select id="meetingLinkRecipients" multiple style="min-height: 120px;"></select>
-        </div>
-        <div class="field-group full-width">
-          <label>Message (Optional)</label>
-          <textarea id="meetingLinkMessage" placeholder="Add a custom message to send with the meeting link..." style="min-height: 80px;"></textarea>
-        </div>
-      </div>
-      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top: 16px;">
-        <button class="action-btn" style="background:#ff9800; color:#000;" onclick="sendMeetingLinkToMembers()">📤 Send Meeting Link</button>
-        <button class="action-btn" style="background:#4caf50; color:#fff;" onclick="copyMeetingLink()">📋 Copy Link</button>
-      </div>
-    </section>
-
-    <!-- Advanced Meeting Features Container -->
-    <div class="advanced-features-container">
-      <div class="advanced-features-header">
-        <h2>Advanced Meeting Features</h2>
-        <div class="timer-display" id="meetingTimer">
-          <i class="fas fa-clock"></i> <span id="timerDisplay">00:00:00</span>
-        </div>
-      </div>
-      
-      <div class="advanced-features-tabs">
-        <button class="advanced-tab active" onclick="switchAdvancedTab('metadata')">Metadata & Access</button>
-        <button class="advanced-tab" onclick="switchAdvancedTab('context')">Context & Objectives</button>
-        <button class="advanced-tab" onclick="switchAdvancedTab('agenda')">Agenda & Timekeeping</button>
-        <button class="advanced-tab" onclick="switchAdvancedTab('discussion')">Discussion & Content</button>
-        <button class="advanced-tab" onclick="switchAdvancedTab('ai')">AI Summary</button>
-        <button class="advanced-tab" onclick="switchAdvancedTab('action')">Action Plan</button>
-        <button class="advanced-tab" onclick="switchAdvancedTab('recording')">Recording</button>
-      </div>
-
-      <!-- Metadata & Access Control -->
-      <div id="panel-metadata" class="advanced-feature-panel active">
-        <div class="feature-subsection">
-          <h3><i class="fas fa-shield-alt"></i> Access Permissions</h3>
-          <div class="permission-tier">
-            <label>View Access</label>
-            <select>
-              <option>All Members</option>
-              <option>Board Only</option>
-              <option>Executive Committee</option>
-              <option>Admin Only</option>
-            </select>
-          </div>
-          <div class="permission-tier">
-            <label>Edit Access</label>
-            <select>
-              <option>Chairperson & Secretary</option>
-              <option>Board Members</option>
-              <option>Admin Only</option>
-            </select>
-          </div>
-          <div class="permission-tier">
-            <label>Comment Access</label>
-            <select>
-              <option>All Attendees</option>
-              <option>Board Members</option>
-              <option>Read Only</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-link"></i> Hyperlinked Directory</h3>
-          <div class="hyperlink-list" id="hyperlinkList">
-            <div class="hyperlink-item">
-              <a href="#" target="_blank">John Doe - Profile</a>
-              <button class="action-btn" style="padding:4px 8px; font-size:11px;">Edit</button>
-            </div>
-            <div class="hyperlink-item">
-              <a href="mailto:john@example.com">john@example.com</a>
-            </div>
-          </div>
-          <button class="action-btn" style="margin-top:10px; font-size:12px;">+ Add Participant Link</button>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-video"></i> Recording Links</h3>
-          <div class="field-group">
-            <label>Video Recording URL</label>
-            <input type="url" placeholder="https://cloud-storage.com/recording..." />
-          </div>
-          <div class="field-group">
-            <label>Audio Track URL</label>
-            <input type="url" placeholder="https://cloud-storage.com/audio..." />
-          </div>
-          <div class="field-group">
-            <label>AI Transcript URL</label>
-            <input type="url" placeholder="https://cloud-storage.com/transcript..." />
-          </div>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-history"></i> Version History</h3>
-          <div class="version-log" id="versionLog">
-            <div class="version-entry">
-              <span class="timestamp">2026-07-31 14:30</span>
-              <span class="editor">Admin</span>
-              <span>Created meeting document</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Context & Objectives -->
-      <div id="panel-context" class="advanced-feature-panel">
-        <div class="feature-subsection">
-          <h3><i class="fas fa-check-circle"></i> Pre-Read Verification</h3>
-          <div class="checkbox-grid" id="prereadCheckboxes">
-            <div class="checkbox-item">
-              <input type="checkbox" id="preread1" />
-              <label for="preread1">Board Packet Review</label>
-            </div>
-            <div class="checkbox-item">
-              <input type="checkbox" id="preread2" />
-              <label for="preread2">Financial Reports</label>
-            </div>
-            <div class="checkbox-item">
-              <input type="checkbox" id="preread3" />
-              <label for="preread3">Previous Minutes</label>
-            </div>
-            <div class="checkbox-item">
-              <input type="checkbox" id="preread4" />
-              <label for="preread4">Agenda Preview</label>
-            </div>
-          </div>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-bullseye"></i> Strategic Alignment (OKRs)</h3>
-          <div class="okr-mapping" id="okrMapping">
-            <div class="okr-item">
-              <i class="fas fa-flag"></i>
-              <span>OKR1: Increase loan portfolio by 25%</span>
-            </div>
-            <div class="okr-item">
-              <i class="fas fa-flag"></i>
-              <span>OKR2: Improve member satisfaction to 90%</span>
-            </div>
-          </div>
-          <button class="action-btn" style="margin-top:10px; font-size:12px;">+ Link OKR</button>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-chart-line"></i> Success Criteria</h3>
-          <div class="success-criteria" id="successCriteria">
-            <div class="criteria-item">
-              <input type="text" placeholder="Define success metric..." value="Approve 5 new loan applications" />
-              <button class="action-btn" style="padding:4px 8px; font-size:11px;">✓</button>
-            </div>
-            <div class="criteria-item">
-              <input type="text" placeholder="Define success metric..." value="Set quarterly savings target" />
-              <button class="action-btn" style="padding:4px 8px; font-size:11px;">✓</button>
-            </div>
-          </div>
-          <button class="action-btn" style="margin-top:10px; font-size:12px;">+ Add Success Criterion</button>
-        </div>
-      </div>
-
-      <!-- Dynamic Agenda & Timekeeping -->
-      <div id="panel-agenda" class="advanced-feature-panel">
-        <div class="feature-subsection">
-          <h3><i class="fas fa-list-ol"></i> Dynamic Agenda</h3>
-          <div id="agendaList">
-            <div class="agenda-item">
-              <span class="drag-handle">☰</span>
-              <input type="text" value="Opening remarks & attendance" />
-              <input type="time" class="time-input" value="09:00" />
-              <select class="owner-select">
-                <option>Chairperson</option>
-                <option>Secretary</option>
-                <option>Treasurer</option>
-              </select>
-              <button class="action-btn" style="padding:4px 8px; font-size:11px;">×</button>
-            </div>
-            <div class="agenda-item">
-              <span class="drag-handle">☰</span>
-              <input type="text" value="Financial review" />
-              <input type="time" class="time-input" value="09:15" />
-              <select class="owner-select">
-                <option>Treasurer</option>
-                <option>Chairperson</option>
-                <option>Secretary</option>
-              </select>
-              <button class="action-btn" style="padding:4px 8px; font-size:11px;">×</button>
-            </div>
-          </div>
-          <button class="action-btn" style="margin-top:10px; font-size:12px;">+ Add Agenda Item</button>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-stopwatch"></i> Pacing Indicators</h3>
-          <div style="display:flex; gap:12px; align-items:center;">
-            <button class="action-btn" style="background:#ffc107; color:#000;" onclick="startTimer()">▶ Start Timer</button>
-            <button class="action-btn" style="background:#f44336;" onclick="stopTimer()">⏸ Stop Timer</button>
-            <button class="action-btn" style="background:#555;" onclick="resetTimer()">↺ Reset</button>
-          </div>
-          <div style="margin-top:12px; font-size:12px; color:#aaa;">
-            Current topic time: <span id="topicTimer">00:00</span> | Allocated: 15 min
-          </div>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-parking"></i> Parking Lot</h3>
-          <div class="parking-lot" id="parkingLot">
-            <div class="parking-item">
-              <span>Review new investment opportunity</span>
-              <button class="action-btn" style="padding:4px 8px; font-size:11px;">Address</button>
-            </div>
-          </div>
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <input type="text" placeholder="Add off-topic idea..." style="flex:1;" />
-            <button class="action-btn" style="font-size:12px;">+ Add</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Interactive Discussion & Content Capture -->
-      <div id="panel-discussion" class="advanced-feature-panel">
-        <div class="feature-subsection">
-          <h3><i class="fas fa-chart-pie"></i> Live Sentiment Tracking</h3>
-          <div style="display:flex; gap:8px; margin-bottom:12px;">
-            <span class="sentiment-tag sentiment-blocker">Blocker: 2</span>
-            <span class="sentiment-tag sentiment-risk">Risk: 1</span>
-            <span class="sentiment-tag sentiment-innovation">Innovation: 3</span>
-          </div>
-          <div style="font-size:12px; color:#aaa;">Based on poll results and word cloud analysis</div>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-puzzle-piece"></i> Embedded Artifacts</h3>
-          <div class="artifact-preview">
-            <div class="artifact-icon"><i class="fab fa-figma"></i></div>
-            <div>
-              <div style="font-weight:600; font-size:13px; color:#e0f7ff;">Dashboard Design</div>
-              <div style="font-size:11px; color:#a3dafe;">Figma - Updated 2h ago</div>
-            </div>
-            <button class="action-btn" style="padding:4px 8px; font-size:11px;">Open</button>
-          </div>
-          <div class="artifact-preview">
-            <div class="artifact-icon"><i class="fab fa-jira"></i></div>
-            <div>
-              <div style="font-weight:600; font-size:13px; color:#e0f7ff;">Loan Approval Workflow</div>
-              <div style="font-size:11px; color:#a3dafe;">Jira - 3 tasks linked</div>
-            </div>
-            <button class="action-btn" style="padding:4px 8px; font-size:11px;">Open</button>
-          </div>
-          <button class="action-btn" style="font-size:12px;">+ Embed Artifact</button>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-question-circle"></i> Anonymized Q&A</h3>
-          <div id="qaList">
-            <div class="qa-item">
-              <div class="qa-question">"What is the timeline for the new loan system?"</div>
-              <div class="qa-answer">Target launch: Q4 2026, pending board approval.</div>
-            </div>
-            <div class="qa-item">
-              <div class="qa-question">"How will interest rates be affected?"</div>
-              <div class="qa-answer">Rates will remain at current levels for H2 2026.</div>
-            </div>
-          </div>
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <input type="text" placeholder="Submit anonymous question..." style="flex:1;" />
-            <button class="action-btn" style="font-size:12px;">Submit</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Automated AI Summary Elements -->
-      <div id="panel-ai" class="advanced-feature-panel">
-        <div class="feature-subsection">
-          <h3><i class="fas fa-robot"></i> Executive Summary</h3>
-          <div class="executive-summary">
-            <p>The board approved the Q3 financial report showing 15% growth in loan disbursements. Key decisions included expanding the loan product line and implementing new risk assessment protocols. Action items assigned to the treasurer for implementation by next quarter.</p>
-          </div>
-          <button class="action-btn" style="font-size:12px;">🔄 Regenerate Summary</button>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-gavel"></i> Key Decisions Log</h3>
-          <div class="decision-log" id="decisionLog">
-            <div class="decision-item">
-              <span class="decision-time">09:45</span>
-              <span class="decision-text">Approved new loan product launch for Q4 2026</span>
-            </div>
-            <div class="decision-item">
-              <span class="decision-time">10:30</span>
-              <span class="decision-text">Authorized budget increase for IT infrastructure</span>
-            </div>
-            <div class="decision-item">
-              <span class="decision-time">11:15</span>
-              <span class="decision-text">Confirmed quarterly savings target of KES 5M</span>
-            </div>
-          </div>
-          <button class="action-btn" style="margin-top:10px; font-size:12px;">+ Log Decision</button>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-tags"></i> Sentiment Tags</h3>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <span class="sentiment-tag sentiment-blocker">Blocker: Budget constraints</span>
-            <span class="sentiment-tag sentiment-risk">Risk: Market volatility</span>
-            <span class="sentiment-tag sentiment-innovation">Innovation: Digital transformation</span>
-          </div>
-          <button class="action-btn" style="margin-top:10px; font-size:12px;">+ Add Tag</button>
-        </div>
-      </div>
-
-      <!-- Accountable Action Plan -->
-      <div id="panel-action" class="advanced-feature-panel">
-        <div class="feature-subsection">
-          <h3><i class="fas fa-tasks"></i> Task Matrix</h3>
-          <div class="task-matrix" id="taskMatrix">
-            <div class="task-item">
-              <span class="task-name">Implement new loan approval workflow</span>
-              <span class="task-owner">Treasurer</span>
-              <select class="status-select">
-                <option>In Progress</option>
-                <option>Not Started</option>
-                <option>Blocked</option>
-                <option>Completed</option>
-              </select>
-              <span class="sync-flag synced"><i class="fas fa-check"></i> Synced</span>
-            </div>
-            <div class="task-item">
-              <span class="task-name">Prepare Q4 financial projections</span>
-              <span class="task-owner">Secretary</span>
-              <select class="status-select">
-                <option>Not Started</option>
-                <option>In Progress</option>
-                <option>Blocked</option>
-                <option>Completed</option>
-              </select>
-              <span class="sync-flag pending"><i class="fas fa-clock"></i> Pending</span>
-            </div>
-          </div>
-          <button class="action-btn" style="margin-top:10px; font-size:12px;">+ Add Task</button>
-        </div>
-
-        <div class="feature-subsection">
-          <h3><i class="fas fa-sync-alt"></i> System Sync Flags</h3>
-          <div style="display:flex; gap:12px; flex-wrap:wrap;">
-            <span class="sync-flag synced"><i class="fas fa-check"></i> Asana: 3 tasks synced</span>
-            <span class="sync-flag synced"><i class="fas fa-check"></i> Monday.com: 2 tasks synced</span>
-            <span class="sync-flag pending"><i class="fas fa-clock"></i> Jira: 1 pending</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Recording Section -->
-      <div id="panel-recording" class="advanced-feature-panel">
-        <div class="recording-section">
-          <h3 style="margin:0 0 16px; color:#e0f7ff;"><i class="fas fa-microphone"></i> Meeting Recording</h3>
-          <div class="recording-controls">
-            <button id="recordBtn" class="record-btn not-recording" onclick="toggleRecording()">
-              <i class="fas fa-circle"></i> <span id="recordBtnText">Start Recording</span>
-            </button>
-            <div style="font-size:12px; color:#aaa;">
-              <span id="recordingStatus">Not recording</span>
-              <span id="recordingDuration" style="margin-left:12px;">00:00:00</span>
-            </div>
-          </div>
-          
-          <h4 style="margin:16px 0 12px; color:#a3dafe; font-size:14px;">Recordings</h4>
-          <div class="recordings-list" id="recordingsList">
-            <div class="recording-item">
-              <div class="recording-info">
-                <div class="recording-name">Board Meeting - 2026-07-31</div>
-                <div class="recording-duration">Duration: 01:23:45</div>
-              </div>
-              <div class="recording-actions">
-                <button class="play-btn" onclick="playRecording(1)"><i class="fas fa-play"></i> Play</button>
-                <button class="delete-btn" onclick="deleteRecording(1)"><i class="fas fa-trash"></i> Delete</button>
-              </div>
-            </div>
-            <div class="recording-item">
-              <div class="recording-info">
-                <div class="recording-name">Finance Committee - 2026-07-28</div>
-                <div class="recording-duration">Duration: 00:45:30</div>
-              </div>
-              <div class="recording-actions">
-                <button class="play-btn" onclick="playRecording(2)"><i class="fas fa-play"></i> Play</button>
-                <button class="delete-btn" onclick="deleteRecording(2)"><i class="fas fa-trash"></i> Delete</button>
-              </div>
-            </div>
-          </div>
+          <label class="field-label">Attendees</label>
+          <input type="text" class="field-input" id="attendees" placeholder="Name 1, Name 2, Name 3">
         </div>
       </div>
     </div>
-  </main>
 
-  <script src="js/home.js"></script>
-  <script>
-    const API_BASE = window.__API_BASE__ || '/api';
-    
-    const meetingCenterState = {
-      allMeetings: [],
-      selectedMeetingIds: new Set(),
-      members: [],
-      editingMeetingId: null,
-      meetingTemplates: {
-        Board: 'Meeting Header\n\nMeeting Information\n\nAttendance Register\n\nDiscussion Summary\n\nDecisions Made\n\nAction Items\n\nClosing Remarks\n\nNext Meeting Information\n\nSignatures (Chairperson & Secretary)',
-        Executive: 'Meeting Header\n\nExecutive Summary\n\nAttendance Register\n\nDiscussion Summary\n\nFinancial Discussions\n\nDecisions Made\n\nAction Items\n\nClosing Remarks\n\nNext Meeting Information',
-        Loan: 'Meeting Header\n\nLoan Committee Overview\n\nAttendance Register\n\nDiscussion Summary\n\nDecisions Made\n\nAction Items\n\nClosing Remarks\n\nNext Meeting Information',
-        Finance: 'Meeting Header\n\nFinance Review\n\nAttendance Register\n\nDiscussion Summary\n\nFinancial Discussions\n\nDecisions Made\n\nAction Items\n\nClosing Remarks\n\nNext Meeting Information',
-        AGM: 'Meeting Header\n\nAnnual General Meeting\n\nAttendance Register\n\nDiscussion Summary\n\nResolutions Passed\n\nAction Items\n\nClosing Remarks\n\nNext Meeting Information',
-        SGM: 'Meeting Header\n\nSpecial General Meeting\n\nAttendance Register\n\nDiscussion Summary\n\nResolutions Passed\n\nAction Items\n\nClosing Remarks\n\nNext Meeting Information',
-        Custom: 'Meeting Header\n\nMeeting Information\n\nAttendance Register\n\nDiscussion Summary\n\nDecisions Made\n\nAction Items\n\nClosing Remarks\n\nNext Meeting Information'
-      }
-    };
+    <!-- Core Objective -->
+    <div class="minute-section">
+      <div class="section-title">
+        <span>ðŸŽ¯</span> Core Objective
+      </div>
+      <div class="section-content">
+        <div class="field-group">
+          <label class="field-label">In one sentence, what is the exact goal or decision that must be achieved by the end of this meeting?</label>
+          <textarea class="field-textarea" id="coreObjective" placeholder="Enter the core objective..."></textarea>
+        </div>
+      </div>
+    </div>
 
-    // Load approved members dynamically
-    async function loadMeetingMembers() {
-      try {
-        const res = await fetch(`${API_BASE}/members/approved`, {
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await res.json();
-        meetingCenterState.members = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+    <!-- Pre-Work & Resources -->
+    <div class="minute-section">
+      <div class="section-title">
+        <span>ðŸ“‘</span> Pre-Work & Resources
+      </div>
+      <div class="section-content">
+        <p style="color: #666; margin-bottom: 15px;">Please review these items at least 24 hours prior to the session.</p>
         
-        // Populate member dropdowns
-        const recipientsSelect = document.getElementById('meetingLinkRecipients');
-        if (recipientsSelect) {
-          recipientsSelect.innerHTML = meetingCenterState.members.length === 0 
-            ? '<option value="">No members available</option>'
-            : meetingCenterState.members.map(m => `<option value="${m.id}">${m.full_name || m.name} (${m.email})</option>`).join('');
-        }
-      } catch (e) {
-        console.error('Failed to load members:', e);
-      }
-    }
-
-    // Advanced Features Tab Switching
-    function switchAdvancedTab(tabName) {
-      // Remove active class from all tabs
-      document.querySelectorAll('.advanced-tab').forEach(tab => tab.classList.remove('active'));
-      // Hide all panels
-      document.querySelectorAll('.advanced-feature-panel').forEach(panel => panel.classList.remove('active'));
-      
-      // Activate selected tab
-      const activeTab = document.querySelector(`.advanced-tab[onclick="switchAdvancedTab('${tabName}')"]`);
-      if (activeTab) activeTab.classList.add('active');
-      
-      // Show selected panel
-      const activePanel = document.getElementById(`panel-${tabName}`);
-      if (activePanel) activePanel.classList.add('active');
-    }
-
-    // Timer Functionality
-    let meetingTimerInterval = null;
-    let meetingTimerSeconds = 0;
-    let topicTimerInterval = null;
-    let topicTimerSeconds = 0;
-
-    function startTimer() {
-      if (meetingTimerInterval) return;
-      meetingTimerInterval = setInterval(() => {
-        meetingTimerSeconds++;
-        updateTimerDisplay();
-      }, 1000);
-    }
-
-    function stopTimer() {
-      if (meetingTimerInterval) {
-        clearInterval(meetingTimerInterval);
-        meetingTimerInterval = null;
-      }
-    }
-
-    function resetTimer() {
-      stopTimer();
-      meetingTimerSeconds = 0;
-      updateTimerDisplay();
-    }
-
-    function updateTimerDisplay() {
-      const hours = Math.floor(meetingTimerSeconds / 3600);
-      const minutes = Math.floor((meetingTimerSeconds % 3600) / 60);
-      const seconds = meetingTimerSeconds % 60;
-      const display = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      const timerDisplay = document.getElementById('timerDisplay');
-      if (timerDisplay) timerDisplay.textContent = display;
-    }
-
-    // Topic Timer
-    function startTopicTimer() {
-      if (topicTimerInterval) return;
-      topicTimerInterval = setInterval(() => {
-        topicTimerSeconds++;
-        updateTopicTimerDisplay();
-      }, 1000);
-    }
-
-    function stopTopicTimer() {
-      if (topicTimerInterval) {
-        clearInterval(topicTimerInterval);
-        topicTimerInterval = null;
-      }
-    }
-
-    function resetTopicTimer() {
-      stopTopicTimer();
-      topicTimerSeconds = 0;
-      updateTopicTimerDisplay();
-    }
-
-    function updateTopicTimerDisplay() {
-      const minutes = Math.floor(topicTimerSeconds / 60);
-      const seconds = topicTimerSeconds % 60;
-      const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      const topicTimer = document.getElementById('topicTimer');
-      if (topicTimer) topicTimer.textContent = display;
-    }
-
-    // Recording Functionality
-    let mediaRecorder = null;
-    let recordedChunks = [];
-    let isRecording = false;
-    let recordingStartTime = null;
-    let recordingInterval = null;
-    let recordings = [];
-
-    async function toggleRecording() {
-      const recordBtn = document.getElementById('recordBtn');
-      const recordBtnText = document.getElementById('recordBtnText');
-      const recordingStatus = document.getElementById('recordingStatus');
-      const recordingDuration = document.getElementById('recordingDuration');
-
-      if (!isRecording) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          mediaRecorder = new MediaRecorder(stream);
-          recordedChunks = [];
-
-          mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-              recordedChunks.push(event.data);
-            }
-          };
-
-          mediaRecorder.onstop = () => {
-            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-            const url = URL.createObjectURL(blob);
-            const duration = Date.now() - recordingStartTime;
-            
-            recordings.push({
-              id: Date.now(),
-              name: `Meeting Recording - ${new Date().toLocaleDateString()}`,
-              url: url,
-              duration: formatDuration(duration),
-              blob: blob
-            });
-
-            updateRecordingsList();
-            stream.getTracks().forEach(track => track.stop());
-          };
-
-          mediaRecorder.start();
-          isRecording = true;
-          recordingStartTime = Date.now();
-
-          recordBtn.classList.remove('not-recording');
-          recordBtn.classList.add('recording');
-          recordBtnText.textContent = 'Stop Recording';
-          recordingStatus.textContent = 'Recording...';
-
-          recordingInterval = setInterval(() => {
-            const elapsed = Date.now() - recordingStartTime;
-            recordingDuration.textContent = formatDuration(elapsed);
-          }, 1000);
-
-        } catch (err) {
-          console.error('Error accessing microphone:', err);
-          alert('Could not access microphone. Please ensure microphone permissions are granted.');
-        }
-      } else {
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-          mediaRecorder.stop();
-        }
-        isRecording = false;
-
-        recordBtn.classList.remove('recording');
-        recordBtn.classList.add('not-recording');
-        recordBtnText.textContent = 'Start Recording';
-        recordingStatus.textContent = 'Not recording';
-
-        if (recordingInterval) {
-          clearInterval(recordingInterval);
-          recordingInterval = null;
-        }
-      }
-    }
-
-    function formatDuration(ms) {
-      const seconds = Math.floor(ms / 1000);
-      const hours = Math.floor(seconds / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const secs = seconds % 60;
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }
-
-    function updateRecordingsList() {
-      const recordingsList = document.getElementById('recordingsList');
-      if (!recordingsList) return;
-
-      recordingsList.innerHTML = recordings.map(rec => `
-        <div class="recording-item">
-          <div class="recording-info">
-            <div class="recording-name">${rec.name}</div>
-            <div class="recording-duration">Duration: ${rec.duration}</div>
+        <div id="resourceList">
+          <div class="resource-item">
+            <span class="resource-icon">ðŸ”—</span>
+            <input type="text" class="field-input" style="flex: 1;" placeholder="Link to Q3 Performance Dashboard">
           </div>
-          <div class="recording-actions">
-            <button class="play-btn" onclick="playRecording(${rec.id})"><i class="fas fa-play"></i> Play</button>
-            <button class="delete-btn" onclick="deleteRecording(${rec.id})"><i class="fas fa-trash"></i> Delete</button>
+          <div class="resource-item">
+            <span class="resource-icon">ðŸ“„</span>
+            <input type="text" class="field-input" style="flex: 1;" placeholder="Link to Project Proposal Draft">
           </div>
         </div>
-      `).join('');
-    }
+        
+        <button class="add-btn" onclick="addResource()">+ Add Resource</button>
+      </div>
+    </div>
 
-    function playRecording(id) {
-      const recording = recordings.find(r => r.id === id);
-      if (recording && recording.url) {
-        const audio = new Audio(recording.url);
-        audio.play();
-      }
-    }
+    <!-- Live Agenda & Notes -->
+    <div class="minute-section">
+      <div class="section-title">
+        <span>â±ï¸</span> Live Agenda & Notes
+      </div>
+      <div class="section-content">
+        <div id="agendaList">
+          <div class="agenda-item">
+            <div class="agenda-header">
+              <input type="text" class="agenda-title field-input" style="border: none; background: transparent; padding: 0; font-weight: 600;" value="Alignment & Context (5 Mins)">
+              <span class="agenda-time">5 Mins</span>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Goal</label>
+              <input type="text" class="field-input" placeholder="Review objectives and verify everyone has read the pre-work">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Notes</label>
+              <textarea class="field-textarea" placeholder="Enter notes..."></textarea>
+            </div>
+          </div>
 
-    function deleteRecording(id) {
-      if (!confirm('Are you sure you want to delete this recording?')) return;
+          <div class="agenda-item">
+            <div class="agenda-header">
+              <input type="text" class="agenda-title field-input" style="border: none; background: transparent; padding: 0; font-weight: 600;" value="Topic 1: [Insert Priority Issue] (15 Mins)">
+              <span class="agenda-time">15 Mins</span>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Goal</label>
+              <input type="text" class="field-input" placeholder="Debate options and align on a path forward">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Notes</label>
+              <textarea class="field-textarea" placeholder="Enter notes..."></textarea>
+            </div>
+          </div>
+
+          <div class="agenda-item">
+            <div class="agenda-header">
+              <input type="text" class="agenda-title field-input" style="border: none; background: transparent; padding: 0; font-weight: 600;" value="Topic 2: [Insert Secondary Issue] (15 Mins)">
+              <span class="agenda-time">15 Mins</span>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Goal</label>
+              <input type="text" class="field-input" placeholder="Identify blockers and assign resources">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Notes</label>
+              <textarea class="field-textarea" placeholder="Enter notes..."></textarea>
+            </div>
+          </div>
+        </div>
+        
+        <button class="add-btn" onclick="addAgendaItem()">+ Add Agenda Item</button>
+      </div>
+    </div>
+
+    <!-- Parking Lot -->
+    <div class="minute-section">
+      <div class="section-title">
+        <span>ðŸ›‘</span> Parking Lot
+      </div>
+      <div class="section-content">
+        <p style="color: #666; margin-bottom: 15px;">Unrelated topics or deep-dive issues delayed to preserve the meeting schedule.</p>
+        
+        <div id="parkingLotList">
+          <div class="agenda-item" style="border-left-color: #ff9800;">
+            <div class="field-group">
+              <input type="text" class="field-input" placeholder="Topic A âž” Action: [Name] to schedule a 10-minute follow-up">
+            </div>
+          </div>
+        </div>
+        
+        <button class="add-btn" onclick="addParkingLotItem()">+ Add Parking Lot Item</button>
+      </div>
+    </div>
+
+    <!-- Action Items & Decisions -->
+    <div class="minute-section">
+      <div class="section-title">
+        <span>ðŸš€</span> Action Items & Decisions
+      </div>
+      <div class="section-content">
+        <!-- Key Decisions -->
+        <div style="margin-bottom: 30px;">
+          <h4 style="margin-bottom: 15px; color: #333;">ðŸŽ¯ Key Decisions Made</h4>
+          <div id="decisionsList">
+            <div class="field-group">
+              <input type="text" class="field-input" placeholder="Decision 1: [e.g., Approved the $5,000 budget reallocation for marketing]">
+            </div>
+            <div class="field-group">
+              <input type="text" class="field-input" placeholder="Decision 2: [e.g., Delayed the product launch date to November 1st]">
+            </div>
+          </div>
+          <button class="add-btn" onclick="addDecision()">+ Add Decision</button>
+        </div>
+
+        <!-- Task Tracker -->
+        <div>
+          <h4 style="margin-bottom: 15px; color: #333;">ðŸ“‹ Task Tracker</h4>
+          <table class="data-table" id="taskTable">
+            <thead>
+              <tr>
+                <th>Task Description</th>
+                <th>Owner</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><input type="text" class="field-input" placeholder="Update project roadmap with new timeline"></td>
+                <td><input type="text" class="field-input" placeholder="Name"></td>
+                <td><input type="date" class="field-input"></td>
+                <td>
+                  <select class="popup-select">
+                    <option>Not Started</option>
+                    <option>In Progress</option>
+                    <option>Completed</option>
+                  </select>
+                </td>
+                <td>
+                  <button class="action-btn edit">Edit</button>
+                  <button class="action-btn delete">Delete</button>
+                </td>
+              </tr>
+              <tr>
+                <td><input type="text" class="field-input" placeholder="Send updated API contract to the client"></td>
+                <td><input type="text" class="field-input" placeholder="Name"></td>
+                <td><input type="date" class="field-input"></td>
+                <td>
+                  <select class="popup-select">
+                    <option>Not Started</option>
+                    <option selected>In Progress</option>
+                    <option>Completed</option>
+                  </select>
+                </td>
+                <td>
+                  <button class="action-btn edit">Edit</button>
+                  <button class="action-btn delete">Delete</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <button class="add-btn" onclick="addTask()">+ Add Task</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Features storage
+    let features = [];
+    let deletedFeatures = [];
+
+    // Toggle dropdown
+    function toggleDropdown(dropdownId) {
+      const dropdown = document.getElementById(dropdownId);
+      const allDropdowns = document.querySelectorAll('.dropdown');
       
-      const recording = recordings.find(r => r.id === id);
-      if (recording) {
-        URL.revokeObjectURL(recording.url);
-        recordings = recordings.filter(r => r.id !== id);
-        updateRecordingsList();
-      }
+      allDropdowns.forEach(d => {
+        if (d.id !== dropdownId) {
+          d.classList.remove('active');
+        }
+      });
+      
+      dropdown.classList.toggle('active');
     }
 
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', () => {
-      loadMeetingMembers();
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!event.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown').forEach(d => {
+          d.classList.remove('active');
+        });
+      }
     });
 
-    // Apply template to minutes body
-    function applyMinutesTemplate() {
-      const templateSelect = document.getElementById('minutesTemplate');
-      const minutesBody = document.getElementById('minutesBody');
-      if (!templateSelect || !minutesBody) return;
+    // Member select change
+    document.getElementById('memberSelect').addEventListener('change', function() {
+      const individualSection = document.getElementById('individualMemberSection');
+      if (this.value === 'individual') {
+        individualSection.style.display = 'block';
+      } else {
+        individualSection.style.display = 'none';
+      }
+    });
+
+    // Submit meeting link
+    function submitMeetingLink() {
+      const memberSelect = document.getElementById('memberSelect').value;
+      const meetingLink = document.getElementById('meetingLink').value;
       
-      const selectedTemplate = templateSelect.value;
-      if (meetingCenterState.meetingTemplates[selectedTemplate]) {
-        minutesBody.value = meetingCenterState.meetingTemplates[selectedTemplate];
-      }
-    }
-
-    // Save minutes record
-    async function saveMinutesRecord() {
-      const title = document.getElementById('meetingTitle')?.value;
-      const type = document.getElementById('meetingType')?.value;
-      const date = document.getElementById('meetingDate')?.value;
-      const time = document.getElementById('meetingStartTime')?.value;
-      const venue = document.getElementById('meetingVenue')?.value;
-      const link = document.getElementById('meetingLink')?.value;
-      const template = document.getElementById('minutesTemplate')?.value;
-      const content = document.getElementById('minutesBody')?.value;
-
-      if (!title || !date) {
-        alert('Please enter meeting title and date');
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_BASE}/minutes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            meeting_type: type,
-            meeting_date: date,
-            meeting_time: time,
-            venue,
-            online_link: link,
-            template,
-            minutes_content: content
-          })
-        });
-        const data = await res.json();
-        if (data.status === 'success') {
-          alert('Minutes saved successfully!');
-          // Clear form
-          document.getElementById('meetingTitle').value = '';
-          document.getElementById('minutesBody').value = '';
-        } else {
-          alert('Failed to save: ' + (data.message || 'Unknown error'));
-        }
-      } catch (e) {
-        alert('Error saving minutes: ' + e.message);
-      }
-    }
-
-    // Download minutes report
-    function downloadMinutesReport() {
-      const title = document.getElementById('meetingTitle')?.value || 'Meeting';
-      const content = document.getElementById('minutesBody')?.value || '';
-      
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title.replace(/\s+/g, '_')}_minutes.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    // Copy meeting link
-    function copyMeetingLink() {
-      const link = document.getElementById('meetingLink')?.value;
-      if (!link) {
-        alert('No meeting link to copy');
-        return;
-      }
-      navigator.clipboard.writeText(link).then(() => {
-        alert('Link copied to clipboard!');
-      }).catch(() => {
-        alert('Failed to copy link');
-      });
-    }
-
-    // Send meeting link to members
-    async function sendMeetingLinkToMembers() {
-      const link = document.getElementById('meetingLink')?.value;
-      const message = document.getElementById('meetingLinkMessage')?.value;
-      const recipientsSelect = document.getElementById('meetingLinkRecipients');
-      
-      if (!link) {
+      if (!meetingLink) {
         alert('Please enter a meeting link');
         return;
       }
 
-      const selectedMembers = Array.from(recipientsSelect?.selectedOptions || []).map(opt => opt.value);
+      let selectedMembers = [];
+      if (memberSelect === 'all') {
+        selectedMembers = ['John Doe', 'Jane Smith', 'Mike Johnson'];
+      } else {
+        document.querySelectorAll('.member-checkbox:checked').forEach(checkbox => {
+          selectedMembers.push(checkbox.nextElementSibling.textContent);
+        });
+      }
+
       if (selectedMembers.length === 0) {
         alert('Please select at least one member');
         return;
       }
 
-      try {
-        const res = await fetch(`${API_BASE}/messages/send-meeting-link`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            meeting_link: link,
-            message,
-            member_ids: selectedMembers
-          })
-        });
-        const data = await res.json();
-        if (data.status === 'success') {
-          alert('Meeting link sent successfully!');
-          document.getElementById('meetingLinkMessage').value = '';
-        } else {
-          alert('Failed to send: ' + (data.message || 'Unknown error'));
-        }
-      } catch (e) {
-        alert('Error sending link: ' + e.message);
-      }
+      alert(`Meeting link submitted to: ${selectedMembers.join(', ')}\nLink: ${meetingLink}`);
+      toggleDropdown('shareDropdown');
     }
 
-    // Open generate minutes dialog (placeholder)
-    function openGenerateMinutesDialog() {
-      alert('Meeting minutes form is ready. Fill in the details below and click Save Minutes.');
+    // Download minute
+    function downloadMinute() {
+      alert('Downloading minute as PDF...');
     }
 
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      loadMeetingMembers();
-    });
-
-    function toggleActionsDropdown() {
-      const menu = document.getElementById('meetingActionsMenu');
-      if (!menu) return;
-      menu.classList.toggle('active');
+    // View invitations
+    function viewInvitations() {
+      alert('Opening invitation management...');
     }
 
-    document.addEventListener('click', function (e) {
-      const menu = document.getElementById('meetingActionsMenu');
-      const toggle = document.getElementById('meetingActionsToggle');
-      if (!menu || !toggle) return;
-      if (!toggle.contains(e.target) && !menu.contains(e.target)) {
-        menu.classList.remove('active');
-      }
-    });
-
-    async function initializeMeetingCenter() {
-      await loadMeetingMembers();
-      await loadMeetingRecords();
-      renderAgendaItems();
-      applyMinutesTemplate();
+    // Show feature popup
+    function showFeaturePopup() {
+      document.getElementById('featurePopup').style.display = 'block';
+      document.getElementById('overlay').style.display = 'block';
+      toggleDropdown('menuDropdown');
     }
 
-    async function loadMeetingMembers() {
-      try {
-        const rows = await apiCall('members/all?status=approved', { method: 'GET' });
-        meetingCenterState.members = Array.isArray(rows) ? rows : [];
-        const el = document.getElementById('attendanceMemberSelect');
-        if (el) {
-          el.innerHTML = '<option value="">-- Select Member --</option>' + meetingCenterState.members.map(m => `<option value="${m.id}">${m.full_name} (${m.phone || m.email || 'N/A'})</option>`).join('');
-        }
-      } catch (e) {
-        console.warn('[loadMeetingMembers]', e.message || e);
-      }
+    // Close feature popup
+    function closeFeaturePopup() {
+      document.getElementById('featurePopup').style.display = 'none';
+      document.getElementById('overlay').style.display = 'none';
     }
 
-    async function loadMeetingRecords() {
-      try {
-        const rows = await apiCall('automation/meetings', { method: 'GET' });
-        meetingCenterState.allMeetings = Array.isArray(rows) ? rows : [];
-        updateMeetingSummaries();
-        renderMeetingRecords();
-      } catch (e) {
-        console.warn('[loadMeetingRecords]', e.message || e);
-        meetingCenterState.allMeetings = [];
-        renderMeetingRecords();
-      }
-    }
-
-    function updateMeetingSummaries() {
-      const now = new Date();
-      const month = now.getMonth();
-      const year = now.getFullYear();
-      const total = meetingCenterState.allMeetings.length;
-      const upcoming = meetingCenterState.allMeetings.filter(m => new Date(`${m.meeting_date}T${m.meeting_time}`) >= now).length;
-      const monthCount = meetingCenterState.allMeetings.filter(m => {
-        const d = new Date(m.meeting_date);
-        return d.getMonth() === month && d.getFullYear() === year;
-      }).length;
-      const pending = meetingCenterState.allMeetings.filter(m => (m.status || 'Scheduled') === 'Pending Approval').length;
-      const draft = meetingCenterState.allMeetings.filter(m => (m.status || '').toLowerCase().includes('draft')).length;
-      const approved = meetingCenterState.allMeetings.filter(m => ['confirmed', 'completed'].includes((m.status || '').toLowerCase())).length;
-      const attendance = total ? Math.round((approved / total) * 100) : 0;
-      const actions = meetingCenterState.allMeetings.reduce((sum, m) => sum + (Number(m.action_items_pending || 0)), 0);
-      document.getElementById('summaryTotalMeetings').textContent = total;
-      document.getElementById('summaryUpcomingMeetings').textContent = upcoming;
-      document.getElementById('summaryMonthMeetings').textContent = monthCount;
-      document.getElementById('summaryPendingMeetings').textContent = pending;
-      document.getElementById('summaryDraftMinutes').textContent = draft;
-      document.getElementById('summaryApprovedMinutes').textContent = approved;
-      document.getElementById('summaryAttendanceRate').textContent = attendance + '%';
-      document.getElementById('summaryOutstandingActions').textContent = actions;
-    }
-
-    function renderMeetingRecords() {
-      const grid = document.getElementById('meetingRecordsGrid');
-      const search = (document.getElementById('meetingSearch')?.value || '').toLowerCase();
-      const statusFilter = (document.getElementById('meetingStatusFilter')?.value || 'all');
-      const rows = meetingCenterState.allMeetings.filter(m => {
-        const text = `${m.title || ''} ${m.location || ''} ${m.platform || ''} ${m.target_group || ''}`.toLowerCase();
-        if (search && !text.includes(search)) return false;
-        if (statusFilter !== 'all' && (m.status || 'Scheduled') !== statusFilter) return false;
-        return true;
-      });
-      if (!grid) return;
-      grid.innerHTML = rows.map(m => {
-        const updatedStr = m.updated_at ? new Date(m.updated_at).toLocaleString() : '-';
-        const createdStr = m.created_at ? new Date(m.created_at).toLocaleDateString() : '-';
-        return `
-        <div class="meeting-flow-card">
-          <div class="meeting-flow-header">
-            <div>
-              <h3 class="meeting-flow-title">${m.title || 'Untitled'}</h3>
-              <div class="meeting-flow-meta">
-                <span>#${m.id}</span>
-                <span>•</span>
-                <span style="color: ${m.status === 'Completed' ? '#4caf50' : m.status === 'Cancelled' ? '#f44336' : '#ff9800'}">${m.status || 'Scheduled'}</span>
-              </div>
-            </div>
-            <input type="checkbox" data-id="${m.id}" onchange="toggleMeetingSelection(${m.id}, this.checked)" style="transform: scale(1.2);">
-          </div>
-          
-          <div class="meeting-flow-details">
-            <div><span>Date & Time</span><span>${m.meeting_date || '-'} at ${m.meeting_time || '-'}</span></div>
-            <div><span>Venue</span><span>${m.location || '-'}</span></div>
-            <div><span>Committee</span><span>${m.target_group || '-'}</span></div>
-            <div><span>Organizer</span><span>${m.organizer || '-'}</span></div>
-          </div>
-          
-          <div class="meeting-flow-desc">
-             <div><span style="font-size:11px;opacity:0.6;text-transform:uppercase;">Description</span></div>
-             <div style="margin-bottom:8px;">${m.description ? (m.description.length > 80 ? m.description.substring(0,80) + '...' : m.description) : 'No description provided.'}</div>
-             <div style="font-size: 11px; opacity: 0.5;">Created: ${createdStr} | Updated: ${updatedStr}</div>
-          </div>
-          
-          <div class="meeting-flow-footer">
-            <div class="action-buttons" style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button class="action-btn" onclick="previewMeeting(${m.id})" style="font-size:11px; padding:6px 10px;">Preview</button>
-              <button class="action-btn" onclick="openEditMeeting(${m.id})" style="font-size:11px; padding:6px 10px;">Edit</button>
-              <button class="action-btn" onclick="shareMeetingCard(${m.id})" style="font-size:11px; padding:6px 10px; background:#ffb300; color:#000;">📤 Share Link</button>
-              <button class="btn-del" onclick="deleteMeeting(${m.id})" style="font-size:11px; padding:6px 10px;">Delete</button>
-            </div>
-          </div>
-        </div>
-      `}).join('');
-      if (!rows.length) grid.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; opacity:0.6; padding:18px;">No meeting records found.</div>';
-    }
-
-    function filterMeetingRecords() {
-      renderMeetingRecords();
-    }
-
-    function toggleMeetingSelection(id, checked) {
-      if (checked) meetingCenterState.selectedMeetingIds.add(id);
-      else meetingCenterState.selectedMeetingIds.delete(id);
-    }
-
-    function toggleAllMeetingSelection(checked) {
-      document.querySelectorAll('#meetingRecordsBody input[type="checkbox"]').forEach(cb => {
-        cb.checked = checked;
-        const id = Number(cb.dataset.id || 0);
-        if (id) {
-          if (checked) meetingCenterState.selectedMeetingIds.add(id);
-          else meetingCenterState.selectedMeetingIds.delete(id);
-        }
-      });
-    }
-
-    function addAgendaItem() {
-      meetingCenterState.agendaItems.push({ id: Date.now(), title: '', description: '', presenter: '', duration: '', notes: '', status: 'Pending' });
-      renderAgendaItems();
-    }
-
-    function resetAgendaItems() {
-      meetingCenterState.agendaItems = [];
-      renderAgendaItems();
-    }
-
-    function renderAgendaItems() {
-      const container = document.getElementById('agendaItemsContainer');
-      if (!container) return;
-      container.innerHTML = meetingCenterState.agendaItems.map((item, index) => `
-        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;display:grid;gap:10px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-            <strong>Agenda ${index + 1}</strong>
-            <div>
-              <button class="action-btn" style="background:#00e0ff;color:#000;" onclick="moveAgendaItem(${item.id}, -1)">↑</button>
-              <button class="action-btn" style="background:#00e0ff;color:#000;" onclick="moveAgendaItem(${item.id}, 1)">↓</button>
-              <button class="btn-del" onclick="removeAgendaItem(${item.id})">Delete</button>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div><label>Title</label><input type="text" value="${item.title}" onchange="updateAgendaField(${item.id}, 'title', this.value)"></div>
-            <div><label>Presenter</label><input type="text" value="${item.presenter}" onchange="updateAgendaField(${item.id}, 'presenter', this.value)"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div><label>Estimated Duration</label><input type="text" value="${item.duration}" onchange="updateAgendaField(${item.id}, 'duration', this.value)"></div>
-            <div><label>Status</label><select onchange="updateAgendaField(${item.id}, 'status', this.value)"><option ${item.status==='Pending'?'selected':''}>Pending</option><option ${item.status==='Completed'?'selected':''}>Completed</option><option ${item.status==='In Progress'?'selected':''}>In Progress</option></select></div>
-          </div>
-          <div><label>Description</label><textarea onchange="updateAgendaField(${item.id}, 'description', this.value)">${item.description}</textarea></div>
-          <div><label>Notes</label><textarea onchange="updateAgendaField(${item.id}, 'notes', this.value)">${item.notes}</textarea></div>
-        </div>
-      `).join('');
-      if (!meetingCenterState.agendaItems.length) container.innerHTML = '<div style="opacity:0.7; padding:16px;">No agenda items yet. Click "Add Agenda Item" to begin.</div>';
-    }
-
-    function updateAgendaField(id, field, value) {
-      const item = meetingCenterState.agendaItems.find(i => i.id === id);
-      if (!item) return;
-      item[field] = value;
-    }
-
-    function removeAgendaItem(id) {
-      meetingCenterState.agendaItems = meetingCenterState.agendaItems.filter(i => i.id !== id);
-      renderAgendaItems();
-    }
-
-    function moveAgendaItem(id, direction) {
-      const index = meetingCenterState.agendaItems.findIndex(i => i.id === id);
-      if (index < 0) return;
-      const swapIndex = index + direction;
-      if (swapIndex < 0 || swapIndex >= meetingCenterState.agendaItems.length) return;
-      [meetingCenterState.agendaItems[index], meetingCenterState.agendaItems[swapIndex]] = [meetingCenterState.agendaItems[swapIndex], meetingCenterState.agendaItems[index]];
-      renderAgendaItems();
-    }
-
-    function applyMinutesTemplate() {
-      const template = meetingCenterState.meetingTemplates[document.getElementById('minutesTemplate')?.value || 'Board'] || '';
-      const bodyEl = document.getElementById('minutesBody');
-      if (!bodyEl) return;
-      bodyEl.value = template;
-    }
-
-    function clearMeetingForm() {
-      meetingCenterState.editingMeetingId = null;
-      const defaults = {
-        meetingTitle: '', meetingType: 'Board', meetingCommittee: '', meetingDepartment: '',
-        meetingPurpose: '', meetingDescription: '', meetingStatus: 'Scheduled', meetingPriority: 'Normal',
-        meetingConfidentiality: 'Normal', meetingOrganizer: '', meetingChairperson: '', meetingViceChair: '',
-        meetingSecretary: '', meetingAssistantSecretary: '', meetingMinuteTaker: '', meetingDate: '', meetingStartTime: '',
-        meetingEndTime: '', meetingVenue: '', meetingLink: '', minutesBody: ''
-      };
-      Object.entries(defaults).forEach(([key, value]) => {
-        const el = document.getElementById(key);
-        if (el) el.value = value;
-      });
-      ['meetingPresent', 'meetingAbsent', 'meetingApology', 'meetingGuests'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) Array.from(el.options).forEach(opt => opt.selected = false);
-      });
-      const notesEl = document.getElementById('attendanceNotes');
-      if (notesEl) notesEl.value = '';
-
-      meetingCenterState.agendaItems = [];
-      renderAgendaItems();
-    }
-
-    function openScheduleDialog() {
-      clearMeetingForm();
-      document.getElementById('meetingTitle')?.scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function openGenerateMinutesDialog() {
-      document.getElementById('minutesBody')?.focus();
-    }
-
-    function previewSelectedMeeting() {
-      const selectedId = Array.from(meetingCenterState.selectedMeetingIds)[0];
-      if (!selectedId) return alert('Select one meeting record first.');
-      previewMeeting(selectedId);
-    }
-
-    function previewMeeting(id) {
-      const meeting = meetingCenterState.allMeetings.find(m => m.id === id);
-      if (!meeting) return alert('Meeting not found.');
-      alert(`Title: ${meeting.title || '-'}\nDate: ${meeting.meeting_date || '-'}\nTime: ${meeting.meeting_time || '-'}\nVenue: ${meeting.location || '-'}\nOrganizer: ${meeting.organizer || '-'}\nChairperson: ${meeting.chair || '-'}\nStatus: ${meeting.status || '-'}\nLink: ${meeting.meeting_url || '-'}\n\nAgenda:\n${meeting.agenda || '-'}\n\nNotes:\n${meeting.body || '-'}`);
-    }
-
-    async function openEditMeeting(id) {
-      const meeting = meetingCenterState.allMeetings.find(m => m.id === id);
-      if (!meeting) return alert('Meeting not found.');
-      meetingCenterState.editingMeetingId = meeting.id;
-      document.getElementById('meetingTitle').value = meeting.title || '';
-      document.getElementById('meetingType').value = meeting.meeting_type || 'Board';
-      document.getElementById('meetingCommittee').value = meeting.target_group || '';
-      document.getElementById('meetingDepartment').value = meeting.department || '';
-      document.getElementById('meetingPurpose').value = meeting.purpose || '';
-      document.getElementById('meetingDescription').value = meeting.description || '';
-      document.getElementById('meetingStatus').value = meeting.status || 'Scheduled';
-      document.getElementById('meetingPriority').value = meeting.priority || 'Normal';
-      document.getElementById('meetingConfidentiality').value = meeting.confidentiality || 'Normal';
-      document.getElementById('meetingOrganizer').value = meeting.organizer || '';
-      document.getElementById('meetingChairperson').value = meeting.chair || '';
-      document.getElementById('meetingViceChair').value = meeting.vice_chair || '';
-      document.getElementById('meetingSecretary').value = meeting.secretary || '';
-      document.getElementById('meetingAssistantSecretary').value = meeting.assistant_secretary || '';
-      document.getElementById('meetingMinuteTaker').value = meeting.minute_taker || '';
-      document.getElementById('meetingDate').value = meeting.meeting_date || '';
-      document.getElementById('meetingStartTime').value = meeting.meeting_time || '';
-      document.getElementById('meetingEndTime').value = meeting.end_time || '';
-      document.getElementById('meetingVenue').value = meeting.location || '';
-      document.getElementById('meetingLink').value = meeting.meeting_url || '';
-      document.getElementById('minutesBody').value = meeting.body || '';
-
-      ['meetingPresent', 'meetingAbsent', 'meetingApology', 'meetingGuests'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) Array.from(el.options).forEach(opt => opt.selected = false);
-      });
-      document.getElementById('attendanceNotes').value = '';
-      if (meeting.attendance_data) {
-        try {
-          const att = JSON.parse(meeting.attendance_data);
-          if (att.notes) document.getElementById('attendanceNotes').value = att.notes;
-          ['present', 'absent', 'apology', 'guests'].forEach(key => {
-            const elId = 'meeting' + key.charAt(0).toUpperCase() + key.slice(1);
-            const el = document.getElementById(elId);
-            if (el && Array.isArray(att[key])) {
-              Array.from(el.options).forEach(opt => {
-                if (att[key].includes(opt.value)) opt.selected = true;
-              });
-            }
-          });
-        } catch (e) {
-          console.warn('Failed to parse attendance_data', e);
-        }
-      }
-
-      meetingCenterState.agendaItems = meeting.agenda_items ? JSON.parse(meeting.agenda_items) : [];
-      renderAgendaItems();
-    }
-
-    async function deleteMeeting(id) {
-      if (!confirm('Delete this meeting?')) return;
-      try {
-        await apiCall('automation/meetings/' + id, { method: 'DELETE' });
-        alert('Meeting deleted.');
-        loadMeetingRecords();
-      } catch (e) {
-        alert('Delete failed: ' + (e.message || e));
-      }
-    }
-
-    async function saveMeetingRecord() {
-      const title = (document.getElementById('meetingTitle')?.value || '').trim();
-      const meetingDate = (document.getElementById('meetingDate')?.value || '').trim();
-      const meetingTime = (document.getElementById('meetingStartTime')?.value || '').trim();
-      const location = (document.getElementById('meetingVenue')?.value || '').trim();
-      const meetingUrl = (document.getElementById('meetingLink')?.value || '').trim();
-      const meetingType = (document.getElementById('meetingType')?.value || 'Board').trim();
-      const committee = (document.getElementById('meetingCommittee')?.value || '').trim();
-      const department = (document.getElementById('meetingDepartment')?.value || '').trim();
-      const purpose = (document.getElementById('meetingPurpose')?.value || '').trim();
-      const description = (document.getElementById('meetingDescription')?.value || '').trim();
-      const status = (document.getElementById('meetingStatus')?.value || 'Scheduled').trim();
-      const priority = (document.getElementById('meetingPriority')?.value || 'Normal').trim();
-      const confidentiality = (document.getElementById('meetingConfidentiality')?.value || 'Normal').trim();
-      const organizer = (document.getElementById('meetingOrganizer')?.value || '').trim();
-      const chair = (document.getElementById('meetingChairperson')?.value || '').trim();
-      const viceChair = (document.getElementById('meetingViceChair')?.value || '').trim();
-      const secretary = (document.getElementById('meetingSecretary')?.value || '').trim();
-      const assistantSecretary = (document.getElementById('meetingAssistantSecretary')?.value || '').trim();
-      const minuteTaker = (document.getElementById('meetingMinuteTaker')?.value || '').trim();
-      const endTime = (document.getElementById('meetingEndTime')?.value || '').trim();
-      if (!title || !meetingDate || !meetingTime) return alert('Please fill in Meeting Title, Date, and Start Time.');
-
-      const agenda = meetingCenterState.agendaItems.map((item, idx) => ({
-        title: item.title || `Agenda ${idx + 1}`,
-        presenter: item.presenter,
-        duration: item.duration,
-        description: item.description,
-        status: item.status,
-        notes: item.notes
-      }));
-      const payload = {
-        title,
-        meeting_date: meetingDate,
-        meeting_time: meetingTime,
-        location,
-        platform: 'Video & Conference',
-        target_group: committee || 'all',
-        subsidiary_slug: 'eldoret_main',
-        meeting_type: meetingType,
-        department,
-        status,
-        priority,
-        confidentiality,
-        organizer,
-        chair,
-        vice_chair: viceChair,
-        secretary,
-        assistant_secretary: assistantSecretary,
-        minute_taker: minuteTaker,
-        purpose,
-        description,
-        end_time: endTime || null,
-        meeting_url: meetingUrl,
-        agenda_items: JSON.stringify(agenda)
-      };
-
-      const attendanceObj = {
-        present: Array.from(document.getElementById('meetingPresent')?.selectedOptions || []).map(o => o.value),
-        absent: Array.from(document.getElementById('meetingAbsent')?.selectedOptions || []).map(o => o.value),
-        apology: Array.from(document.getElementById('meetingApology')?.selectedOptions || []).map(o => o.value),
-        guests: Array.from(document.getElementById('meetingGuests')?.selectedOptions || []).map(o => o.value),
-        notes: (document.getElementById('attendanceNotes')?.value || '').trim()
-      };
-      payload.attendance_data = JSON.stringify(attendanceObj);
-
-      try {
-        if (meetingCenterState.editingMeetingId) {
-          await apiCall('automation/meetings/' + meetingCenterState.editingMeetingId, {
-            method: 'PUT',
-            body: JSON.stringify(payload)
-          });
-          alert('Meeting updated successfully.');
-          meetingCenterState.editingMeetingId = null;
-        } else {
-          await apiCall('automation/meetings/create', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-          });
-          alert('Meeting scheduled successfully.');
-        }
-        loadMeetingRecords();
-      } catch (e) {
-        alert('Save failed: ' + (e.message || e));
-      }
-    }
-
-    async function shareMeetingCard(id) {
-      const m = meetingCenterState.allMeetings.find(x => x.id === id);
-      if (!m) return;
-      const confirmSend = confirm(`Share meeting invitation for "${m.title || 'Untitled'}" to all members?`);
-      if (!confirmSend) return;
-      try {
-        const payload = {
-          type: "meeting_invite",
-          meeting_id: m.id,
-          title: m.title || "Untitled Meeting",
-          date: m.meeting_date || "",
-          time: m.meeting_time || "",
-          venue: m.location || "",
-          organizer: m.organizer || "System",
-          committee: m.target_group || "All Members"
-        };
-        await apiCall('messages/broadcast', {
-          method: 'POST',
-          body: JSON.stringify({ 
-            subject: `Meeting Invite: ${m.title || 'Upcoming Meeting'}`, 
-            body: JSON.stringify(payload), 
-            target_group: m.target_group || 'all' 
-          })
-        });
-        alert('Successfully shared meeting invitation with members!');
-      } catch (e) {
-        console.error(e);
-        alert('An error occurred while sending the meeting link. Please try again.');
-      }
-    }
-
-    async function sendMeetingLinkToMembers() {
-      if (meetingCenterState.selectedMeetingIds.size === 0) {
-        return alert('Please select at least one meeting to share the link for.');
-      }
+    // Add feature
+    function addFeature() {
+      const featureInput = document.getElementById('featureInput').value;
+      const featureNotes = document.getElementById('featureNotes').value;
       
-      const confirmSend = confirm(`Share meeting invitations for ${meetingCenterState.selectedMeetingIds.size} meeting(s) to all members?`);
-      if (!confirmSend) return;
+      if (!featureInput) {
+        alert('Please enter a feature');
+        return;
+      }
 
-      try {
-        let sentCount = 0;
-        for (const meetingId of meetingCenterState.selectedMeetingIds) {
-          const m = meetingCenterState.allMeetings.find(x => x.id === meetingId);
-          if (!m) continue;
-          
-          const payload = {
-            type: "meeting_invite",
-            meeting_id: m.id,
-            title: m.title || "Untitled Meeting",
-            date: m.meeting_date || "",
-            time: m.meeting_time || "",
-            venue: m.location || "",
-            organizer: m.organizer || "System",
-            committee: m.target_group || "All Members"
-          };
-          
-          await apiCall('messages/broadcast', {
-            method: 'POST',
-            body: JSON.stringify({ 
-              subject: `Meeting Invite: ${m.title || 'Upcoming Meeting'}`, 
-              body: JSON.stringify(payload), 
-              target_group: m.target_group || 'all' 
-            })
-          });
-          sentCount++;
-        }
-        alert(`Successfully shared ${sentCount} meeting invitation(s) with members!`);
-        meetingCenterState.selectedMeetingIds.clear();
-        document.querySelectorAll('input[type="checkbox"][data-id]').forEach(cb => cb.checked = false);
-        if (document.getElementById('selectAllMeetings')) document.getElementById('selectAllMeetings').checked = false;
-      } catch (e) {
-        console.error(e);
-        alert('An error occurred while sending meeting links. Please try again.');
+      features.push({
+        id: Date.now(),
+        text: featureInput,
+        notes: featureNotes,
+        deleted: false
+      });
+
+      document.getElementById('featureInput').value = '';
+      document.getElementById('featureNotes').value = '';
+      
+      alert('Feature added successfully!');
+      closeFeaturePopup();
+    }
+
+    // Show all features
+    function showAllFeatures() {
+      const container = document.getElementById('featureListContainer');
+      container.innerHTML = '';
+
+      features.forEach(feature => {
+        const item = document.createElement('div');
+        item.className = `feature-item ${feature.deleted ? 'deleted' : ''}`;
+        item.innerHTML = `
+          <span class="feature-text">${feature.text}</span>
+          <div class="feature-actions">
+            ${feature.deleted 
+              ? `<button class="action-btn restore" onclick="restoreFeature(${feature.id})">Restore</button>`
+              : `<button class="action-btn delete" onclick="deleteFeature(${feature.id})">Delete</button>`
+            }
+          </div>
+        `;
+        container.appendChild(item);
+      });
+
+      document.getElementById('allFeaturesPopup').style.display = 'block';
+      document.getElementById('overlay').style.display = 'block';
+      toggleDropdown('menuDropdown');
+    }
+
+    // Close all features popup
+    function closeAllFeaturesPopup() {
+      document.getElementById('allFeaturesPopup').style.display = 'none';
+      document.getElementById('overlay').style.display = 'none';
+    }
+
+    // Delete feature
+    function deleteFeature(id) {
+      const feature = features.find(f => f.id === id);
+      if (feature) {
+        feature.deleted = true;
+        deletedFeatures.push(feature);
+        showAllFeatures();
       }
     }
 
-    function shareMeetingLinkByEmail() { alert('Email sharing is handled through the default mail client.'); }
-    function copyMeetingLink() { navigator.clipboard.writeText(document.getElementById('meetingLink')?.value || ''); alert('Meeting link copied to clipboard.'); }
-    async function archiveSelectedMeetings() {
-      if (!meetingCenterState.selectedMeetingIds.size) return alert('Select one or more meetings first.');
-      if (!confirm('Archive selected meeting records?')) return;
-      const ids = Array.from(meetingCenterState.selectedMeetingIds);
-      try {
-        await Promise.all(ids.map(id => apiCall('automation/meetings/' + id, {
-          method: 'PUT',
-          body: JSON.stringify({ status: 'Archived' })
-        })));
-        meetingCenterState.selectedMeetingIds.clear();
-        loadMeetingRecords();
-      } catch (e) {
-        alert('Archive failed: ' + (e.message || e));
+    // Restore feature
+    function restoreFeature(id) {
+      const feature = features.find(f => f.id === id);
+      if (feature) {
+        feature.deleted = false;
+        showAllFeatures();
       }
     }
-    async function restoreSelectedMeetings() {
-      if (!meetingCenterState.selectedMeetingIds.size) return alert('Select one or more meetings first.');
-      if (!confirm('Restore selected meeting records to scheduled?')) return;
-      const ids = Array.from(meetingCenterState.selectedMeetingIds);
-      try {
-        await Promise.all(ids.map(id => apiCall('automation/meetings/' + id, {
-          method: 'PUT',
-          body: JSON.stringify({ status: 'Scheduled' })
-        })));
-        meetingCenterState.selectedMeetingIds.clear();
-        loadMeetingRecords();
-      } catch (e) {
-        alert('Restore failed: ' + (e.message || e));
-      }
-    }
-    async function deleteSelectedMeetings() {
-      if (!meetingCenterState.selectedMeetingIds.size) return alert('Select meetings first.');
-      if (!confirm('Delete all selected meetings? This cannot be undone.')) return;
-      const ids = Array.from(meetingCenterState.selectedMeetingIds);
-      try {
-        await Promise.all(ids.map(id => apiCall('automation/meetings/' + id, { method: 'DELETE' })));
-        meetingCenterState.selectedMeetingIds.clear();
-        loadMeetingRecords();
-      } catch (e) {
-        alert('Bulk delete failed: ' + (e.message || e));
-      }
-    }
-    function refreshMeetingCenter() { loadMeetingRecords(); }
 
-    function saveMinutesRecord() {
-      openGenerateMinutesDialog();
-      alert('Update the minutes text and then click Save Meeting at the top to persist this meeting.');
+    // Show feature table
+    function showFeatureTable() {
+      alert('Opening feature data table...');
+      toggleDropdown('menuDropdown');
     }
 
-    function exportMeetingsAsPDF() {
-      window.print();
-      alert('Use the browser print dialog to save this page as PDF.');
+    // More menu functions
+    function manageStructure() {
+      alert('Opening structure management...');
+      toggleDropdown('moreDropdown');
     }
 
-    function exportMeetingsAsDocx() {
-      alert('DOCX export is not available in this version.');
+    function manageRecords() {
+      alert('Opening records management...');
+      toggleDropdown('moreDropdown');
     }
 
-    function sendMeetingNotification() {
-      sendMeetingLinkToMembers();
+    function manageTemplates() {
+      alert('Opening template management...');
+      toggleDropdown('moreDropdown');
     }
 
-    function shareMeetingLinkToMembers() {
-      sendMeetingLinkToMembers();
+    function manageSettings() {
+      alert('Opening settings...');
+      toggleDropdown('moreDropdown');
     }
 
-    document.addEventListener('DOMContentLoaded', initializeMeetingCenter);
+    function exportData() {
+      alert('Exporting data...');
+      toggleDropdown('moreDropdown');
+    }
+
+    // Add resource
+    function addResource() {
+      const resourceList = document.getElementById('resourceList');
+      const newItem = document.createElement('div');
+      newItem.className = 'resource-item';
+      newItem.innerHTML = `
+        <span class="resource-icon">ðŸ“Ž</span>
+        <input type="text" class="field-input" style="flex: 1;" placeholder="Add resource link or description">
+      `;
+      resourceList.appendChild(newItem);
+    }
+
+    // Add agenda item
+    function addAgendaItem() {
+      const agendaList = document.getElementById('agendaList');
+      const newItem = document.createElement('div');
+      newItem.className = 'agenda-item';
+      newItem.innerHTML = `
+        <div class="agenda-header">
+          <input type="text" class="agenda-title field-input" style="border: none; background: transparent; padding: 0; font-weight: 600;" value="New Topic (15 Mins)">
+          <span class="agenda-time">15 Mins</span>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Goal</label>
+          <input type="text" class="field-input" placeholder="Enter goal">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Notes</label>
+          <textarea class="field-textarea" placeholder="Enter notes..."></textarea>
+        </div>
+      `;
+      agendaList.appendChild(newItem);
+    }
+
+    // Add parking lot item
+    function addParkingLotItem() {
+      const parkingLotList = document.getElementById('parkingLotList');
+      const newItem = document.createElement('div');
+      newItem.className = 'agenda-item';
+      newItem.style.borderLeftColor = '#ff9800';
+      newItem.innerHTML = `
+        <div class="field-group">
+          <input type="text" class="field-input" placeholder="New parking lot item âž” Action: [Name] to follow up">
+        </div>
+      `;
+      parkingLotList.appendChild(newItem);
+    }
+
+    // Add decision
+    function addDecision() {
+      const decisionsList = document.getElementById('decisionsList');
+      const newItem = document.createElement('div');
+      newItem.className = 'field-group';
+      newItem.innerHTML = `
+        <input type="text" class="field-input" placeholder="Decision: [Enter decision]">
+      `;
+      decisionsList.appendChild(newItem);
+    }
+
+    // Add task
+    function addTask() {
+      const taskTable = document.getElementById('taskTable').getElementsByTagName('tbody')[0];
+      const newRow = taskTable.insertRow();
+      newRow.innerHTML = `
+        <td><input type="text" class="field-input" placeholder="Task description"></td>
+        <td><input type="text" class="field-input" placeholder="Owner"></td>
+        <td><input type="date" class="field-input"></td>
+        <td>
+          <select class="popup-select">
+            <option selected>Not Started</option>
+            <option>In Progress</option>
+            <option>Completed</option>
+          </select>
+        </td>
+        <td>
+          <button class="action-btn edit">Edit</button>
+          <button class="action-btn delete">Delete</button>
+        </td>
+      `;
+    }
+
+    // Close all popups
+    function closeAllPopups() {
+      document.getElementById('featurePopup').style.display = 'none';
+      document.getElementById('allFeaturesPopup').style.display = 'none';
+      document.getElementById('overlay').style.display = 'none';
+    }
   </script>
 </body>
 </html>
