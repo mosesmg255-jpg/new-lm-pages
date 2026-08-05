@@ -1,0 +1,345 @@
+### Email Reply Service API Test Requests
+### Use with VS Code REST Client, IntelliJ HTTP Client, or similar tools
+
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+### ============================================================================
+### Health & Status
+### ============================================================================
+
+### Health Check
+GET {{baseUrl}}/health
+
+### Get Service Status
+GET {{baseUrl}}/api/email/status
+
+### Start Email Service
+POST {{baseUrl}}/api/email/start
+Content-Type: {{contentType}}
+
+### Stop Email Service
+POST {{baseUrl}}/api/email/stop
+Content-Type: {{contentType}}
+
+### ============================================================================
+### Email Verification
+### ============================================================================
+
+### Send Verification Email
+POST {{baseUrl}}/api/email/verify
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "memberName": "John Doe"
+}
+
+### Verify Email Token
+GET {{baseUrl}}/api/email/verify/{{$random.uuid}}
+
+### ============================================================================
+### OTP Password Reset
+### ============================================================================
+
+### Request Password Reset OTP
+POST {{baseUrl}}/api/otp/request
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "ipAddress": "192.168.1.1"
+}
+
+### Verify OTP and Reset Password
+POST {{baseUrl}}/api/otp/verify
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "otp": "123456",
+  "newPassword": "NewSecureP@ssw0rd!",
+  "ipAddress": "192.168.1.1"
+}
+
+### ============================================================================
+### Contribution Reminders
+### ============================================================================
+
+### Send Contribution Reminder
+POST {{baseUrl}}/api/contribution/remind
+Content-Type: {{contentType}}
+
+{
+  "memberId": 1
+}
+
+### ============================================================================
+### Dashboard Integration
+### ============================================================================
+
+### Request Loan Approval
+POST {{baseUrl}}/api/dashboard/loan/request
+Content-Type: {{contentType}}
+
+{
+  "memberId": 1,
+  "amount": 5000,
+  "purpose": "Business expansion"
+}
+
+### Approve/Reject Loan
+POST {{baseUrl}}/api/dashboard/loan/approve
+Content-Type: {{contentType}}
+
+{
+  "loanId": 1,
+  "adminId": 1,
+  "approved": true,
+  "rejectionReason": "Insufficient funds"
+}
+
+### ============================================================================
+### Member Approval
+### ============================================================================
+
+### Approve/Reject Member
+POST {{baseUrl}}/api/dashboard/member/approve
+Content-Type: {{contentType}}
+
+{
+  "memberId": 1,
+  "adminId": 1,
+  "approved": true,
+  "denialReason": "Incomplete application"
+}
+
+### ============================================================================
+### SMS Fallback
+### ============================================================================
+
+### Send SMS Message
+POST {{baseUrl}}/api/sms/send
+Content-Type: {{contentType}}
+
+{
+  "phoneNumber": "+1234567890",
+  "message": "Your OTP is 123456",
+  "priority": "urgent"
+}
+
+### ============================================================================
+### Analytics
+### ============================================================================
+
+### Get Analytics Report (24h)
+GET {{baseUrl}}/api/analytics?timeRange=24h
+
+### Get Analytics Report (7d)
+GET {{baseUrl}}/api/analytics?timeRange=7d
+
+### Get All Metrics
+GET {{baseUrl}}/api/analytics/metrics
+
+### ============================================================================
+### Cache (Redis)
+### ============================================================================
+
+### Set Cache Value
+POST {{baseUrl}}/api/cache/set
+Content-Type: {{contentType}}
+
+{
+  "key": "user:1",
+  "value": {
+    "name": "John Doe",
+    "email": "john@example.com"
+  },
+  "ttl": 3600
+}
+
+### Get Cache Value
+GET {{baseUrl}}/api/cache/get/user:1
+
+### ============================================================================
+### Webhooks
+### ============================================================================
+
+### Register Webhook
+POST {{baseUrl}}/api/webhook/register
+Content-Type: {{contentType}}
+
+{
+  "event": "email.sent",
+  "url": "https://your-webhook-url.com/webhook",
+  "secret": "your-webhook-secret"
+}
+
+### Trigger Webhook
+POST {{baseUrl}}/api/webhook/trigger
+Content-Type: {{contentType}}
+
+{
+  "event": "email.sent",
+  "payload": {
+    "email": "user@example.com",
+    "subject": "Test Email"
+  }
+}
+
+### ============================================================================
+### Multi-Language
+### ============================================================================
+
+### Get Available Languages
+GET {{baseUrl}}/api/language/available
+
+### Get Translation (English)
+GET {{baseUrl}}/api/language/translate/en/greeting.morning
+
+### Get Translation (Spanish)
+GET {{baseUrl}}/api/language/translate/es/greeting.morning
+
+### Get Translation (French)
+GET {{baseUrl}}/api/language/translate/fr/greeting.morning
+
+### ============================================================================
+### PDF Generation
+### ============================================================================
+
+### Generate Loan Statement PDF
+POST {{baseUrl}}/api/pdf/loan-statement
+Content-Type: {{contentType}}
+
+{
+  "loanId": 1,
+  "memberId": 1
+}
+
+### ============================================================================
+### Email Tracking
+### ============================================================================
+
+### Track Email Open (Tracking Pixel)
+POST {{baseUrl}}/api/track/open/abc123def456
+
+### ============================================================================
+### Test All Endpoints Sequentially
+### ============================================================================
+
+### 1. Health Check
+GET {{baseUrl}}/health
+
+### 2. Get Status
+GET {{baseUrl}}/api/email/status
+
+### 3. Send Verification Email
+POST {{baseUrl}}/api/email/verify
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "memberName": "Test User"
+}
+
+### 4. Request OTP
+POST {{baseUrl}}/api/otp/request
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "ipAddress": "127.0.0.1"
+}
+
+### 5. Get Analytics
+GET {{baseUrl}}/api/analytics
+
+### 6. Set Cache
+POST {{baseUrl}}/api/cache/set
+Content-Type: {{contentType}}
+
+{
+  "key": "test:key",
+  "value": { "test": "data" },
+  "ttl": 300
+}
+
+### 7. Get Cache
+GET {{baseUrl}}/api/cache/get/test:key
+
+### 8. Get Languages
+GET {{baseUrl}}/api/language/available
+
+### 9. Register Webhook
+POST {{baseUrl}}/api/webhook/register
+Content-Type: {{contentType}}
+
+{
+  "event": "test.event",
+  "url": "https://example.com/webhook",
+  "secret": "test-secret"
+}
+
+### 10. Trigger Webhook
+POST {{baseUrl}}/api/webhook/trigger
+Content-Type: {{contentType}}
+
+{
+  "event": "test.event",
+  "payload": { "test": true }
+}
+
+### ============================================================================
+### Error Testing
+### ============================================================================
+
+### Invalid Email Format
+POST {{baseUrl}}/api/email/verify
+Content-Type: {{contentType}}
+
+{
+  "email": "invalid-email",
+  "memberName": "Test User"
+}
+
+### Invalid OTP Format
+POST {{baseUrl}}/api/otp/verify
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "otp": "12345",
+  "newPassword": "Test@123",
+  "ipAddress": "127.0.0.1"
+}
+
+### Weak Password
+POST {{baseUrl}}/api/otp/verify
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "otp": "123456",
+  "newPassword": "weak",
+  "ipAddress": "127.0.0.1"
+}
+
+### ============================================================================
+### Notes
+### ============================================================================
+### 
+### Testing Instructions:
+### 1. Start the server: npm start
+### 2. Ensure .env file is configured with your credentials
+### 3. Click "Send Request" above each endpoint in VS Code REST Client
+### 4. Or use cURL/Postman with the provided URLs
+### 
+### Prerequisites:
+### - Database must be running and configured
+### - SMTP credentials must be valid
+### - Optional: Redis, Twilio credentials for full testing
+### 
+### Important:
+### - Replace test@example.com with real email addresses for actual testing
+### - Use valid database IDs for member/loan endpoints
+### - Configure webhook URLs with real endpoints for webhook testing
