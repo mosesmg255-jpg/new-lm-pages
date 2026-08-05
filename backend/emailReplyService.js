@@ -160,7 +160,7 @@ class DatabaseManager {
           type: DataTypes.STRING(20)
         },
         status: {
-          type: DataTypes.ENUM('active', 'inactive', 'pending', 'suspended'),
+          type: DataTypes.ENUM('active', 'inactive', 'pending', 'suspended', 'rejected'),
           defaultValue: 'pending'
         },
         membership_date: {
@@ -181,6 +181,28 @@ class DatabaseManager {
         },
         password_changed_at: {
           type: DataTypes.DATE
+        },
+        email_verified: {
+          type: DataTypes.BOOLEAN,
+          defaultValue: false
+        },
+        email_verified_at: {
+          type: DataTypes.DATE
+        },
+        approved_by: {
+          type: DataTypes.INTEGER
+        },
+        approved_at: {
+          type: DataTypes.DATE
+        },
+        rejected_by: {
+          type: DataTypes.INTEGER
+        },
+        rejected_at: {
+          type: DataTypes.DATE
+        },
+        rejection_reason: {
+          type: DataTypes.TEXT
         }
       }, {
         tableName: 'members',
@@ -3114,13 +3136,39 @@ DatabaseManager.prototype.updateMemberPassword = async function(email, newPasswo
     const hashedPassword = await bcrypt.hash(newPassword, 12);
     
     await this.Member.update(
-      { password: hashedPassword, passwordChangedAt: new Date() },
+      { password: hashedPassword, password_changed_at: new Date() },
       { where: { email: email.toLowerCase() } }
     );
     
     return true;
   } catch (err) {
     logger.error('Error updating member password', { error: err.message, email });
+    return false;
+  }
+};
+
+DatabaseManager.prototype.updateMemberStatus = async function(memberId, status, adminId, denialReason = null) {
+  try {
+    const updateData = { status: status };
+    
+    if (status === 'active') {
+      updateData.approved_by = adminId;
+      updateData.approved_at = new Date();
+      updateData.email_verified = true;
+      updateData.email_verified_at = new Date();
+    } else if (status === 'rejected') {
+      updateData.rejected_by = adminId;
+      updateData.rejected_at = new Date();
+      updateData.rejection_reason = denialReason;
+    }
+    
+    await this.Member.update(updateData, {
+      where: { id: memberId }
+    });
+    
+    return true;
+  } catch (err) {
+    logger.error('Error updating member status', { error: err.message, memberId, status });
     return false;
   }
 };
@@ -4041,6 +4089,225 @@ function generateLoanReply(email) {
 }
 
 /**
+ * NEW: Generate member approval email with database information
+ */
+async function generateMemberApprovalEmail(memberId, adminId) {
+  try {
+    const member = await databaseManager.getMemberById(memberId);
+    const admin = await databaseManager.getAdminById(adminId);
+    
+    if (!member || !admin) {
+      logger.error('Failed to generate member approval email - missing data', { memberId, adminId });
+      return null;
+    }
+
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    const approvedDate = new Date().toLocaleString();
+    
+    const adminName = `${admin.first_name} ${admin.last_name}`;
+    const memberName = `${member.first_name} ${member.last_name}`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Membership Approval</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .status { display: inline-block; background: #dcfce7; color: #166534; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; }
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>âœ… Membership Approved</h1>
+      <p>Welcome to the family!</p>
+    </div>
+    <div class="body">
+      <h2>Congratulations, ${memberName}!</h2>
+      <p>We are pleased to inform you that your membership application has been approved by our administration team.</p>
+      
+      <div class="info-box">
+        <div style="margin-bottom: 16px;">
+          <strong>Member Name:</strong><br>
+          ${memberName}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Email:</strong><br>
+          ${member.email}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Approved By:</strong><br>
+          ${adminName}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Approval Date:</strong><br>
+          ${approvedDate}
+        </div>
+        
+        <div>
+          <strong>Status:</strong><br>
+          <span class="status">ACTIVE MEMBER</span>
+        </div>
+      </div>
+      
+      <p>Your membership is now active and you can access all member benefits including:</p>
+      <ul style="margin: 16px 0; padding-left: 20px;">
+        <li>Apply for loans</li>
+        <li>Make contributions</li>
+        <li>Attend meetings</li>
+        <li>Access member dashboard</li>
+        <li>Receive notifications</li>
+      </ul>
+      
+      <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>ðŸ“ Next Steps:</strong>
+        <p style="margin: 12px 0;">Please log in to your dashboard to complete your profile setup and explore all available features.</p>
+      </div>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span><br>
+        <strong>Member ID:</strong> #${memberId}
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated message. For inquiries, please contact your administrator.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    logger.info('Generated member approval email', { trackingId, memberId, adminId });
+    return { html, subject: `âœ… Membership Approved - Welcome ${memberName}!`, trackingId };
+  } catch (err) {
+    logger.error('Error generating member approval email', { error: err.message, memberId, adminId });
+    return null;
+  }
+}
+
+/**
+ * NEW: Generate member denial email with database information
+ */
+async function generateMemberDenialEmail(memberId, adminId, denialReason) {
+  try {
+    const member = await databaseManager.getMemberById(memberId);
+    const admin = await databaseManager.getAdminById(adminId);
+    
+    if (!member || !admin) {
+      logger.error('Failed to generate member denial email - missing data', { memberId, adminId });
+      return null;
+    }
+
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    const deniedDate = new Date().toLocaleString();
+    
+    const adminName = `${admin.first_name} ${admin.last_name}`;
+    const memberName = `${member.first_name} ${member.last_name}`;
+    const reason = sanitizeInput(denialReason || 'No specific reason provided');
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Membership Application Update</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .status { display: inline-block; background: #fee2e2; color: #991b1b; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; }
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .reason-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>âŒ Membership Application Update</h1>
+      <p>Application Review Result</p>
+    </div>
+    <div class="body">
+      <h2>Dear ${memberName},</h2>
+      <p>We regret to inform you that your membership application has been reviewed and could not be approved at this time.</p>
+      
+      <div class="info-box">
+        <div style="margin-bottom: 16px;">
+          <strong>Applicant Name:</strong><br>
+          ${memberName}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Email:</strong><br>
+          ${member.email}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Reviewed By:</strong><br>
+          ${adminName}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Review Date:</strong><br>
+          ${deniedDate}
+        </div>
+        
+        <div>
+          <strong>Status:</strong><br>
+          <span class="status">NOT APPROVED</span>
+        </div>
+      </div>
+      
+      <div class="reason-box">
+        <strong>Reason for Decision:</strong><br>
+        ${reason}
+      </div>
+      
+      <p>You may reapply after 30 days from the original application date. We encourage you to review our membership guidelines and ensure all requirements are met before reapplying.</p>
+      
+      <p>If you believe this decision was made in error, please contact your administrator directly to discuss your application.</p>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span><br>
+        <strong>Member ID:</strong> #${memberId}
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated message. For appeals or inquiries, please contact your administrator.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    logger.info('Generated member denial email', { trackingId, memberId, adminId });
+    return { html, subject: `âŒ Membership Application Update - ${memberName}`, trackingId };
+  } catch (err) {
+    logger.error('Error generating member denial email', { error: err.message, memberId, adminId });
+    return null;
+  }
+}
+
+/**
  * NEW: Generate loan approval email with database information
  */
 async function generateLoanApprovalEmail(loanId, adminId) {
@@ -4660,6 +4927,48 @@ class DashboardEmailService {
       }
     } catch (err) {
       logger.error('Failed to process loan approval', { error: err.message, loanId, adminId });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * NEW: Process member approval (admin action)
+   */
+  async processMemberApproval(memberId, adminId, approved, denialReason = null) {
+    try {
+      const member = await databaseManager.getMemberById(memberId);
+      const admin = await databaseManager.getAdminById(adminId);
+
+      if (!member || !admin) {
+        throw new Error('Member or admin not found');
+      }
+
+      const status = approved ? 'active' : 'rejected';
+      
+      // Update member status in database
+      const success = await databaseManager.updateMemberStatus(memberId, status, adminId, denialReason);
+
+      if (success) {
+        // Send notification email to member
+        if (approved) {
+          const approvalEmail = await generateMemberApprovalEmail(memberId, adminId);
+          if (approvalEmail) {
+            await this.sendEmailToMember(member.email, approvalEmail.subject, approvalEmail.html);
+          }
+        } else {
+          const denialEmail = await generateMemberDenialEmail(memberId, adminId, denialReason);
+          if (denialEmail) {
+            await this.sendEmailToMember(member.email, denialEmail.subject, denialEmail.html);
+          }
+        }
+
+        logger.info('Member approval processed', { memberId, adminId, status });
+        return { success: true, status };
+      } else {
+        throw new Error('Failed to update member status');
+      }
+    } catch (err) {
+      logger.error('Failed to process member approval', { error: err.message, memberId, adminId });
       return { success: false, error: err.message };
     }
   }
@@ -5314,6 +5623,8 @@ module.exports = {
   generateMeetingScheduledEmail,
   generateEmergencyEmail,
   generateDailySummaryEmail,
+  generateMemberApprovalEmail,
+  generateMemberDenialEmail,
   
   // Helper functions
   sanitizeInput,
