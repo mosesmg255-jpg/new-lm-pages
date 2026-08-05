@@ -1,9 +1,9 @@
 /**
  * server.js
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ─────────────────────────────────────────────────────────────────────────────
  * Express.js API wrapper for emailReplyService.js
  * Provides HTTP endpoints to test all email service features
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 const express = require('express');
@@ -16,7 +16,7 @@ const { body, validationResult, param } = require('express-validator');
 const emailService = require('./emailReplyService');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(helmet());
@@ -25,10 +25,21 @@ app.use(compression({ level: 6, threshold: 1024 })); // Turbo compression
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting
+// CRITICAL FIX: Set trust proxy for multi-region deployment
+// This allows express-rate-limit to correctly identify clients behind proxies
+app.set('trust proxy', 1);
+
+// Rate limiting - FIXED: Now works with trust proxy setting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 100, // limit each IP to 100 requests per windowMs
+  keyGenerator: (req, res) => {
+    return req.ip; // Will use X-Forwarded-For if trust proxy is set
+  },
+  skip: (req, res) => {
+    // Skip rate limiting for health checks
+    return req.path === '/health' || req.path === '/api/health';
+  }
 });
 app.use('/api/', limiter);
 
@@ -48,14 +59,23 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.0.0'
+  });
+});
+
 // Service status endpoint
 app.get('/api/email/status', async (req, res) => {
   try {
     const status = emailService.getServiceStatus();
     const health = emailService.getHealthCheck();
-    const otpStatus = emailService.secureOTPService.getServiceStatus();
-    const trackingStats = emailService.emailTrackingService.getDeliveryStats();
-    const analytics = emailService.analyticsService.getAggregatedMetrics();
+    const otpStatus = emailService.secureOTPService ? emailService.secureOTPService.getServiceStatus() : null;
+    const trackingStats = emailService.emailTrackingService ? emailService.emailTrackingService.getDeliveryStats() : null;
+    const analytics = emailService.analyticsService ? emailService.analyticsService.getAggregatedMetrics() : null;
 
     res.json({
       service: status,
@@ -69,22 +89,33 @@ app.get('/api/email/status', async (req, res) => {
   }
 });
 
-// Start email service
+// Start email service - wrapped in try-catch
 app.post('/api/email/start', async (req, res) => {
   try {
-    const success = await emailService.startEmailReplyService();
-    res.json({ success, message: success ? 'Email service started' : 'Failed to start email service' });
+    // Check if emailReplyService exists and has startEmailReplyService method
+    if (emailService && typeof emailService.startEmailReplyService === 'function') {
+      const success = await emailService.startEmailReplyService();
+      res.json({ success, message: success ? 'Email service started' : 'Failed to start email service' });
+    } else {
+      res.json({ success: false, message: 'Email reply service not available' });
+    }
   } catch (err) {
+    console.error('[emailService] Start error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Stop email service
+// Stop email service - wrapped in try-catch
 app.post('/api/email/stop', async (req, res) => {
   try {
-    emailService.stopEmailReplyService();
-    res.json({ success: true, message: 'Email service stopped' });
+    if (emailService && typeof emailService.stopEmailReplyService === 'function') {
+      emailService.stopEmailReplyService();
+      res.json({ success: true, message: 'Email service stopped' });
+    } else {
+      res.json({ success: false, message: 'Email reply service not available' });
+    }
   } catch (err) {
+    console.error('[emailService] Stop error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -101,8 +132,12 @@ app.post('/api/email/verify', [
 
   try {
     const { email, memberName } = req.body;
-    const result = await emailService.emailVerificationService.sendVerificationEmail(email, memberName);
-    res.json(result);
+    if (emailService.emailVerificationService) {
+      const result = await emailService.emailVerificationService.sendVerificationEmail(email, memberName);
+      res.json(result);
+    } else {
+      res.status(503).json({ error: 'Email verification service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -118,8 +153,12 @@ app.get('/api/email/verify/:token', [
 
   try {
     const { token } = req.params;
-    const result = await emailService.emailVerificationService.verifyEmailToken(token);
-    res.json(result);
+    if (emailService.emailVerificationService) {
+      const result = await emailService.emailVerificationService.verifyEmailToken(token);
+      res.json(result);
+    } else {
+      res.status(503).json({ error: 'Email verification service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -137,8 +176,12 @@ app.post('/api/otp/request', [
 
   try {
     const { email, ipAddress } = req.body;
-    const result = await emailService.secureOTPService.requestPasswordResetOTP(email, ipAddress);
-    res.json(result);
+    if (emailService.secureOTPService) {
+      const result = await emailService.secureOTPService.requestPasswordResetOTP(email, ipAddress);
+      res.json(result);
+    } else {
+      res.status(503).json({ error: 'OTP service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -157,8 +200,12 @@ app.post('/api/otp/verify', [
 
   try {
     const { email, otp, newPassword, ipAddress } = req.body;
-    const result = await emailService.secureOTPService.verifyOTPAndResetPassword(email, otp, newPassword, ipAddress);
-    res.json(result);
+    if (emailService.secureOTPService) {
+      const result = await emailService.secureOTPService.verifyOTPAndResetPassword(email, otp, newPassword, ipAddress);
+      res.json(result);
+    } else {
+      res.status(503).json({ error: 'OTP service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -175,16 +222,22 @@ app.post('/api/contribution/remind', [
 
   try {
     const { memberId } = req.body;
-    const member = await emailService.databaseManager.getMemberById(memberId);
-    
-    if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
+    if (emailService.databaseManager) {
+      const member = await emailService.databaseManager.getMemberById(memberId);
+      
+      if (!member) {
+        return res.status(404).json({ error: 'Member not found' });
+      }
 
-    const contributionData = await emailService.contributionReminderService.getMemberContributionData(memberId);
-    await emailService.contributionReminderService.sendContributionReminderEmail(member, contributionData);
-    
-    res.json({ success: true, message: 'Contribution reminder sent' });
+      if (emailService.contributionReminderService) {
+        const contributionData = await emailService.contributionReminderService.getMemberContributionData(memberId);
+        await emailService.contributionReminderService.sendContributionReminderEmail(member, contributionData);
+      }
+      
+      res.json({ success: true, message: 'Contribution reminder sent' });
+    } else {
+      res.status(503).json({ error: 'Database manager unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -203,8 +256,12 @@ app.post('/api/dashboard/loan/request', [
 
   try {
     const { memberId, amount, purpose } = req.body;
-    const result = await emailService.dashboardEmailService.requestLoanApproval(memberId, { amount, purpose });
-    res.json(result);
+    if (emailService.dashboardEmailService) {
+      const result = await emailService.dashboardEmailService.requestLoanApproval(memberId, { amount, purpose });
+      res.json(result);
+    } else {
+      res.status(503).json({ error: 'Dashboard email service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -223,8 +280,12 @@ app.post('/api/dashboard/loan/approve', [
 
   try {
     const { loanId, adminId, approved, rejectionReason } = req.body;
-    const result = await emailService.dashboardEmailService.processLoanApproval(loanId, adminId, approved, rejectionReason);
-    res.json(result);
+    if (emailService.dashboardEmailService) {
+      const result = await emailService.dashboardEmailService.processLoanApproval(loanId, adminId, approved, rejectionReason);
+      res.json(result);
+    } else {
+      res.status(503).json({ error: 'Dashboard email service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -244,8 +305,12 @@ app.post('/api/dashboard/member/approve', [
 
   try {
     const { memberId, adminId, approved, denialReason } = req.body;
-    const result = await emailService.dashboardEmailService.processMemberApproval(memberId, adminId, approved, denialReason);
-    res.json(result);
+    if (emailService.dashboardEmailService) {
+      const result = await emailService.dashboardEmailService.processMemberApproval(memberId, adminId, approved, denialReason);
+      res.json(result);
+    } else {
+      res.status(503).json({ error: 'Dashboard email service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -264,8 +329,12 @@ app.post('/api/sms/send', [
 
   try {
     const { phoneNumber, message, priority } = req.body;
-    const result = await emailService.smsFallbackService.sendSMS(phoneNumber, message, priority);
-    res.json(result);
+    if (emailService.smsFallbackService) {
+      const result = await emailService.smsFallbackService.sendSMS(phoneNumber, message, priority);
+      res.json(result);
+    } else {
+      res.status(503).json({ error: 'SMS service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -275,8 +344,12 @@ app.post('/api/sms/send', [
 app.get('/api/analytics', async (req, res) => {
   try {
     const { timeRange } = req.query;
-    const report = emailService.analyticsService.generateReport(timeRange || '24h');
-    res.json(report);
+    if (emailService.analyticsService) {
+      const report = emailService.analyticsService.generateReport(timeRange || '24h');
+      res.json(report);
+    } else {
+      res.status(503).json({ error: 'Analytics service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -284,8 +357,12 @@ app.get('/api/analytics', async (req, res) => {
 
 app.get('/api/analytics/metrics', async (req, res) => {
   try {
-    const metrics = emailService.analyticsService.getAllMetrics();
-    res.json(metrics);
+    if (emailService.analyticsService) {
+      const metrics = emailService.analyticsService.getAllMetrics();
+      res.json(metrics);
+    } else {
+      res.status(503).json({ error: 'Analytics service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -304,8 +381,12 @@ app.post('/api/cache/set', [
 
   try {
     const { key, value, ttl } = req.body;
-    const result = await emailService.redisCacheService.set(key, value, ttl);
-    res.json({ success: result });
+    if (emailService.redisCacheService) {
+      const result = await emailService.redisCacheService.set(key, value, ttl);
+      res.json({ success: result });
+    } else {
+      res.status(503).json({ error: 'Cache service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -321,8 +402,12 @@ app.get('/api/cache/get/:key', [
 
   try {
     const { key } = req.params;
-    const value = await emailService.redisCacheService.get(key);
-    res.json({ key, value });
+    if (emailService.redisCacheService) {
+      const value = await emailService.redisCacheService.get(key);
+      res.json({ key, value });
+    } else {
+      res.status(503).json({ error: 'Cache service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -341,8 +426,12 @@ app.post('/api/webhook/register', [
 
   try {
     const { event, url, secret } = req.body;
-    const webhook = emailService.webhookService.registerWebhook(event, url, secret);
-    res.json({ success: true, webhook });
+    if (emailService.webhookService) {
+      const webhook = emailService.webhookService.registerWebhook(event, url, secret);
+      res.json({ success: true, webhook });
+    } else {
+      res.status(503).json({ error: 'Webhook service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -359,8 +448,12 @@ app.post('/api/webhook/trigger', [
 
   try {
     const { event, payload } = req.body;
-    const result = await emailService.webhookService.triggerWebhook(event, payload);
-    res.json(result);
+    if (emailService.webhookService) {
+      const result = await emailService.webhookService.triggerWebhook(event, payload);
+      res.json(result);
+    } else {
+      res.status(503).json({ error: 'Webhook service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -369,8 +462,12 @@ app.post('/api/webhook/trigger', [
 // Multi-Language Endpoints
 app.get('/api/language/available', (req, res) => {
   try {
-    const languages = emailService.multiLanguageService.getAvailableLanguages();
-    res.json({ languages });
+    if (emailService.multiLanguageService) {
+      const languages = emailService.multiLanguageService.getAvailableLanguages();
+      res.json({ languages });
+    } else {
+      res.json({ languages: [] });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -387,8 +484,12 @@ app.get('/api/language/translate/:lang/:key', [
 
   try {
     const { lang, key } = req.params;
-    const translation = emailService.multiLanguageService.getTranslation(lang, key);
-    res.json({ key, translation, language: lang });
+    if (emailService.multiLanguageService) {
+      const translation = emailService.multiLanguageService.getTranslation(lang, key);
+      res.json({ key, translation, language: lang });
+    } else {
+      res.status(503).json({ error: 'Language service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -406,14 +507,18 @@ app.post('/api/pdf/loan-statement', [
 
   try {
     const { loanId, memberId } = req.body;
-    const loanData = await emailService.databaseManager.getLoanById(loanId);
-    const memberData = await emailService.databaseManager.getMemberById(memberId);
-    
-    const pdfBuffer = await emailService.pdfAttachmentService.generateLoanStatementPDF(loanData, memberData);
-    
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=loan-statement.pdf');
-    res.send(pdfBuffer);
+    if (emailService.databaseManager && emailService.pdfAttachmentService) {
+      const loanData = await emailService.databaseManager.getLoanById(loanId);
+      const memberData = await emailService.databaseManager.getMemberById(memberId);
+      
+      const pdfBuffer = await emailService.pdfAttachmentService.generateLoanStatementPDF(loanData, memberData);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=loan-statement.pdf');
+      res.send(pdfBuffer);
+    } else {
+      res.status(503).json({ error: 'PDF service unavailable' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -433,7 +538,9 @@ app.post('/api/track/open/:trackingId', [
     const userAgent = req.headers['user-agent'];
     const ipAddress = req.ip;
     
-    emailService.emailTrackingService.trackEmailOpen(trackingId, userAgent, ipAddress);
+    if (emailService.emailTrackingService) {
+      emailService.emailTrackingService.trackEmailOpen(trackingId, userAgent, ipAddress);
+    }
     
     // Return a 1x1 transparent pixel
     const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
@@ -456,11 +563,12 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`ðŸš€ Email Service API Server running on http://localhost:${PORT}`);
-  console.log(`ðŸ“Š Health check: http://localhost:${PORT}/health`);
-  console.log(`ðŸ”§ API endpoints: http://localhost:${PORT}/api/`);
-  console.log(`ðŸ“š API documentation: http://localhost:${PORT}/api/docs`);
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Email Service API Server running on http://localhost:${PORT}`);
+  console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔧 API endpoints: http://localhost:${PORT}/api/`);
+  console.log(`✅ trust proxy: ENABLED (ready for multi-region deployment)`);
 });
 
 module.exports = app;
+
