@@ -6,6 +6,7 @@
   <script src="utils/sessionTimeout.js"></script>
   <script src="utils/sessionTimeout.js"></script>
   <script src="utils/sessionTimeout.js"></script>
+  <script src="meeting-center-scripts.js"></script>
   <meta charset="UTF-8">
   <title>Eldoret Chama Table-Banking Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -92,9 +93,8 @@
     <button type="button" class="nav-btn-node home-access-portal-btn" onclick="window.location.href='member.html#access'">Access Member Portal</button>
 
     <button class="nav-btn-node" style="background:linear-gradient(90deg,#00e0ff,#0077ff); color:#000; font-weight:700; border:none; margin-bottom:15px;"  onclick="window.location.href='meeting-center.html'"><i class="fas fa-file-signature"></i> Meeting Center</button>
-    <button class="nav-btn-node active" id="navMembersBtn" onclick="showSection('members')" style="position:relative;">Members Management
-      <span id="sidebarPendingBadge" style="position:absolute; top:4px; right:8px; background:#f44336; color:#fff; border-radius:10px; padding:1px 7px; font-size:10px; font-weight:bold; display:none;">0</span>
-    </button>
+    <button class="nav-btn-node" onclick="showSection('members')">Members Management</button>
+    <button class="nav-btn-node" onclick="showSection('meetingCenter')" style="background:linear-gradient(90deg,#00e0ff,#0077ff); color:#000; font-weight:700; border:none;"><i class="fas fa-file-signature"></i> Meeting Center</button>
     <button class="nav-btn-node" onclick="showSection('loans')">Loans Dashboard</button>
     <button class="nav-btn-node sec-btn" onclick="showSection('secretaryHub')">Treasurer Console</button>
     <button class="nav-btn-node" onclick="showSection('repayments')">Repayments Ledger</button>
@@ -277,6 +277,329 @@
         </table>
       </div>
     </div>
+
+    <!--
+         SECTION: MEETING CENTER
+     -->
+    <div id="meetingCenter" class="section" style="display:none;">
+      <!-- Meeting Center Navigation Bar -->
+      <nav class="meeting-nav" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 12px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <div style="color: white; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 24px;">ðŸ“…</span> Meeting Center
+          </div>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <!-- Download Button -->
+          <button class="action-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px;" onclick="downloadMinute()">
+            ðŸ“¥ Download
+          </button>
+
+          <!-- Share Link Dropdown -->
+          <div style="position: relative;">
+            <button class="action-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px;" onclick="toggleMeetingDropdown('shareDropdown')">
+              ðŸ”— Share Link â–¼
+            </button>
+            <div id="shareDropdown" style="display: none; position: absolute; right: 0; top: 100%; background: var(--bg-dark-panel); min-width: 350px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); border-radius: 12px; padding: 20px; margin-top: 10px; z-index: 100; border: 1px solid rgba(0,224,255,0.3);">
+              <div style="font-size: 16px; font-weight: 600; color: #00e0ff; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid rgba(0,224,255,0.2);">Share Meeting Link</div>
+              
+              <div style="margin-bottom: 15px;">
+                <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 8px; display: block;">Select Members</label>
+                <select id="memberSelect" style="width: 100%; padding: 10px 12px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+                  <option value="all">Select All Approved Members</option>
+                  <option value="individual">Select Individual Members</option>
+                </select>
+              </div>
+
+              <div id="individualMemberSection" style="margin-bottom: 15px; display: none;">
+                <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 8px; display: block;">Choose Members</label>
+                <div style="max-height: 200px; overflow-y: auto; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; padding: 10px; background: rgba(0,0,0,0.2);">
+                  <div id="shareMemberList"></div>
+                </div>
+              </div>
+
+              <div style="margin-bottom: 15px;">
+                <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 8px; display: block;">Meeting Link</label>
+                <input type="url" id="meetingLink" style="width: 100%; padding: 10px 12px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;" placeholder="https://zoom.us/j/123456789">
+              </div>
+
+              <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="action-btn" style="background: #00e0ff; color: #000; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;" onclick="submitMeetingLink()">Submit Link</button>
+                <button class="action-btn" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;" onclick="toggleMeetingDropdown('shareDropdown')">Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- View and Manage Invitations -->
+          <button class="action-btn" style="background: white; color: #667eea; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;" onclick="viewInvitations()">
+            ðŸ“‹ View & Manage Invitations
+          </button>
+
+          <!-- Menu (3 dots) Dropdown -->
+          <div style="position: relative;">
+            <button class="action-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;" onclick="toggleMeetingDropdown('menuDropdown')">
+              â‹® Menu â–¼
+            </button>
+            <div id="menuDropdown" style="display: none; position: absolute; right: 0; top: 100%; background: var(--bg-dark-panel); min-width: 250px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); border-radius: 12px; padding: 15px; margin-top: 10px; z-index: 100; border: 1px solid rgba(0,224,255,0.3);">
+              <button class="action-btn" style="width: 100%; background: rgba(0,224,255,0.1); color: #00e0ff; border: 1px solid rgba(0,224,255,0.3); padding: 10px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-bottom: 8px;" onclick="showFeaturePopup()">âœï¸ Add/Update Feature</button>
+              <button class="action-btn" style="width: 100%; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 10px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-bottom: 8px;" onclick="showAllFeatures()">ðŸ“‹ View All Features</button>
+              <button class="action-btn" style="width: 100%; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 10px; border-radius: 6px; cursor: pointer; font-size: 13px;" onclick="showFeatureTable()">ðŸ“Š Feature Data Table</button>
+            </div>
+          </div>
+
+          <!-- More Button -->
+          <div style="position: relative;">
+            <button class="action-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;" onclick="toggleMeetingDropdown('moreDropdown')">
+              âš™ï¸ More â–¼
+            </button>
+            <div id="moreDropdown" style="display: none; position: absolute; right: 0; top: 100%; background: var(--bg-dark-panel); min-width: 200px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); border-radius: 12px; padding: 10px; margin-top: 10px; z-index: 100; border: 1px solid rgba(0,224,255,0.3);">
+              <div style="padding: 8px 12px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 10px; border-radius: 6px;" onclick="manageStructure()">ðŸ—ï¸ Manage Structure</div>
+              <div style="padding: 8px 12px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 10px; border-radius: 6px;" onclick="manageRecords()">ðŸ“ Manage Records</div>
+              <div style="padding: 8px 12px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 10px; border-radius: 6px;" onclick="manageTemplates()">ðŸ“„ Manage Templates</div>
+              <div style="padding: 8px 12px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 10px; border-radius: 6px;" onclick="manageSettings()">âš™ï¸ Settings</div>
+              <div style="padding: 8px 12px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 10px; border-radius: 6px;" onclick="exportData()">ðŸ“¤ Export Data</div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Meeting Minute Container -->
+      <div style="max-width: 1200px; margin: 0 auto;">
+        <!-- Meeting Header -->
+        <div style="background: var(--bg-dark-panel); border-radius: 12px; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid rgba(0,224,255,0.1);">
+          <div style="font-size: 24px; font-weight: 700; color: #00e0ff; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 30px;">ðŸ“…</span>
+            <input type="text" id="meetingTitle" placeholder="Meeting Title" style="font-size: 24px; font-weight: 700; border: none; background: transparent; padding: 0; color: #00e0ff; width: 100%;">
+          </div>
+        </div>
+
+        <!-- Overview & Logistics -->
+        <div style="background: var(--bg-dark-panel); border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,224,255,0.1);">
+          <div style="font-size: 18px; font-weight: 600; color: #00e0ff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 22px;">ðŸ“‹</span> Overview & Logistics
+          </div>
+          <div style="margin-left: 30px;">
+            <div style="margin-bottom: 15px;">
+              <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Date & Time</label>
+              <input type="text" id="dateTime" placeholder="e.g., October 12, 2026 | 10:00 AM - 10:45 AM EST" style="width: 100%; padding: 12px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Location / Link</label>
+              <input type="text" id="location" placeholder="e.g., Conference Room B / Zoom Link" style="width: 100%; padding: 12px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Facilitator</label>
+              <input type="text" id="facilitator" placeholder="Name" style="width: 100%; padding: 12px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Note-Taker</label>
+              <input type="text" id="noteTaker" placeholder="Name" style="width: 100%; padding: 12px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Timekeeper</label>
+              <input type="text" id="timekeeper" placeholder="Name" style="width: 100%; padding: 12px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Attendees</label>
+              <input type="text" id="attendees" placeholder="Name 1, Name 2, Name 3" style="width: 100%; padding: 12px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Core Objective -->
+        <div style="background: var(--bg-dark-panel); border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,224,255,0.1);">
+          <div style="font-size: 18px; font-weight: 600; color: #00e0ff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 22px;">ðŸŽ¯</span> Core Objective
+          </div>
+          <div style="margin-left: 30px;">
+            <div style="margin-bottom: 15px;">
+              <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">In one sentence, what is the exact goal or decision that must be achieved by the end of this meeting?</label>
+              <textarea id="coreObjective" placeholder="Enter the core objective..." style="width: 100%; padding: 12px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; min-height: 80px; resize: vertical; background: rgba(0,0,0,0.3); color: #fff;"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pre-Work & Resources -->
+        <div style="background: var(--bg-dark-panel); border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,224,255,0.1);">
+          <div style="font-size: 18px; font-weight: 600; color: #00e0ff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 22px;">ðŸ“‘</span> Pre-Work & Resources
+          </div>
+          <div style="margin-left: 30px;">
+            <p style="color: #b0bec5; margin-bottom: 15px;">Please review these items at least 24 hours prior to the session.</p>
+            
+            <div id="resourceList">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; margin-bottom: 8px;">
+                <span style="font-size: 20px;">ðŸ”—</span>
+                <input type="text" placeholder="Link to Q3 Performance Dashboard" style="flex: 1; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; margin-bottom: 8px;">
+                <span style="font-size: 20px;">ðŸ“„</span>
+                <input type="text" placeholder="Link to Project Proposal Draft" style="flex: 1; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+              </div>
+            </div>
+            
+            <button class="action-btn" style="background: #00e0ff; color: #000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 5px;" onclick="addResource()">+ Add Resource</button>
+          </div>
+        </div>
+
+        <!-- Live Agenda & Notes -->
+        <div style="background: var(--bg-dark-panel); border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,224,255,0.1);">
+          <div style="font-size: 18px; font-weight: 600; color: #00e0ff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 22px;">â±ï¸</span> Live Agenda & Notes
+          </div>
+          <div style="margin-left: 30px;">
+            <div id="agendaList">
+              <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #00e0ff;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <input type="text" value="Alignment & Context (5 Mins)" style="border: none; background: transparent; padding: 0; font-weight: 600; color: #00e0ff; font-size: 16px;">
+                  <span style="font-size: 13px; color: #b0bec5; background: rgba(0,224,255,0.1); padding: 4px 8px; border-radius: 4px;">5 Mins</span>
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Goal</label>
+                  <input type="text" placeholder="Review objectives and verify everyone has read the pre-work" style="width: 100%; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Notes</label>
+                  <textarea placeholder="Enter notes..." style="width: 100%; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; min-height: 80px; resize: vertical; background: rgba(0,0,0,0.3); color: #fff;"></textarea>
+                </div>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #00e0ff;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <input type="text" value="Topic 1: [Insert Priority Issue] (15 Mins)" style="border: none; background: transparent; padding: 0; font-weight: 600; color: #00e0ff; font-size: 16px;">
+                  <span style="font-size: 13px; color: #b0bec5; background: rgba(0,224,255,0.1); padding: 4px 8px; border-radius: 4px;">15 Mins</span>
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Goal</label>
+                  <input type="text" placeholder="Debate options and align on a path forward" style="width: 100%; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Notes</label>
+                  <textarea placeholder="Enter notes..." style="width: 100%; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; min-height: 80px; resize: vertical; background: rgba(0,0,0,0.3); color: #fff;"></textarea>
+                </div>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #00e0ff;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <input type="text" value="Topic 2: [Insert Secondary Issue] (15 Mins)" style="border: none; background: transparent; padding: 0; font-weight: 600; color: #00e0ff; font-size: 16px;">
+                  <span style="font-size: 13px; color: #b0bec5; background: rgba(0,224,255,0.1); padding: 4px 8px; border-radius: 4px;">15 Mins</span>
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Goal</label>
+                  <input type="text" placeholder="Identify blockers and assign resources" style="width: 100%; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <label style="font-size: 13px; font-weight: 500; color: #b0bec5; margin-bottom: 5px; display: block;">Notes</label>
+                  <textarea placeholder="Enter notes..." style="width: 100%; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; min-height: 80px; resize: vertical; background: rgba(0,0,0,0.3); color: #fff;"></textarea>
+                </div>
+              </div>
+            </div>
+            
+            <button class="action-btn" style="background: #00e0ff; color: #000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 5px;" onclick="addAgendaItem()">+ Add Agenda Item</button>
+          </div>
+        </div>
+
+        <!-- Parking Lot -->
+        <div style="background: var(--bg-dark-panel); border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,224,255,0.1);">
+          <div style="font-size: 18px; font-weight: 600; color: #00e0ff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 22px;">ðŸ›‘</span> Parking Lot
+          </div>
+          <div style="margin-left: 30px;">
+            <p style="color: #b0bec5; margin-bottom: 15px;">Unrelated topics or deep-dive issues delayed to preserve the meeting schedule.</p>
+            
+            <div id="parkingLotList">
+              <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #ff9800;">
+                <div style="margin-bottom: 15px;">
+                  <input type="text" placeholder="Topic A âž” Action: [Name] to schedule a 10-minute follow-up" style="width: 100%; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+                </div>
+              </div>
+            </div>
+            
+            <button class="action-btn" style="background: #00e0ff; color: #000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 5px;" onclick="addParkingLotItem()">+ Add Parking Lot Item</button>
+          </div>
+        </div>
+
+        <!-- Action Items & Decisions -->
+        <div style="background: var(--bg-dark-panel); border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid rgba(0,224,255,0.1);">
+          <div style="font-size: 18px; font-weight: 600; color: #00e0ff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 22px;">ðŸš€</span> Action Items & Decisions
+          </div>
+          <div style="margin-left: 30px;">
+            <!-- Key Decisions -->
+            <div style="margin-bottom: 30px;">
+              <h4 style="margin-bottom: 15px; color: #00e0ff;">ðŸŽ¯ Key Decisions Made</h4>
+              <div id="decisionsList">
+                <div style="margin-bottom: 15px;">
+                  <input type="text" placeholder="Decision 1: [e.g., Approved the $5,000 budget reallocation for marketing]" style="width: 100%; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <input type="text" placeholder="Decision 2: [e.g., Delayed the product launch date to November 1st]" style="width: 100%; padding: 10px; border: 1px solid rgba(0,224,255,0.3); border-radius: 6px; font-size: 14px; background: rgba(0,0,0,0.3); color: #fff;">
+                </div>
+              </div>
+              <button class="action-btn" style="background: #00e0ff; color: #000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;" onclick="addDecision()">+ Add Decision</button>
+            </div>
+
+            <!-- Task Tracker -->
+            <div>
+              <h4 style="margin-bottom: 15px; color: #00e0ff;">ðŸ“‹ Task Tracker</h4>
+              <table id="taskTable" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <thead>
+                  <tr>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,224,255,0.2); background: rgba(0,224,255,0.1); color: #00e0ff;">Task Description</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,224,255,0.2); background: rgba(0,224,255,0.1); color: #00e0ff;">Owner</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,224,255,0.2); background: rgba(0,224,255,0.1); color: #00e0ff;">Due Date</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,224,255,0.2); background: rgba(0,224,255,0.1); color: #00e0ff;">Status</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,224,255,0.2); background: rgba(0,224,255,0.1); color: #00e0ff;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);"><input type="text" placeholder="Update project roadmap with new timeline" style="width: 100%; padding: 8px; border: 1px solid rgba(0,224,255,0.3); border-radius: 4px; font-size: 13px; background: rgba(0,0,0,0.3); color: #fff;"></td>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);"><input type="text" placeholder="Name" style="width: 100%; padding: 8px; border: 1px solid rgba(0,224,255,0.3); border-radius: 4px; font-size: 13px; background: rgba(0,0,0,0.3); color: #fff;"></td>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);"><input type="date" style="width: 100%; padding: 8px; border: 1px solid rgba(0,224,255,0.3); border-radius: 4px; font-size: 13px; background: rgba(0,0,0,0.3); color: #fff;"></td>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);">
+                      <select style="padding: 8px; border: 1px solid rgba(0,224,255,0.3); border-radius: 4px; font-size: 13px; background: rgba(0,0,0,0.3); color: #fff;">
+                        <option>Not Started</option>
+                        <option>In Progress</option>
+                        <option>Completed</option>
+                      </select>
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);">
+                      <button class="action-btn" style="padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 5px; background: rgba(0,224,255,0.2); color: #00e0ff;">Edit</button>
+                      <button class="action-btn" style="padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; background: rgba(244,67,54,0.2); color: #f44336;">Delete</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);"><input type="text" placeholder="Send updated API contract to the client" style="width: 100%; padding: 8px; border: 1px solid rgba(0,224,255,0.3); border-radius: 4px; font-size: 13px; background: rgba(0,0,0,0.3); color: #fff;"></td>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);"><input type="text" placeholder="Name" style="width: 100%; padding: 8px; border: 1px solid rgba(0,224,255,0.3); border-radius: 4px; font-size: 13px; background: rgba(0,0,0,0.3); color: #fff;"></td>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);"><input type="date" style="width: 100%; padding: 8px; border: 1px solid rgba(0,224,255,0.3); border-radius: 4px; font-size: 13px; background: rgba(0,0,0,0.3); color: #fff;"></td>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);">
+                      <select style="padding: 8px; border: 1px solid rgba(0,224,255,0.3); border-radius: 4px; font-size: 13px; background: rgba(0,0,0,0.3); color: #fff;">
+                        <option>Not Started</option>
+                        <option selected>In Progress</option>
+                        <option>Completed</option>
+                      </select>
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid rgba(0,224,255,0.1);">
+                      <button class="action-btn" style="padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 5px; background: rgba(0,224,255,0.2); color: #00e0ff;">Edit</button>
+                      <button class="action-btn" style="padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; background: rgba(244,67,54,0.2); color: #f44336;">Delete</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <button class="action-btn" style="background: #00e0ff; color: #000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;" onclick="addTask()">+ Add Task</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="loans" class="section" style="display:none;">
       <h2>Loans Administration</h2>
       <p>Configure individual loan statuses and check parameters during live meetings:</p>
@@ -479,7 +802,7 @@
         <h3>2. Meeting Minutes Generator</h3>
         <p>Generate meeting minutes with a simple interface:</p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
-          <button class="action-btn" style="background:#4caf50; color:#fff;" onclick="window.location.href='meeting-center.html'">📄 Open Meeting Center</button>
+          <button class="action-btn" style="background:#4caf50; color:#fff;" onclick="window.location.href='meeting-center.html'">ðŸ“„ Open Meeting Center</button>
         </div>
       </div>
 
@@ -1905,7 +2228,7 @@
         }
     }
 
-    // ── Blur gate boot: validate admin session FIRST before any fetch ──
+    // â”€â”€ Blur gate boot: validate admin session FIRST before any fetch â”€â”€
     window.addEventListener("DOMContentLoaded", async () => {
         // 1. Check homeSessionTimedOut flag (set when admin idle timer fires)
         if (sessionStorage.getItem('homeSessionTimedOut') === 'true') {
@@ -1916,21 +2239,21 @@
             return;
         }
 
-        // 2. Validate admin session — must exist and not be older than 8 hours
+        // 2. Validate admin session â€” must exist and not be older than 8 hours
         let adminSession = null;
         try { adminSession = JSON.parse(sessionStorage.getItem('adminSession') || 'null'); } catch (_) {}
         const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000; // 8 hours
         const sessionAge = adminSession && adminSession.timestamp ? Date.now() - adminSession.timestamp : Infinity;
 
         if (!adminSession || !adminSession.token || sessionAge > SESSION_MAX_AGE_MS) {
-            // No valid session — clear everything and send to login
+            // No valid session â€” clear everything and send to login
             sessionStorage.removeItem('adminSession');
             localStorage.removeItem('adminDisableBlurEffect');
             window.location.replace('login.html');
             return;
         }
 
-        // 3. Lock browser back button — admin must re-authenticate on back-nav
+        // 3. Lock browser back button â€” admin must re-authenticate on back-nav
         history.pushState(null, '', location.href);
         window.addEventListener('popstate', () => {
             sessionStorage.removeItem('adminSession');
@@ -1977,6 +2300,7 @@
       </table>
     </div>
   </div>
-</body>
+<script src="meeting-center-scripts.js"></script></body>
 
 </html>
+
