@@ -16,6 +16,471 @@
                 100% { transform: scale(0.6); opacity: 0; }
             }
             #checkinUnreadBtn.checkin-cleared { animation: checkinClear 420ms ease forwards; }
+
+            /* Meeting Center Styles */
+            .meeting-nav {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 15px 20px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+                border-radius: 12px;
+                margin-bottom: 20px;
+            }
+
+            .meeting-nav .nav-left {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .meeting-nav .nav-title {
+                color: white;
+                font-size: 20px;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .meeting-nav .nav-right {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .meeting-nav .nav-btn {
+                background: rgba(255,255,255,0.2);
+                border: 1px solid rgba(255,255,255,0.3);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: all 0.3s ease;
+            }
+
+            .meeting-nav .nav-btn:hover {
+                background: rgba(255,255,255,0.3);
+                transform: translateY(-2px);
+            }
+
+            .meeting-nav .nav-btn.primary {
+                background: white;
+                color: #667eea;
+                font-weight: 600;
+            }
+
+            .meeting-nav .nav-btn.primary:hover {
+                background: #f0f0f0;
+            }
+
+            .meeting-nav .dropdown {
+                position: relative;
+            }
+
+            .meeting-nav .dropdown-content {
+                display: none;
+                position: absolute;
+                right: 0;
+                top: 100%;
+                background: white;
+                min-width: 350px;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+                border-radius: 12px;
+                padding: 20px;
+                margin-top: 10px;
+                z-index: 1001;
+            }
+
+            .meeting-nav .dropdown.active .dropdown-content {
+                display: block;
+                animation: slideDown 0.3s ease;
+            }
+
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .meeting-nav .popup {
+                background: white;
+                border-radius: 12px;
+                padding: 20px;
+            }
+
+            .meeting-nav .popup-title {
+                font-size: 16px;
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #f0f0f0;
+            }
+
+            .meeting-nav .popup-section {
+                margin-bottom: 15px;
+            }
+
+            .meeting-nav .popup-label {
+                font-size: 13px;
+                font-weight: 500;
+                color: #666;
+                margin-bottom: 8px;
+                display: block;
+            }
+
+            .meeting-nav .popup-input {
+                width: 100%;
+                padding: 10px 12px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                font-size: 14px;
+                transition: border-color 0.3s;
+            }
+
+            .meeting-nav .popup-input:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+
+            .meeting-nav .popup-select {
+                width: 100%;
+                padding: 10px 12px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                font-size: 14px;
+                background: white;
+            }
+
+            .meeting-nav .popup-button {
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                transition: background 0.3s;
+            }
+
+            .meeting-nav .popup-button:hover {
+                background: #5568d3;
+            }
+
+            .meeting-nav .popup-button.secondary {
+                background: #f0f0f0;
+                color: #333;
+            }
+
+            .meeting-nav .popup-button.secondary:hover {
+                background: #e0e0e0;
+            }
+
+            .meeting-nav .popup-button-group {
+                display: flex;
+                gap: 10px;
+                margin-top: 15px;
+            }
+
+            .meeting-nav .member-list {
+                max-height: 200px;
+                overflow-y: auto;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                padding: 10px;
+            }
+
+            .meeting-nav .member-item {
+                display: flex;
+                align-items: center;
+                padding: 8px;
+                border-bottom: 1px solid #f0f0f0;
+                transition: background 0.2s;
+            }
+
+            .meeting-nav .member-item:hover {
+                background: #f9f9f9;
+            }
+
+            .meeting-nav .member-item:last-child {
+                border-bottom: none;
+            }
+
+            .meeting-nav .member-checkbox {
+                margin-right: 10px;
+            }
+
+            .meeting-nav .member-name {
+                flex: 1;
+                font-size: 14px;
+            }
+
+            .meeting-nav .member-status {
+                font-size: 12px;
+                padding: 4px 8px;
+                border-radius: 12px;
+                background: #e8f5e9;
+                color: #2e7d32;
+            }
+
+            .minute-container {
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .minute-header {
+                background: white;
+                border-radius: 12px;
+                padding: 30px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+                margin-bottom: 20px;
+            }
+
+            .minute-title {
+                font-size: 24px;
+                font-weight: 700;
+                color: #333;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .minute-section {
+                background: white;
+                border-radius: 12px;
+                padding: 25px;
+                margin-bottom: 20px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            }
+
+            .section-title {
+                font-size: 18px;
+                font-weight: 600;
+                color: #667eea;
+                margin-bottom: 15px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .section-content {
+                margin-left: 30px;
+            }
+
+            .field-group {
+                margin-bottom: 15px;
+            }
+
+            .field-label {
+                font-size: 13px;
+                font-weight: 500;
+                color: #666;
+                margin-bottom: 5px;
+                display: block;
+            }
+
+            .field-input {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                font-size: 14px;
+                transition: border-color 0.3s;
+            }
+
+            .field-input:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+
+            .field-textarea {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                font-size: 14px;
+                min-height: 80px;
+                resize: vertical;
+                font-family: inherit;
+            }
+
+            .field-textarea:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+
+            .agenda-item {
+                background: #f9f9f9;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 15px;
+                border-left: 4px solid #667eea;
+            }
+
+            .agenda-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+
+            .agenda-time {
+                font-size: 13px;
+                color: #666;
+                background: #e3f2fd;
+                padding: 4px 8px;
+                border-radius: 4px;
+            }
+
+            .data-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 15px;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #e0e0e0;
+            }
+
+            .data-table th {
+                background: #f5f5f5;
+                font-weight: 600;
+                color: #333;
+            }
+
+            .data-table tr:hover {
+                background: #f9f9f9;
+            }
+
+            .action-btn {
+                padding: 6px 12px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                margin-right: 5px;
+            }
+
+            .action-btn.delete {
+                background: #fee;
+                color: #c33;
+            }
+
+            .action-btn.restore {
+                background: #efe;
+                color: #3c3;
+            }
+
+            .action-btn.edit {
+                background: #eef;
+                color: #33c;
+            }
+
+            .feature-list {
+                max-height: 300px;
+                overflow-y: auto;
+            }
+
+            .feature-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px;
+                background: #f9f9f9;
+                border-radius: 6px;
+                margin-bottom: 8px;
+            }
+
+            .feature-item.deleted {
+                background: #fee;
+                opacity: 0.7;
+            }
+
+            .feature-text {
+                flex: 1;
+                font-size: 14px;
+            }
+
+            .feature-actions {
+                display: flex;
+                gap: 5px;
+            }
+
+            .resource-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px;
+                background: #f9f9f9;
+                border-radius: 6px;
+                margin-bottom: 8px;
+            }
+
+            .resource-icon {
+                font-size: 20px;
+            }
+
+            .add-btn {
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .add-btn:hover {
+                background: #5568d3;
+            }
+
+            .more-menu {
+                min-width: 200px;
+            }
+
+            .more-item {
+                padding: 12px 15px;
+                cursor: pointer;
+                transition: background 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .more-item:hover {
+                background: #f5f5f5;
+            }
+
+            .more-item:first-child {
+                border-radius: 8px 8px 0 0;
+            }
+
+            .more-item:last-child {
+                border-radius: 0 0 8px 8px;
+            }
         </style>
 </head>
 
@@ -469,10 +934,10 @@
                 </div>
             </section><!-- end dashboardSection -->
 
-            <!-- My Progress — Consolidated Engagement View -->
+            <!-- My Progress ï¿½ Consolidated Engagement View -->
             <section id="progressSection" class="content-section" style="display: none;">
                 <h2><i class="fas fa-trophy" style="color: #fbbf24;"></i> My Progress</h2>
-                <p class="text-muted">Your financial journey at a glance — streaks, milestones, and what's next.</p>
+                <p class="text-muted">Your financial journey at a glance ï¿½ streaks, milestones, and what's next.</p>
 
                 <div class="metrics-grid" style="margin-bottom: 20px;">
                     <!-- Streak Tile -->
@@ -619,7 +1084,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Repayment Installment (Ksh) — Minimum Ksh 1, partial payments allowed</label>
+                            <label>Repayment Installment (Ksh) ï¿½ Minimum Ksh 1, partial payments allowed</label>
                             <input type="number" id="payAmount" min="1" step="0.01" required placeholder="Enter amount (min Ksh 1)">
                             <small class="text-muted" id="payLoanBalanceHint"></small>
                         </div>
@@ -867,18 +1332,399 @@
 
             <!-- MEETING ACTIVITY SECTION -->
             <section id="meetingActivitySection" class="content-section" style="display: none;">
-                <div class="panel-card">
-                    <div class="messages-hero" style="background: linear-gradient(135deg, rgba(0,224,255,0.1), rgba(0,119,255,0.1)); padding: 20px; border-radius: 12px; margin-bottom: 20px; border-bottom: 2px solid rgba(0,224,255,0.3);">
-                        <h2 style="margin: 0; color: var(--color-primary); display: flex; align-items: center; gap: 10px;">
-                            <i class="fas fa-calendar-check"></i> Meeting Activity
-                        </h2>
-                        <p style="margin: 8px 0 0; opacity: 0.8;">View and manage your meeting invitations.</p>
+                <!-- Meeting Center Navigation Bar -->
+                <nav class="meeting-nav">
+                    <div class="nav-left">
+                        <div class="nav-title">
+                            <span>ðŸ“…</span> Meeting Center
+                        </div>
                     </div>
                     
-                    <div id="meetingActivityContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
-                        <div style="grid-column: 1 / -1; text-align: center; padding: 40px; opacity: 0.6;">
-                            <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
-                            <p>Loading meeting activity...</p>
+                    <div class="nav-right">
+                        <!-- Download Button -->
+                        <button class="nav-btn" onclick="downloadMinute()">
+                            ðŸ“¥ Download
+                        </button>
+
+                        <!-- Share Link Dropdown -->
+                        <div class="dropdown" id="shareDropdown">
+                            <button class="nav-btn" onclick="toggleDropdown('shareDropdown')">
+                                ðŸ”— Share Link â–¼
+                            </button>
+                            <div class="dropdown-content">
+                                <div class="popup">
+                                    <div class="popup-title">Share Meeting Link</div>
+                                    
+                                    <div class="popup-section">
+                                        <label class="popup-label">Select Members</label>
+                                        <select class="popup-select" id="memberSelect">
+                                            <option value="all">Select All Approved Members</option>
+                                            <option value="individual">Select Individual Members</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="popup-section" id="individualMemberSection" style="display: none;">
+                                        <label class="popup-label">Choose Members</label>
+                                        <div class="member-list" id="memberList">
+                                            <div class="member-item">
+                                                <input type="checkbox" class="member-checkbox" id="member1">
+                                                <label for="member1" class="member-name">John Doe</label>
+                                                <span class="member-status">Approved</span>
+                                            </div>
+                                            <div class="member-item">
+                                                <input type="checkbox" class="member-checkbox" id="member2">
+                                                <label for="member2" class="member-name">Jane Smith</label>
+                                                <span class="member-status">Approved</span>
+                                            </div>
+                                            <div class="member-item">
+                                                <input type="checkbox" class="member-checkbox" id="member3">
+                                                <label for="member3" class="member-name">Mike Johnson</label>
+                                                <span class="member-status">Approved</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="popup-section">
+                                        <label class="popup-label">Meeting Link</label>
+                                        <input type="url" class="popup-input" id="meetingLink" placeholder="https://zoom.us/j/123456789">
+                                    </div>
+
+                                    <div class="popup-button-group">
+                                        <button class="popup-button" onclick="submitMeetingLink()">Submit Link</button>
+                                        <button class="popup-button secondary" onclick="toggleDropdown('shareDropdown')">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- View and Manage Invitations -->
+                        <button class="nav-btn primary" onclick="viewInvitations()">
+                            ðŸ“‹ View & Manage Invitations
+                        </button>
+
+                        <!-- Menu (3 dots) Dropdown -->
+                        <div class="dropdown" id="menuDropdown">
+                            <button class="nav-btn" onclick="toggleDropdown('menuDropdown')">
+                                â‹® Menu â–¼
+                            </button>
+                            <div class="dropdown-content">
+                                <div class="popup">
+                                    <div class="popup-title">Meeting Features</div>
+                                    
+                                    <div class="popup-section">
+                                        <button class="popup-button" onclick="showFeaturePopup()" style="width: 100%;">
+                                            âœï¸ Add/Update Feature
+                                        </button>
+                                    </div>
+
+                                    <div class="popup-section">
+                                        <button class="popup-button secondary" onclick="showAllFeatures()" style="width: 100%;">
+                                            ðŸ“‹ View All Features
+                                        </button>
+                                    </div>
+
+                                    <div class="popup-section">
+                                        <button class="popup-button secondary" onclick="showFeatureTable()" style="width: 100%;">
+                                            ðŸ“Š Feature Data Table
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- More Button -->
+                        <div class="dropdown" id="moreDropdown">
+                            <button class="nav-btn" onclick="toggleDropdown('moreDropdown')">
+                                âš™ï¸ More â–¼
+                            </button>
+                            <div class="dropdown-content more-menu">
+                                <div class="more-item" onclick="manageStructure()">
+                                    ðŸ—ï¸ Manage Structure
+                                </div>
+                                <div class="more-item" onclick="manageRecords()">
+                                    ðŸ“ Manage Records
+                                </div>
+                                <div class="more-item" onclick="manageTemplates()">
+                                    ðŸ“„ Manage Templates
+                                </div>
+                                <div class="more-item" onclick="manageSettings()">
+                                    âš™ï¸ Settings
+                                </div>
+                                <div class="more-item" onclick="exportData()">
+                                    ðŸ“¤ Export Data
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+
+                <!-- Feature Popup -->
+                <div id="featurePopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); z-index: 2000; min-width: 400px;">
+                    <div class="popup-title">Add/Update Feature</div>
+                    
+                    <div class="popup-section">
+                        <label class="popup-label">Feature Description</label>
+                        <input type="text" class="popup-input" id="featureInput" placeholder="Enter feature to update">
+                    </div>
+
+                    <div class="popup-section">
+                        <label class="popup-label">Additional Notes</label>
+                        <textarea class="field-textarea" id="featureNotes" placeholder="Add any additional notes..."></textarea>
+                    </div>
+
+                    <div class="popup-button-group">
+                        <button class="popup-button" onclick="addFeature()">+ Add Feature</button>
+                        <button class="popup-button secondary" onclick="closeFeaturePopup()">Cancel</button>
+                    </div>
+                </div>
+
+                <!-- All Features Popup -->
+                <div id="allFeaturesPopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); z-index: 2000; min-width: 500px; max-height: 80vh; overflow-y: auto;">
+                    <div class="popup-title">All Features in Minute</div>
+                    
+                    <div class="feature-list" id="featureListContainer">
+                        <!-- Features will be dynamically added here -->
+                    </div>
+
+                    <div class="popup-button-group">
+                        <button class="popup-button secondary" onclick="closeAllFeaturesPopup()">Close</button>
+                    </div>
+                </div>
+
+                <!-- Overlay -->
+                <div id="overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1500;" onclick="closeAllPopups()"></div>
+
+                <!-- Minute Container -->
+                <div class="minute-container">
+                    <!-- Meeting Header -->
+                    <div class="minute-header">
+                        <div class="minute-title">
+                            <span>ðŸ“…</span>
+                            <input type="text" class="field-input" id="meetingTitle" placeholder="Meeting Title" style="font-size: 24px; font-weight: 700; border: none; background: transparent; padding: 0;">
+                        </div>
+                    </div>
+
+                    <!-- Overview & Logistics -->
+                    <div class="minute-section">
+                        <div class="section-title">
+                            <span>ðŸ“‹</span> Overview & Logistics
+                        </div>
+                        <div class="section-content">
+                            <div class="field-group">
+                                <label class="field-label">Date & Time</label>
+                                <input type="text" class="field-input" id="dateTime" placeholder="e.g., October 12, 2026 | 10:00 AM - 10:45 AM EST">
+                            </div>
+                            
+                            <div class="field-group">
+                                <label class="field-label">Location / Link</label>
+                                <input type="text" class="field-input" id="location" placeholder="e.g., Conference Room B / Zoom Link">
+                            </div>
+                            
+                            <div class="field-group">
+                                <label class="field-label">Facilitator</label>
+                                <input type="text" class="field-input" id="facilitator" placeholder="Name">
+                            </div>
+                            
+                            <div class="field-group">
+                                <label class="field-label">Note-Taker</label>
+                                <input type="text" class="field-input" id="noteTaker" placeholder="Name">
+                            </div>
+                            
+                            <div class="field-group">
+                                <label class="field-label">Timekeeper</label>
+                                <input type="text" class="field-input" id="timekeeper" placeholder="Name">
+                            </div>
+                            
+                            <div class="field-group">
+                                <label class="field-label">Attendees</label>
+                                <input type="text" class="field-input" id="attendees" placeholder="Name 1, Name 2, Name 3">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Core Objective -->
+                    <div class="minute-section">
+                        <div class="section-title">
+                            <span>ðŸŽ¯</span> Core Objective
+                        </div>
+                        <div class="section-content">
+                            <div class="field-group">
+                                <label class="field-label">In one sentence, what is the exact goal or decision that must be achieved by the end of this meeting?</label>
+                                <textarea class="field-textarea" id="coreObjective" placeholder="Enter the core objective..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pre-Work & Resources -->
+                    <div class="minute-section">
+                        <div class="section-title">
+                            <span>ðŸ“‘</span> Pre-Work & Resources
+                        </div>
+                        <div class="section-content">
+                            <p style="color: #666; margin-bottom: 15px;">Please review these items at least 24 hours prior to the session.</p>
+                            
+                            <div id="resourceList">
+                                <div class="resource-item">
+                                    <span class="resource-icon">ðŸ”—</span>
+                                    <input type="text" class="field-input" style="flex: 1;" placeholder="Link to Q3 Performance Dashboard">
+                                </div>
+                                <div class="resource-item">
+                                    <span class="resource-icon">ðŸ“„</span>
+                                    <input type="text" class="field-input" style="flex: 1;" placeholder="Link to Project Proposal Draft">
+                                </div>
+                            </div>
+                            
+                            <button class="add-btn" onclick="addResource()">+ Add Resource</button>
+                        </div>
+                    </div>
+
+                    <!-- Live Agenda & Notes -->
+                    <div class="minute-section">
+                        <div class="section-title">
+                            <span>â±ï¸</span> Live Agenda & Notes
+                        </div>
+                        <div class="section-content">
+                            <div id="agendaList">
+                                <div class="agenda-item">
+                                    <div class="agenda-header">
+                                        <input type="text" class="agenda-title field-input" style="border: none; background: transparent; padding: 0; font-weight: 600;" value="Alignment & Context (5 Mins)">
+                                        <span class="agenda-time">5 Mins</span>
+                                    </div>
+                                    <div class="field-group">
+                                        <label class="field-label">Goal</label>
+                                        <input type="text" class="field-input" placeholder="Review objectives and verify everyone has read the pre-work">
+                                    </div>
+                                    <div class="field-group">
+                                        <label class="field-label">Notes</label>
+                                        <textarea class="field-textarea" placeholder="Enter notes..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="agenda-item">
+                                    <div class="agenda-header">
+                                        <input type="text" class="agenda-title field-input" style="border: none; background: transparent; padding: 0; font-weight: 600;" value="Topic 1: [Insert Priority Issue] (15 Mins)">
+                                        <span class="agenda-time">15 Mins</span>
+                                    </div>
+                                    <div class="field-group">
+                                        <label class="field-label">Goal</label>
+                                        <input type="text" class="field-input" placeholder="Debate options and align on a path forward">
+                                    </div>
+                                    <div class="field-group">
+                                        <label class="field-label">Notes</label>
+                                        <textarea class="field-textarea" placeholder="Enter notes..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="agenda-item">
+                                    <div class="agenda-header">
+                                        <input type="text" class="agenda-title field-input" style="border: none; background: transparent; padding: 0; font-weight: 600;" value="Topic 2: [Insert Secondary Issue] (15 Mins)">
+                                        <span class="agenda-time">15 Mins</span>
+                                    </div>
+                                    <div class="field-group">
+                                        <label class="field-label">Goal</label>
+                                        <input type="text" class="field-input" placeholder="Identify blockers and assign resources">
+                                    </div>
+                                    <div class="field-group">
+                                        <label class="field-label">Notes</label>
+                                        <textarea class="field-textarea" placeholder="Enter notes..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button class="add-btn" onclick="addAgendaItem()">+ Add Agenda Item</button>
+                        </div>
+                    </div>
+
+                    <!-- Parking Lot -->
+                    <div class="minute-section">
+                        <div class="section-title">
+                            <span>ðŸ›‘</span> Parking Lot
+                        </div>
+                        <div class="section-content">
+                            <p style="color: #666; margin-bottom: 15px;">Unrelated topics or deep-dive issues delayed to preserve the meeting schedule.</p>
+                            
+                            <div id="parkingLotList">
+                                <div class="agenda-item" style="border-left-color: #ff9800;">
+                                    <div class="field-group">
+                                        <input type="text" class="field-input" placeholder="Topic A âž” Action: [Name] to schedule a 10-minute follow-up">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button class="add-btn" onclick="addParkingLotItem()">+ Add Parking Lot Item</button>
+                        </div>
+                    </div>
+
+                    <!-- Action Items & Decisions -->
+                    <div class="minute-section">
+                        <div class="section-title">
+                            <span>ðŸš€</span> Action Items & Decisions
+                        </div>
+                        <div class="section-content">
+                            <!-- Key Decisions -->
+                            <div style="margin-bottom: 30px;">
+                                <h4 style="margin-bottom: 15px; color: #333;">ðŸŽ¯ Key Decisions Made</h4>
+                                <div id="decisionsList">
+                                    <div class="field-group">
+                                        <input type="text" class="field-input" placeholder="Decision 1: [e.g., Approved the $5,000 budget reallocation for marketing]">
+                                    </div>
+                                    <div class="field-group">
+                                        <input type="text" class="field-input" placeholder="Decision 2: [e.g., Delayed the product launch date to November 1st]">
+                                    </div>
+                                </div>
+                                <button class="add-btn" onclick="addDecision()">+ Add Decision</button>
+                            </div>
+
+                            <!-- Task Tracker -->
+                            <div>
+                                <h4 style="margin-bottom: 15px; color: #333;">ðŸ“‹ Task Tracker</h4>
+                                <table class="data-table" id="taskTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Task Description</th>
+                                            <th>Owner</th>
+                                            <th>Due Date</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><input type="text" class="field-input" placeholder="Update project roadmap with new timeline"></td>
+                                            <td><input type="text" class="field-input" placeholder="Name"></td>
+                                            <td><input type="date" class="field-input"></td>
+                                            <td>
+                                                <select class="popup-select">
+                                                    <option>Not Started</option>
+                                                    <option>In Progress</option>
+                                                    <option>Completed</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <button class="action-btn edit">Edit</button>
+                                                <button class="action-btn delete">Delete</button>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><input type="text" class="field-input" placeholder="Send updated API contract to the client"></td>
+                                            <td><input type="text" class="field-input" placeholder="Name"></td>
+                                            <td><input type="date" class="field-input"></td>
+                                            <td>
+                                                <select class="popup-select">
+                                                    <option>Not Started</option>
+                                                    <option selected>In Progress</option>
+                                                    <option>Completed</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <button class="action-btn edit">Edit</button>
+                                                <button class="action-btn delete">Delete</button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <button class="add-btn" onclick="addTask()">+ Add Task</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1237,3 +2083,289 @@
 
     <!-- JS Inclusions -->
     <script src="js/member.js?v=2.2"></script>
+    
+    <!-- Meeting Center JavaScript -->
+    <script>
+        // Features storage
+        let features = [];
+        let deletedFeatures = [];
+
+        // Toggle dropdown
+        function toggleDropdown(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            const allDropdowns = document.querySelectorAll('.dropdown');
+            
+            allDropdowns.forEach(d => {
+                if (d.id !== dropdownId) {
+                    d.classList.remove('active');
+                }
+            });
+            
+            dropdown.classList.toggle('active');
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.dropdown')) {
+                document.querySelectorAll('.dropdown').forEach(d => {
+                    d.classList.remove('active');
+                });
+            }
+        });
+
+        // Member select change
+        document.getElementById('memberSelect').addEventListener('change', function() {
+            const individualSection = document.getElementById('individualMemberSection');
+            if (this.value === 'individual') {
+                individualSection.style.display = 'block';
+            } else {
+                individualSection.style.display = 'none';
+            }
+        });
+
+        // Submit meeting link
+        function submitMeetingLink() {
+            const memberSelect = document.getElementById('memberSelect').value;
+            const meetingLink = document.getElementById('meetingLink').value;
+            
+            if (!meetingLink) {
+                alert('Please enter a meeting link');
+                return;
+            }
+
+            let selectedMembers = [];
+            if (memberSelect === 'all') {
+                selectedMembers = ['John Doe', 'Jane Smith', 'Mike Johnson'];
+            } else {
+                document.querySelectorAll('.member-checkbox:checked').forEach(checkbox => {
+                    selectedMembers.push(checkbox.nextElementSibling.textContent);
+                });
+            }
+
+            if (selectedMembers.length === 0) {
+                alert('Please select at least one member');
+                return;
+            }
+
+            alert(`Meeting link submitted to: ${selectedMembers.join(', ')}\nLink: ${meetingLink}`);
+            toggleDropdown('shareDropdown');
+        }
+
+        // Download minute
+        function downloadMinute() {
+            alert('Downloading minute as PDF...');
+        }
+
+        // View invitations
+        function viewInvitations() {
+            alert('Opening invitation management...');
+        }
+
+        // Show feature popup
+        function showFeaturePopup() {
+            document.getElementById('featurePopup').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+            toggleDropdown('menuDropdown');
+        }
+
+        // Close feature popup
+        function closeFeaturePopup() {
+            document.getElementById('featurePopup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        // Add feature
+        function addFeature() {
+            const featureInput = document.getElementById('featureInput').value;
+            const featureNotes = document.getElementById('featureNotes').value;
+            
+            if (!featureInput) {
+                alert('Please enter a feature');
+                return;
+            }
+
+            features.push({
+                id: Date.now(),
+                text: featureInput,
+                notes: featureNotes,
+                deleted: false
+            });
+
+            document.getElementById('featureInput').value = '';
+            document.getElementById('featureNotes').value = '';
+            
+            alert('Feature added successfully!');
+            closeFeaturePopup();
+        }
+
+        // Show all features
+        function showAllFeatures() {
+            const container = document.getElementById('featureListContainer');
+            container.innerHTML = '';
+
+            features.forEach(feature => {
+                const item = document.createElement('div');
+                item.className = `feature-item ${feature.deleted ? 'deleted' : ''}`;
+                item.innerHTML = `
+                    <span class="feature-text">${feature.text}</span>
+                    <div class="feature-actions">
+                        ${feature.deleted 
+                            ? `<button class="action-btn restore" onclick="restoreFeature(${feature.id})">Restore</button>`
+                            : `<button class="action-btn delete" onclick="deleteFeature(${feature.id})">Delete</button>`
+                        }
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+
+            document.getElementById('allFeaturesPopup').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+            toggleDropdown('menuDropdown');
+        }
+
+        // Close all features popup
+        function closeAllFeaturesPopup() {
+            document.getElementById('allFeaturesPopup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        // Delete feature
+        function deleteFeature(id) {
+            const feature = features.find(f => f.id === id);
+            if (feature) {
+                feature.deleted = true;
+                deletedFeatures.push(feature);
+                showAllFeatures();
+            }
+        }
+
+        // Restore feature
+        function restoreFeature(id) {
+            const feature = features.find(f => f.id === id);
+            if (feature) {
+                feature.deleted = false;
+                showAllFeatures();
+            }
+        }
+
+        // Show feature table
+        function showFeatureTable() {
+            alert('Opening feature data table...');
+            toggleDropdown('menuDropdown');
+        }
+
+        // More menu functions
+        function manageStructure() {
+            alert('Opening structure management...');
+            toggleDropdown('moreDropdown');
+        }
+
+        function manageRecords() {
+            alert('Opening records management...');
+            toggleDropdown('moreDropdown');
+        }
+
+        function manageTemplates() {
+            alert('Opening template management...');
+            toggleDropdown('moreDropdown');
+        }
+
+        function manageSettings() {
+            alert('Opening settings...');
+            toggleDropdown('moreDropdown');
+        }
+
+        function exportData() {
+            alert('Exporting data...');
+            toggleDropdown('moreDropdown');
+        }
+
+        // Add resource
+        function addResource() {
+            const resourceList = document.getElementById('resourceList');
+            const newItem = document.createElement('div');
+            newItem.className = 'resource-item';
+            newItem.innerHTML = `
+                <span class="resource-icon">ðŸ“Ž</span>
+                <input type="text" class="field-input" style="flex: 1;" placeholder="Add resource link or description">
+            `;
+            resourceList.appendChild(newItem);
+        }
+
+        // Add agenda item
+        function addAgendaItem() {
+            const agendaList = document.getElementById('agendaList');
+            const newItem = document.createElement('div');
+            newItem.className = 'agenda-item';
+            newItem.innerHTML = `
+                <div class="agenda-header">
+                    <input type="text" class="agenda-title field-input" style="border: none; background: transparent; padding: 0; font-weight: 600;" value="New Topic (15 Mins)">
+                    <span class="agenda-time">15 Mins</span>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Goal</label>
+                    <input type="text" class="field-input" placeholder="Enter goal">
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Notes</label>
+                    <textarea class="field-textarea" placeholder="Enter notes..."></textarea>
+                </div>
+            `;
+            agendaList.appendChild(newItem);
+        }
+
+        // Add parking lot item
+        function addParkingLotItem() {
+            const parkingLotList = document.getElementById('parkingLotList');
+            const newItem = document.createElement('div');
+            newItem.className = 'agenda-item';
+            newItem.style.borderLeftColor = '#ff9800';
+            newItem.innerHTML = `
+                <div class="field-group">
+                    <input type="text" class="field-input" placeholder="New parking lot item âž” Action: [Name] to follow up">
+                </div>
+            `;
+            parkingLotList.appendChild(newItem);
+        }
+
+        // Add decision
+        function addDecision() {
+            const decisionsList = document.getElementById('decisionsList');
+            const newItem = document.createElement('div');
+            newItem.className = 'field-group';
+            newItem.innerHTML = `
+                <input type="text" class="field-input" placeholder="Decision: [Enter decision]">
+            `;
+            decisionsList.appendChild(newItem);
+        }
+
+        // Add task
+        function addTask() {
+            const taskTable = document.getElementById('taskTable').getElementsByTagName('tbody')[0];
+            const newRow = taskTable.insertRow();
+            newRow.innerHTML = `
+                <td><input type="text" class="field-input" placeholder="Task description"></td>
+                <td><input type="text" class="field-input" placeholder="Owner"></td>
+                <td><input type="date" class="field-input"></td>
+                <td>
+                    <select class="popup-select">
+                        <option selected>Not Started</option>
+                        <option>In Progress</option>
+                        <option>Completed</option>
+                    </select>
+                </td>
+                <td>
+                    <button class="action-btn edit">Edit</button>
+                    <button class="action-btn delete">Delete</button>
+                </td>
+            `;
+        }
+
+        // Close all popups
+        function closeAllPopups() {
+            document.getElementById('featurePopup').style.display = 'none';
+            document.getElementById('allFeaturesPopup').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+    </script>
+
