@@ -132,6 +132,15 @@ Enterprise-grade email communication system with REST API wrapper for testing an
     "rejectionReason": "Insufficient funds"
   }
   ```
+- `POST /api/dashboard/member/approve` - Approve/reject member
+  ```json
+  {
+    "memberId": 1,
+    "adminId": 1,
+    "approved": true,
+    "denialReason": "Incomplete application"
+  }
+  ```
 
 ### SMS Fallback
 
