@@ -4,6 +4,7 @@
  * Enterprise-grade Automatic email reply and processing service.
  * Monitors inbox for replies and processes them automatically.
  * Features: High throughput, security, resilience, observability.
+ * New: Scheduled emails, database integration, dynamic templates.
  * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  */
 
@@ -11,6 +12,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { promisify } = require('util');
 const { EventEmitter } = require('events');
+const { Sequelize, DataTypes } = require('sequelize');
+const cron = require('node-cron');
 
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
@@ -89,6 +92,528 @@ class Logger {
 }
 
 const logger = new Logger('emailReplyService');
+
+// Database integration for real member data
+class DatabaseManager {
+  constructor() {
+    this.sequelize = null;
+    this.Member = null;
+    this.Admin = null;
+    this.Loan = null;
+    this.Meeting = null;
+    this.isConnected = false;
+  }
+
+  async connect() {
+    try {
+      this.sequelize = new Sequelize(
+        process.env.DB_NAME || 'loan_management',
+        process.env.DB_USER || 'root',
+        process.env.DB_PASS || '',
+        {
+          host: process.env.DB_HOST || 'localhost',
+          dialect: process.env.DB_DIALECT || 'mysql',
+          port: parseInt(process.env.DB_PORT) || 3306,
+          logging: (msg) => logger.debug('Database query', { message: msg }),
+          pool: {
+            max: parseInt(process.env.DB_POOL_MAX) || 10,
+            min: parseInt(process.env.DB_POOL_MIN) || 0,
+            acquire: parseInt(process.env.DB_POOL_ACQUIRE) || 30000,
+            idle: parseInt(process.env.DB_POOL_IDLE) || 10000
+          }
+        }
+      );
+
+      // Define Member model
+      this.Member = this.sequelize.define('Member', {
+        id: {
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true
+        },
+        first_name: {
+          type: DataTypes.STRING(100),
+          allowNull: false
+        },
+        last_name: {
+          type: DataTypes.STRING(100),
+          allowNull: false
+        },
+        email: {
+          type: DataTypes.STRING(255),
+          allowNull: false,
+          unique: true,
+          validate: {
+            isEmail: true
+          }
+        },
+        phone: {
+          type: DataTypes.STRING(20)
+        },
+        status: {
+          type: DataTypes.ENUM('active', 'inactive', 'pending', 'suspended'),
+          defaultValue: 'pending'
+        },
+        membership_date: {
+          type: DataTypes.DATE
+        },
+        timezone: {
+          type: DataTypes.STRING(50),
+          defaultValue: 'UTC'
+        },
+        email_preferences: {
+          type: DataTypes.JSON,
+          defaultValue: {
+            loan_updates: true,
+            meeting_notifications: true,
+            approval_alerts: true,
+            daily_summaries: true
+          }
+        }
+      }, {
+        tableName: 'members',
+        timestamps: true
+      });
+
+      // Define Admin model
+      this.Admin = this.sequelize.define('Admin', {
+        id: {
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true
+        },
+        first_name: {
+          type: DataTypes.STRING(100),
+          allowNull: false
+        },
+        last_name: {
+          type: DataTypes.STRING(100),
+          allowNull: false
+        },
+        email: {
+          type: DataTypes.STRING(255),
+          allowNull: false,
+          unique: true
+        },
+        role: {
+          type: DataTypes.ENUM('super_admin', 'admin', 'treasurer', 'secretary'),
+          defaultValue: 'admin'
+        },
+        department: {
+          type: DataTypes.STRING(100)
+        },
+        status: {
+          type: DataTypes.ENUM('active', 'inactive'),
+          defaultValue: 'active'
+        }
+      }, {
+        tableName: 'admins',
+        timestamps: true
+      });
+
+      // Define Loan model
+      this.Loan = this.sequelize.define('Loan', {
+        id: {
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true
+        },
+        member_id: {
+          type: DataTypes.INTEGER,
+          allowNull: false
+        },
+        amount: {
+          type: DataTypes.DECIMAL(15, 2),
+          allowNull: false
+        },
+        purpose: {
+          type: DataTypes.TEXT
+        },
+        status: {
+          type: DataTypes.ENUM('pending', 'approved', 'rejected', 'disbursed', 'paid'),
+          defaultValue: 'pending'
+        },
+        requested_date: {
+          type: DataTypes.DATE
+        },
+        approved_date: {
+          type: DataTypes.DATE
+        },
+        approved_by: {
+          type: DataTypes.INTEGER
+        },
+        rejection_reason: {
+          type: DataTypes.TEXT
+        }
+      }, {
+        tableName: 'loans',
+        timestamps: true
+      });
+
+      // Define Meeting model
+      this.Meeting = this.sequelize.define('Meeting', {
+        id: {
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true
+        },
+        title: {
+          type: DataTypes.STRING(255),
+          allowNull: false
+        },
+        description: {
+          type: DataTypes.TEXT
+        },
+        scheduled_date: {
+          type: DataTypes.DATE,
+          allowNull: false
+        },
+        scheduled_time: {
+          type: DataTypes.TIME,
+          allowNull: false
+        },
+        location: {
+          type: DataTypes.STRING(255)
+        },
+        status: {
+          type: DataTypes.ENUM('scheduled', 'completed', 'cancelled'),
+          defaultValue: 'scheduled'
+        },
+        created_by: {
+          type: DataTypes.INTEGER
+        }
+      }, {
+        tableName: 'meetings',
+        timestamps: true
+      });
+
+      // Set up model associations
+      this.Loan.belongsTo(this.Member, { foreignKey: 'member_id', as: 'member' });
+      this.Member.hasMany(this.Loan, { foreignKey: 'member_id', as: 'loans' });
+      
+      this.Meeting.belongsTo(this.Admin, { foreignKey: 'created_by', as: 'creator' });
+      this.Admin.hasMany(this.Meeting, { foreignKey: 'created_by', as: 'meetings' });
+
+      // Test connection
+      await this.sequelize.authenticate();
+      this.isConnected = true;
+      logger.info('Database connected successfully');
+
+      return true;
+    } catch (err) {
+      logger.error('Database connection failed', { error: err.message });
+      this.isConnected = false;
+      return false;
+    }
+  }
+
+  async getAllActiveMembers() {
+    try {
+      const members = await this.Member.findAll({
+        where: { status: 'active' },
+        attributes: ['id', 'first_name', 'last_name', 'email', 'timezone', 'email_preferences']
+      });
+      return members.map(m => m.toJSON());
+    } catch (err) {
+      logger.error('Error fetching active members', { error: err.message });
+      return [];
+    }
+  }
+
+  async getMemberById(memberId) {
+    try {
+      const member = await this.Member.findByPk(memberId);
+      return member ? member.toJSON() : null;
+    } catch (err) {
+      logger.error('Error fetching member by ID', { error: err.message, memberId });
+      return null;
+    }
+  }
+
+  async getAdminById(adminId) {
+    try {
+      const admin = await this.Admin.findByPk(adminId);
+      return admin ? admin.toJSON() : null;
+    } catch (err) {
+      logger.error('Error fetching admin by ID', { error: err.message, adminId });
+      return null;
+    }
+  }
+
+  async getLoanById(loanId) {
+    try {
+      const loan = await this.Loan.findByPk(loanId, {
+        include: [{
+          model: this.Member,
+          as: 'member'
+        }]
+      });
+      return loan ? loan.toJSON() : null;
+    } catch (err) {
+      logger.error('Error fetching loan by ID', { error: err.message, loanId });
+      return null;
+    }
+  }
+
+  async getPendingLoans() {
+    try {
+      const loans = await this.Loan.findAll({
+        where: { status: 'pending' },
+        include: [{
+          model: this.Member,
+          as: 'member'
+        }]
+      });
+      return loans.map(l => l.toJSON());
+    } catch (err) {
+      logger.error('Error fetching pending loans', { error: err.message });
+      return [];
+    }
+  }
+
+  async getUpcomingMeetings() {
+    try {
+      const meetings = await this.Meeting.findAll({
+        where: { 
+          status: 'scheduled',
+          scheduled_date: { [Sequelize.Op.gte]: new Date() }
+        },
+        order: [['scheduled_date', 'ASC']]
+      });
+      return meetings.map(m => m.toJSON());
+    } catch (err) {
+      logger.error('Error fetching upcoming meetings', { error: err.message });
+      return [];
+    }
+  }
+
+  async updateLoanStatus(loanId, status, approvedBy = null, rejectionReason = null) {
+    try {
+      const updateData = { status };
+      if (approvedBy) updateData.approved_by = approvedBy;
+      if (status === 'approved') updateData.approved_date = new Date();
+      if (rejectionReason) updateData.rejection_reason = rejectionReason;
+
+      await this.Loan.update(updateData, {
+        where: { id: loanId }
+      });
+      return true;
+    } catch (err) {
+      logger.error('Error updating loan status', { error: err.message, loanId, status });
+      return false;
+    }
+  }
+
+  async getConnection() {
+    return this.sequelize;
+  }
+
+  isConnectedToDatabase() {
+    return this.isConnected;
+  }
+}
+
+const databaseManager = new DatabaseManager();
+
+// Scheduled email system with timezone awareness
+class ScheduledEmailService extends EventEmitter {
+  constructor() {
+    super();
+    this.scheduledJobs = new Map();
+    this.timezone = process.env.DEFAULT_TIMEZONE || 'UTC';
+    this.scheduleTimes = [
+      { hour: 9, minute: 0, name: 'morning_summary' },
+      { hour: 13, minute: 0, name: 'afternoon_summary' },
+      { hour: 20, minute: 0, name: 'evening_summary' }
+    ];
+  }
+
+  async initialize() {
+    logger.info('Initializing scheduled email service', { timezone: this.timezone });
+    
+    // Clear existing jobs
+    this.stopAllJobs();
+    
+    // Schedule daily emails at specified times
+    for (const schedule of this.scheduleTimes) {
+      await this.scheduleDailyEmail(schedule);
+    }
+    
+    logger.info('Scheduled email service initialized', { 
+      schedules: this.scheduleTimes.map(s => s.name) 
+    });
+  }
+
+  async scheduleDailyEmail(schedule) {
+    const cronExpression = `${schedule.minute} ${schedule.hour} * * *`;
+    
+    try {
+      const job = cron.schedule(cronExpression, async () => {
+        await this.sendDailyMemberEmails(schedule.name);
+      }, {
+        scheduled: true,
+        timezone: this.timezone
+      });
+      
+      this.scheduledJobs.set(schedule.name, job);
+      logger.info(`Scheduled ${schedule.name} at ${schedule.hour}:00`, { timezone: this.timezone });
+    } catch (err) {
+      logger.error(`Failed to schedule ${schedule.name}`, { error: err.message, schedule });
+    }
+  }
+
+  async sendDailyMemberEmails(scheduleName) {
+    const startTime = Date.now();
+    logger.info(`Starting ${scheduleName} email distribution`);
+    
+    try {
+      if (!databaseManager.isConnectedToDatabase()) {
+        logger.error('Database not connected, skipping scheduled email');
+        return;
+      }
+
+      const members = await databaseManager.getAllActiveMembers();
+      let sentCount = 0;
+      let failedCount = 0;
+
+      for (const member of members) {
+        try {
+          // Check member's email preferences
+          if (!member.email_preferences?.daily_summaries) {
+            logger.debug('Member opted out of daily summaries', { memberId: member.id });
+            continue;
+          }
+
+          // Calculate member's local time
+          const memberLocalTime = this.getMemberLocalTime(member.timezone);
+          const memberHour = memberLocalTime.getHours();
+
+          // Only send if it's appropriate time for member's timezone
+          if (this.shouldSendToMember(memberHour, scheduleName)) {
+            await this.sendPersonalizedDailyEmail(member, scheduleName);
+            sentCount++;
+          }
+        } catch (err) {
+          logger.error('Error sending daily email to member', { 
+            error: err.message, 
+            memberId: member.id 
+          });
+          failedCount++;
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      logger.info(`Completed ${scheduleName} email distribution`, { 
+        sentCount, 
+        failedCount, 
+        totalMembers: members.length,
+        duration 
+      });
+
+      this.emit('daily_email_completed', { scheduleName, sentCount, failedCount, duration });
+    } catch (err) {
+      const duration = Date.now() - startTime;
+      logger.error(`Failed to complete ${scheduleName} email distribution`, { 
+        error: err.message, 
+        duration 
+      });
+    }
+  }
+
+  getMemberLocalTime(memberTimezone) {
+    try {
+      return new Date().toLocaleString('en-US', { timeZone: memberTimezone });
+    } catch (err) {
+      return new Date(); // Fallback to system time
+    }
+  }
+
+  shouldSendToMember(memberHour, scheduleName) {
+    // Define appropriate time windows for each schedule
+    const timeWindows = {
+      morning_summary: { min: 8, max: 10 },
+      afternoon_summary: { min: 12, max: 14 },
+      evening_summary: { min: 19, max: 21 }
+    };
+
+    const window = timeWindows[scheduleName];
+    return memberHour >= window.min && memberHour <= window.max;
+  }
+
+  async sendPersonalizedDailyEmail(member, scheduleName) {
+    const { sendEmail } = require('./emailService');
+    
+    // Get member's loan status
+    const pendingLoans = await databaseManager.getPendingLoansByMember(member.id);
+    const upcomingMeetings = await databaseManager.getUpcomingMeetingsForMember(member.id);
+    
+    const subject = this.getDailySubject(scheduleName);
+    const body = generateDailySummaryEmail(member, pendingLoans, upcomingMeetings, scheduleName);
+    
+    await sendEmail(member.email, subject, body);
+    logger.info('Daily email sent to member', { 
+      memberId: member.id, 
+      email: member.email,
+      scheduleName 
+    });
+  }
+
+  getDailySubject(scheduleName) {
+    const subjects = {
+      morning_summary: 'ðŸŒ… Morning Loan Management Summary',
+      afternoon_summary: 'â˜€ï¸ Afternoon Loan Management Update',
+      evening_summary: 'ðŸŒ™ Evening Loan Management Summary'
+    };
+    return subjects[scheduleName] || 'Daily Loan Management Summary';
+  }
+
+  stopAllJobs() {
+    for (const [name, job] of this.scheduledJobs) {
+      job.stop();
+      logger.info(`Stopped scheduled job: ${name}`);
+    }
+    this.scheduledJobs.clear();
+  }
+
+  getScheduledJobs() {
+    return Array.from(this.scheduledJobs.keys());
+  }
+}
+
+// Extend DatabaseManager with member-specific methods
+DatabaseManager.prototype.getPendingLoansByMember = async function(memberId) {
+  try {
+    const loans = await this.Loan.findAll({
+      where: { 
+        member_id: memberId,
+        status: 'pending'
+      }
+    });
+    return loans.map(l => l.toJSON());
+  } catch (err) {
+    logger.error('Error fetching pending loans for member', { error: err.message, memberId });
+    return [];
+  }
+};
+
+DatabaseManager.prototype.getUpcomingMeetingsForMember = async function(memberId) {
+  try {
+    const meetings = await this.Meeting.findAll({
+      where: { 
+        status: 'scheduled',
+        scheduled_date: { [Sequelize.Op.gte]: new Date() }
+      },
+      order: [['scheduled_date', 'ASC']],
+      limit: 5
+    });
+    return meetings.map(m => m.toJSON());
+  } catch (err) {
+    logger.error('Error fetching upcoming meetings for member', { error: err.message, memberId });
+    return [];
+  }
+};
+
+const scheduledEmailService = new ScheduledEmailService();
 
 // Secure credential management
 class CredentialManager {
@@ -945,6 +1470,852 @@ function generateLoanReply(email) {
 }
 
 /**
+ * NEW: Generate loan approval email with database information
+ */
+async function generateLoanApprovalEmail(loanId, adminId) {
+  try {
+    const loan = await databaseManager.getLoanById(loanId);
+    const admin = await databaseManager.getAdminById(adminId);
+    
+    if (!loan || !admin) {
+      logger.error('Failed to generate loan approval email - missing data', { loanId, adminId });
+      return null;
+    }
+
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    const approvedDate = new Date().toLocaleString();
+    
+    const adminName = `${admin.first_name} ${admin.last_name}`;
+    const memberName = `${loan.member.first_name} ${loan.member.last_name}`;
+    const loanAmount = parseFloat(loan.amount).toLocaleString();
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loan Approval Confirmation</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .status { display: inline-block; background: #dcfce7; color: #166534; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; }
+    .amount { font-size: 28px; font-weight: 700; color: #059669; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>âœ… Loan Approval Confirmed</h1>
+      <p>Congratulations, ${memberName}!</p>
+    </div>
+    <div class="body">
+      <h2>Your Loan Has Been Approved</h2>
+      <p>We are pleased to inform you that your loan application has been approved by our administration team.</p>
+      
+      <div class="info-box">
+        <div style="margin-bottom: 16px;">
+          <strong>Loan Amount:</strong>
+          <div class="amount">$${loanAmount}</div>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Application Date:</strong><br>
+          ${new Date(loan.requested_date).toLocaleDateString()}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Approved By:</strong><br>
+          ${adminName}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Approval Date:</strong><br>
+          ${approvedDate}
+        </div>
+        
+        <div>
+          <strong>Status:</strong><br>
+          <span class="status">APPROVED</span>
+        </div>
+      </div>
+      
+      <p>Your loan will be disbursed within 2-3 business days. Please ensure your bank details are up to date in your dashboard.</p>
+      
+      <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>âš ï¸ Important:</strong> Please review the loan terms and conditions in your dashboard before accepting the disbursement.
+      </div>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span><br>
+        <strong>Reference:</strong> #LN-${loanId}
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated message. For inquiries, please contact your administrator.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    logger.info('Generated loan approval email', { trackingId, loanId, adminId });
+    return { html, subject: `âœ… Loan Approved - $${loanAmount}`, trackingId };
+  } catch (err) {
+    logger.error('Error generating loan approval email', { error: err.message, loanId, adminId });
+    return null;
+  }
+}
+
+/**
+ * NEW: Generate loan denial email with database information
+ */
+async function generateLoanDenialEmail(loanId, adminId, rejectionReason) {
+  try {
+    const loan = await databaseManager.getLoanById(loanId);
+    const admin = await databaseManager.getAdminById(adminId);
+    
+    if (!loan || !admin) {
+      logger.error('Failed to generate loan denial email - missing data', { loanId, adminId });
+      return null;
+    }
+
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    const deniedDate = new Date().toLocaleString();
+    
+    const adminName = `${admin.first_name} ${admin.last_name}`;
+    const memberName = `${loan.member.first_name} ${loan.member.last_name}`;
+    const loanAmount = parseFloat(loan.amount).toLocaleString();
+    const reason = sanitizeInput(rejectionReason || 'No specific reason provided');
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loan Application Update</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .status { display: inline-block; background: #fee2e2; color: #991b1b; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; }
+    .amount { font-size: 28px; font-weight: 700; color: #dc2626; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .reason-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>âŒ Loan Application Update</h1>
+      <p>Dear ${memberName}</p>
+    </div>
+    <div class="body">
+      <h2>Your Loan Application Was Not Approved</h2>
+      <p>We regret to inform you that your loan application has been reviewed and could not be approved at this time.</p>
+      
+      <div class="info-box">
+        <div style="margin-bottom: 16px;">
+          <strong>Requested Amount:</strong>
+          <div class="amount">$${loanAmount}</div>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Application Date:</strong><br>
+          ${new Date(loan.requested_date).toLocaleDateString()}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Reviewed By:</strong><br>
+          ${adminName}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Review Date:</strong><br>
+          ${deniedDate}
+        </div>
+        
+        <div>
+          <strong>Status:</strong><br>
+          <span class="status">NOT APPROVED</span>
+        </div>
+      </div>
+      
+      <div class="reason-box">
+        <strong>Reason for Decision:</strong><br>
+        ${reason}
+      </div>
+      
+      <p>You may reapply after 30 days from the original application date. We encourage you to review our loan guidelines and ensure all requirements are met before reapplying.</p>
+      
+      <p>If you believe this decision was made in error, please contact your administrator directly to discuss your application.</p>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span><br>
+        <strong>Reference:</strong> #LN-${loanId}
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated message. For appeals or inquiries, please contact your administrator.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    logger.info('Generated loan denial email', { trackingId, loanId, adminId });
+    return { html, subject: `âŒ Loan Application Update - $${loanAmount}`, trackingId };
+  } catch (err) {
+    logger.error('Error generating loan denial email', { error: err.message, loanId, adminId });
+    return null;
+  }
+}
+
+/**
+ * NEW: Generate meeting scheduled email with database information
+ */
+async function generateMeetingScheduledEmail(meetingId, adminId) {
+  try {
+    const meeting = await databaseManager.getMeetingById(meetingId);
+    const admin = await databaseManager.getAdminById(adminId);
+    
+    if (!meeting || !admin) {
+      logger.error('Failed to generate meeting email - missing data', { meetingId, adminId });
+      return null;
+    }
+
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    
+    const adminName = `${admin.first_name} ${admin.last_name}`;
+    const meetingDate = new Date(meeting.scheduled_date).toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const meetingTime = meeting.scheduled_time;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meeting Scheduled</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .calendar { background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }
+    .date-display { font-size: 24px; font-weight: 700; color: #7c3aed; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>ðŸ“… Meeting Scheduled</h1>
+      <p>You're invited to attend</p>
+    </div>
+    <div class="body">
+      <h2>${sanitizeInput(meeting.title)}</h2>
+      <p>${sanitizeInput(meeting.description || 'Important meeting regarding loan management matters.')}</p>
+      
+      <div class="calendar">
+        <div class="date-display">${meetingDate}</div>
+        <div style="font-size: 18px; margin-top: 8px;">${meetingTime}</div>
+      </div>
+      
+      <div class="info-box">
+        <div style="margin-bottom: 16px;">
+          <strong>Location:</strong><br>
+          ${sanitizeInput(meeting.location || 'TBD - Will be announced')}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Organized By:</strong><br>
+          ${adminName}
+        </div>
+        
+        <div>
+          <strong>Meeting ID:</strong><br>
+          #MT-${meetingId}
+        </div>
+      </div>
+      
+      <p>Please mark your calendar and ensure you attend this important meeting. Your participation is valued and important for our collective decision-making process.</p>
+      
+      <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>ðŸ“ Action Required:</strong> Please confirm your attendance by responding to this email or through your dashboard.
+      </div>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span>
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated message. For meeting-related inquiries, please contact the organizer.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    logger.info('Generated meeting scheduled email', { trackingId, meetingId, adminId });
+    return { html, subject: `ðŸ“… Meeting Scheduled: ${sanitizeInput(meeting.title)}`, trackingId };
+  } catch (err) {
+    logger.error('Error generating meeting scheduled email', { error: err.message, meetingId, adminId });
+    return null;
+  }
+}
+
+/**
+ * NEW: Generate emergency email notification
+ */
+async function generateEmergencyEmail(emergencyType, message, recipientName) {
+  try {
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    const emergencyDate = new Date().toLocaleString();
+    
+    const emergencyTypes = {
+      urgent: { icon: 'ðŸš¨', color: '#dc2626', title: 'URGENT NOTIFICATION' },
+      critical: { icon: 'âš ï¸', color: '#f59e0b', title: 'CRITICAL ALERT' },
+      emergency: { icon: 'ðŸ†˜', color: '#ef4444', title: 'EMERGENCY NOTIFICATION' }
+    };
+    
+    const type = emergencyTypes[emergencyType] || emergencyTypes.urgent;
+    const sanitizedMessage = sanitizeInput(message);
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${type.title}</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, ${type.color} 0%, #991b1b 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+    .emergency-box { background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px; padding: 24px; margin: 20px 0; }
+    .alert { display: inline-block; background: #fee2e2; color: #991b1b; padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>${type.icon} ${type.title}</h1>
+      <p>Immediate Attention Required</p>
+    </div>
+    <div class="body">
+      <h2>Dear ${sanitizeInput(recipientName)}</h2>
+      
+      <div class="emergency-box">
+        <div style="margin-bottom: 16px;">
+          <span class="alert">âš ï¸ URGENT</span>
+        </div>
+        <p style="font-size: 16px; font-weight: 500;">${sanitizedMessage}</p>
+      </div>
+      
+      <p>This message requires your immediate attention. Please take appropriate action as soon as possible.</p>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Issued:</strong> ${emergencyDate}<br>
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span>
+      </div>
+      
+      <p><strong>ðŸ“ž Emergency Contact:</strong> Please reach out to your administrator immediately if you have questions or require assistance.</p>
+    </div>
+    <div class="footer">
+      <p>This is an automated emergency notification. Please act accordingly.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    logger.info('Generated emergency email', { trackingId, emergencyType });
+    return { html, subject: `${type.icon} ${type.title} - Immediate Action Required`, trackingId };
+  } catch (err) {
+    logger.error('Error generating emergency email', { error: err.message, emergencyType });
+    return null;
+  }
+}
+
+/**
+ * NEW: Generate daily summary email with personalized database content
+ */
+function generateDailySummaryEmail(member, pendingLoans, upcomingMeetings, scheduleName) {
+  const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+  const currentYear = new Date().getFullYear();
+  const memberName = `${member.first_name} ${member.last_name}`;
+  const greeting = getGreeting(scheduleName);
+  
+  // Ensure pendingLoans is an array
+  const loans = Array.isArray(pendingLoans) ? pendingLoans : [];
+  // Ensure upcomingMeetings is an array
+  const meetings = Array.isArray(upcomingMeetings) ? upcomingMeetings : [];
+  
+  const pendingLoansHtml = loans.length > 0 ? `
+    <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <h3 style="margin-top: 0;">ðŸ“‹ Pending Loan Applications</h3>
+      ${loans.map(loan => `
+        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #fcd34d;">
+          <strong>Amount:</strong> $${parseFloat(loan.amount).toLocaleString()}<br>
+          <strong>Applied:</strong> ${new Date(loan.requested_date).toLocaleDateString()}<br>
+          <strong>Status:</strong> <span style="color: #f59e0b; font-weight: 600;">Pending Review</span>
+        </div>
+      `).join('')}
+    </div>
+  ` : `
+    <div style="background: #dcfce7; border: 1px solid #86efac; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <h3 style="margin-top: 0;">âœ… No Pending Loan Applications</h3>
+      <p>You have no pending loan applications at this time.</p>
+    </div>
+  `;
+
+  const meetingsHtml = meetings.length > 0 ? `
+    <div style="background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <h3 style="margin-top: 0;">ðŸ“… Upcoming Meetings</h3>
+      ${meetings.map(meeting => `
+        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #c4b5fd;">
+          <strong>${sanitizeInput(meeting.title)}</strong><br>
+          <strong>Date:</strong> ${new Date(meeting.scheduled_date).toLocaleDateString()} at ${meeting.scheduled_time}<br>
+          <strong>Location:</strong> ${sanitizeInput(meeting.location || 'TBD')}
+        </div>
+      `).join('')}
+    </div>
+  ` : `
+    <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <h3 style="margin-top: 0;">ðŸ“… No Upcoming Meetings</h3>
+      <p>No meetings are currently scheduled.</p>
+    </div>
+  `;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Loan Management Summary</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #1a3a5c 0%, #2563eb 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+    .quick-actions { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>ðŸ¦ Loan Management System</h1>
+      <p>${greeting}, ${memberName}!</p>
+    </div>
+    <div class="body">
+      <h2>Your Daily Summary</h2>
+      <p>Here's your personalized loan management update for today.</p>
+      
+      ${pendingLoansHtml}
+      ${meetingsHtml}
+      
+      <div class="quick-actions">
+        <h3 style="margin-top: 0;">âš¡ Quick Actions</h3>
+        <ul style="padding-left: 20px; margin: 0;">
+          <li><a href="#" style="color: #2563eb; text-decoration: none;">View Your Dashboard</a></li>
+          <li><a href="#" style="color: #2563eb; text-decoration: none;">Apply for New Loan</a></li>
+          <li><a href="#" style="color: #2563eb; text-decoration: none;">Check Contribution Status</a></li>
+          <li><a href="#" style="color: #2563eb; text-decoration: none;">View Meeting Schedule</a></li>
+        </ul>
+      </div>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span><br>
+        <strong>Generated:</strong> ${new Date().toLocaleString()}
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated daily summary. Email preferences can be updated in your dashboard.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  logger.debug('Generated daily summary email', { trackingId, memberId: member.id, scheduleName });
+  return html;
+}
+
+function getGreeting(scheduleName) {
+  const greetings = {
+    morning_summary: 'Good Morning',
+    afternoon_summary: 'Good Afternoon',
+    evening_summary: 'Good Evening'
+  };
+  return greetings[scheduleName] || 'Hello';
+}
+
+/**
+ * NEW: Dashboard integration endpoints for email requests
+ */
+class DashboardEmailService {
+  constructor() {
+    this.pendingRequests = new Map();
+    this.requestQueue = new Map();
+  }
+
+  /**
+   * Request loan approval from dashboard
+   */
+  async requestLoanApproval(memberId, loanData) {
+    const requestId = crypto.randomBytes(16).toString('hex');
+    
+    try {
+      // Store request in database
+      const loan = await databaseManager.Loan.create({
+        member_id: memberId,
+        amount: loanData.amount,
+        purpose: loanData.purpose,
+        status: 'pending',
+        requested_date: new Date()
+      });
+
+      this.pendingRequests.set(requestId, {
+        type: 'loan_approval',
+        loanId: loan.id,
+        memberId: memberId,
+        timestamp: Date.now()
+      });
+
+      // Notify admins about new loan request
+      await this.notifyAdminsOfNewLoan(loan.id, memberId);
+
+      logger.info('Loan approval requested from dashboard', { requestId, loanId: loan.id, memberId });
+      return { success: true, requestId, loanId: loan.id };
+    } catch (err) {
+      logger.error('Failed to request loan approval', { error: err.message, memberId });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Notify admins about new loan requests
+   */
+  async notifyAdminsOfNewLoan(loanId, memberId) {
+    try {
+      const loan = await databaseManager.getLoanById(loanId);
+      const member = await databaseManager.getMemberById(memberId);
+      const admins = await databaseManager.getAllAdmins();
+
+      for (const admin of admins) {
+        const notificationEmail = generateAdminLoanNotificationEmail(loan, member, admin);
+        await this.sendEmailToAdmin(admin.email, notificationEmail.subject, notificationEmail.html);
+      }
+
+      logger.info('Admins notified of new loan request', { loanId, adminCount: admins.length });
+    } catch (err) {
+      logger.error('Failed to notify admins of new loan', { error: err.message, loanId });
+    }
+  }
+
+  /**
+   * Send email to admin
+   */
+  async sendEmailToAdmin(adminEmail, subject, html) {
+    const { sendEmail } = require('./emailService');
+    await sendEmail(adminEmail, subject, html);
+  }
+
+  /**
+   * Process loan approval (admin action)
+   */
+  async processLoanApproval(loanId, adminId, approved, rejectionReason = null) {
+    try {
+      const loan = await databaseManager.getLoanById(loanId);
+      const admin = await databaseManager.getAdminById(adminId);
+
+      if (!loan || !admin) {
+        throw new Error('Loan or admin not found');
+      }
+
+      const status = approved ? 'approved' : 'rejected';
+      const success = await databaseManager.updateLoanStatus(loanId, status, adminId, rejectionReason);
+
+      if (success) {
+        // Send notification email to member
+        if (approved) {
+          const approvalEmail = await generateLoanApprovalEmail(loanId, adminId);
+          if (approvalEmail) {
+            await this.sendEmailToMember(loan.member.email, approvalEmail.subject, approvalEmail.html);
+          }
+        } else {
+          const denialEmail = await generateLoanDenialEmail(loanId, adminId, rejectionReason);
+          if (denialEmail) {
+            await this.sendEmailToMember(loan.member.email, denialEmail.subject, denialEmail.html);
+          }
+        }
+
+        logger.info('Loan approval processed', { loanId, adminId, status });
+        return { success: true, status };
+      } else {
+        throw new Error('Failed to update loan status');
+      }
+    } catch (err) {
+      logger.error('Failed to process loan approval', { error: err.message, loanId, adminId });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Send email to member
+   */
+  async sendEmailToMember(memberEmail, subject, html) {
+    const { sendEmail } = require('./emailService');
+    await sendEmail(memberEmail, subject, html);
+  }
+
+  /**
+   * Create and schedule meeting
+   */
+  async createMeeting(meetingData, adminId) {
+    try {
+      const meeting = await databaseManager.Meeting.create({
+        title: meetingData.title,
+        description: meetingData.description,
+        scheduled_date: meetingData.scheduled_date,
+        scheduled_time: meetingData.scheduled_time,
+        location: meetingData.location,
+        status: 'scheduled',
+        created_by: adminId
+      });
+
+      // Notify all members about new meeting
+      await this.notifyMembersOfMeeting(meeting.id, adminId);
+
+      logger.info('Meeting created and notifications sent', { meetingId: meeting.id, adminId });
+      return { success: true, meetingId: meeting.id };
+    } catch (err) {
+      logger.error('Failed to create meeting', { error: err.message, adminId });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Notify members about new meeting
+   */
+  async notifyMembersOfMeeting(meetingId, adminId) {
+    try {
+      const meeting = await databaseManager.getMeetingById(meetingId);
+      const admin = await databaseManager.getAdminById(adminId);
+      const members = await databaseManager.getAllActiveMembers();
+
+      for (const member of members) {
+        if (member.email_preferences?.meeting_notifications) {
+          const meetingEmail = await generateMeetingScheduledEmail(meetingId, adminId);
+          if (meetingEmail) {
+            await this.sendEmailToMember(member.email, meetingEmail.subject, meetingEmail.html);
+          }
+        }
+      }
+
+      logger.info('Members notified of new meeting', { meetingId, memberCount: members.length });
+    } catch (err) {
+      logger.error('Failed to notify members of meeting', { error: err.message, meetingId });
+    }
+  }
+
+  /**
+   * Send emergency notification
+   */
+  async sendEmergencyNotification(emergencyType, message, targetRecipients = 'all') {
+    try {
+      let recipients = [];
+
+      if (targetRecipients === 'all') {
+        recipients = await databaseManager.getAllActiveMembers();
+      } else if (targetRecipients === 'admins') {
+        recipients = await databaseManager.getAllAdmins();
+      } else if (Array.isArray(targetRecipients)) {
+        recipients = targetRecipients;
+      }
+
+      for (const recipient of recipients) {
+        const recipientName = recipient.first_name ? `${recipient.first_name} ${recipient.last_name}` : recipient.email;
+        const emergencyEmail = await generateEmergencyEmail(emergencyType, message, recipientName);
+        
+        if (emergencyEmail) {
+          await this.sendEmailToMember(recipient.email, emergencyEmail.subject, emergencyEmail.html);
+        }
+      }
+
+      logger.info('Emergency notification sent', { emergencyType, recipientCount: recipients.length });
+      return { success: true, recipientCount: recipients.length };
+    } catch (err) {
+      logger.error('Failed to send emergency notification', { error: err.message, emergencyType });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Get pending email requests
+   */
+  getPendingRequests() {
+    return Array.from(this.pendingRequests.values());
+  }
+
+  /**
+   * Clear processed requests
+   */
+  clearProcessedRequest(requestId) {
+    this.pendingRequests.delete(requestId);
+  }
+}
+
+// Extend DatabaseManager with admin methods
+DatabaseManager.prototype.getAllAdmins = async function() {
+  try {
+    const admins = await this.Admin.findAll({
+      where: { status: 'active' }
+    });
+    return admins.map(a => a.toJSON());
+  } catch (err) {
+    logger.error('Error fetching all admins', { error: err.message });
+    return [];
+  }
+};
+
+DatabaseManager.prototype.getMeetingById = async function(meetingId) {
+  try {
+    const meeting = await this.Meeting.findByPk(meetingId);
+    return meeting ? meeting.toJSON() : null;
+  } catch (err) {
+    logger.error('Error fetching meeting by ID', { error: err.message, meetingId });
+    return null;
+  }
+};
+
+/**
+ * Generate admin notification email for new loan request
+ */
+function generateAdminLoanNotificationEmail(loan, member, admin) {
+  const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+  const currentYear = new Date().getFullYear();
+  const adminName = `${admin.first_name} ${admin.last_name}`;
+  const memberName = `${member.first_name} ${member.last_name}`;
+  const loanAmount = parseFloat(loan.amount).toLocaleString();
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Loan Request</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .amount { font-size: 28px; font-weight: 700; color: #d97706; }
+    .action-buttons { margin: 20px 0; }
+    .btn { display: inline-block; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-right: 10px; }
+    .btn-approve { background: #059669; color: white; }
+    .btn-reject { background: #dc2626; color: white; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>ðŸ“‹ New Loan Request</h1>
+      <p>Review Required</p>
+    </div>
+    <div class="body">
+      <h2>Dear ${adminName}</h2>
+      <p>A new loan application requires your review and approval.</p>
+      
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <div style="margin-bottom: 16px;">
+          <strong>Applicant:</strong><br>
+          ${memberName}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Loan Amount:</strong>
+          <div class="amount">$${loanAmount}</div>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Purpose:</strong><br>
+          ${sanitizeInput(loan.purpose || 'Not specified')}
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Application Date:</strong><br>
+          ${new Date(loan.requested_date).toLocaleString()}
+        </div>
+        
+        <div>
+          <strong>Loan ID:</strong><br>
+          #LN-${loan.id}
+        </div>
+      </div>
+      
+      <div class="action-buttons">
+        <a href="#" class="btn btn-approve">âœ… Approve Loan</a>
+        <a href="#" class="btn btn-reject">âŒ Reject Loan</a>
+      </div>
+      
+      <p>Please review this application in your dashboard and take appropriate action.</p>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span>
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated notification. Please review the application in your dashboard.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  logger.debug('Generated admin loan notification email', { trackingId, loanId: loan.id });
+  return { html, subject: `ðŸ“‹ New Loan Request: $${loanAmount} - ${memberName}`, trackingId };
+}
+
+const dashboardEmailService = new DashboardEmailService();
+
+/**
  * Generate contribution-related auto-reply with enhanced security
  */
 function generateContributionReply(email) {
@@ -1100,7 +2471,7 @@ function generateGenericReply(email) {
 /**
  * Start the email reply service with enterprise-grade features
  */
-function startEmailReplyService() {
+async function startEmailReplyService() {
   if (service.isServiceRunning) {
     logger.warn('Service is already running');
     return false;
@@ -1117,12 +2488,32 @@ function startEmailReplyService() {
   }
   
   logger.info('Starting automatic email reply service...', {
-    version: '2.0.0-enterprise',
-    features: ['circuit-breaker', 'message-queue', 'performance-monitoring', 'credential-encryption']
+    version: '3.0.0-enterprise',
+    features: [
+      'circuit-breaker', 
+      'message-queue', 
+      'performance-monitoring', 
+      'credential-encryption',
+      'database-integration',
+      'scheduled-emails',
+      'dynamic-templates',
+      'dashboard-integration'
+    ]
   });
   
   service.isServiceRunning = true;
   service.startTime = Date.now();
+  
+  // Initialize database connection
+  const dbConnected = await databaseManager.connect();
+  if (!dbConnected) {
+    logger.warn('Database connection failed, some features will be limited');
+  }
+  
+  // Initialize scheduled email service
+  if (dbConnected) {
+    await scheduledEmailService.initialize();
+  }
   
   const success = initImap();
   if (!success) {
@@ -1132,7 +2523,10 @@ function startEmailReplyService() {
   }
   
   service.emit('started');
-  logger.info('Email reply service started successfully');
+  logger.info('Email reply service started successfully', { 
+    databaseConnected: dbConnected,
+    scheduledEmails: dbConnected ? scheduledEmailService.getScheduledJobs() : []
+  });
   return true;
 }
 
@@ -1267,17 +2661,40 @@ process.on('SIGINT', () => {
 
 // Export enterprise-grade API
 module.exports = {
+  // Core service functions
   startEmailReplyService,
   stopEmailReplyService,
   getServiceStatus,
   getHealthCheck,
   processIncomingEmail,
   handleAutoReply,
+  
   // Enterprise features
   service,
   logger,
   credentialManager,
   circuitBreaker: service.circuitBreaker,
   messageQueue: service.messageQueue,
-  performanceMonitor: service.performanceMonitor
+  performanceMonitor: service.performanceMonitor,
+  
+  // Database integration
+  databaseManager,
+  
+  // Scheduled email service
+  scheduledEmailService,
+  
+  // Dashboard integration
+  dashboardEmailService,
+  
+  // New email generation functions
+  generateLoanApprovalEmail,
+  generateLoanDenialEmail,
+  generateMeetingScheduledEmail,
+  generateEmergencyEmail,
+  generateDailySummaryEmail,
+  
+  // Helper functions
+  sanitizeInput,
+  extractEmailAddress,
+  validateEmailObject
 };
