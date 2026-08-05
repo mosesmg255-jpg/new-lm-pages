@@ -4,7 +4,9 @@
  * Enterprise-grade Automatic email reply and processing service.
  * Monitors inbox for replies and processes them automatically.
  * Features: High throughput, security, resilience, observability.
- * New: Scheduled emails, database integration, dynamic templates.
+ * Enhanced: Scheduled emails, database integration, dynamic templates,
+ * email verification, contribution reminders, tracking, multi-language,
+ * attachments (PDF), SMS fallback, caching (Redis), webhooks, analytics.
  * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  */
 
@@ -14,6 +16,9 @@ const { promisify } = require('util');
 const { EventEmitter } = require('events');
 const { Sequelize, DataTypes } = require('sequelize');
 const cron = require('node-cron');
+const Redis = require('ioredis');
+const PDFDocument = require('pdfkit');
+const twilio = require('twilio');
 
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
@@ -924,6 +929,1871 @@ class SecureOTPService extends EventEmitter {
 }
 
 const secureOTPService = new SecureOTPService();
+
+// Email Verification System for New Accounts
+class EmailVerificationService extends EventEmitter {
+  constructor() {
+    super();
+    this.verificationExpiry = parseInt(process.env.VERIFICATION_EXPIRY_HOURS) || 24; // hours
+    this.resendCooldown = parseInt(process.env.VERIFICATION_RESEND_MINUTES) || 5; // minutes
+    this.resendAttempts = new Map();
+  }
+
+  /**
+   * Generate email verification token
+   */
+  generateVerificationToken() {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  /**
+   * Create verification record in database
+   */
+  async createVerificationRecord(email, token) {
+    try {
+      const VerificationRecord = databaseManager.sequelize.define('VerificationRecord', {
+        id: {
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true
+        },
+        email: {
+          type: DataTypes.STRING(255),
+          allowNull: false
+        },
+        token: {
+          type: DataTypes.STRING(64),
+          allowNull: false,
+          unique: true
+        },
+        expiresAt: {
+          type: DataTypes.DATE,
+          allowNull: false
+        },
+        verified: {
+          type: DataTypes.BOOLEAN,
+          defaultValue: false
+        },
+        verifiedAt: {
+          type: DataTypes.DATE
+        }
+      }, {
+        tableName: 'verification_records',
+        timestamps: true
+      });
+
+      await VerificationRecord.sync();
+
+      const expiresAt = new Date(Date.now() + (this.verificationExpiry * 60 * 60 * 1000));
+      
+      const record = await VerificationRecord.create({
+        email: email.toLowerCase(),
+        token: token,
+        expiresAt: expiresAt
+      });
+
+      return record.toJSON();
+    } catch (err) {
+      logger.error('Error creating verification record', { error: err.message, email });
+      throw err;
+    }
+  }
+
+  /**
+   * Send verification email
+   */
+  async sendVerificationEmail(email, memberName = null) {
+    try {
+      // Check resend cooldown
+      const lastSent = this.resendAttempts.get(email);
+      if (lastSent && Date.now() - lastSent < (this.resendCooldown * 60 * 1000)) {
+        const cooldownRemaining = Math.ceil((this.resendCooldown * 60 * 1000 - (Date.now() - lastSent)) / 1000);
+        return { 
+          success: false, 
+          error: `Please wait ${cooldownRemaining} seconds before requesting another verification email.` 
+        };
+      }
+
+      // Generate token
+      const token = this.generateVerificationToken();
+      
+      // Create verification record
+      await this.createVerificationRecord(email, token);
+      
+      // Generate verification URL
+      const verificationUrl = `${process.env.APP_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
+      
+      // Send email
+      const { sendEmail } = require('./emailService');
+      const verificationEmail = this.generateVerificationEmailTemplate(email, memberName, verificationUrl);
+      
+      await sendEmail(email, verificationEmail.subject, verificationEmail.html);
+      
+      // Update resend attempt timestamp
+      this.resendAttempts.set(email, Date.now());
+      
+      logger.info('Verification email sent', { email });
+      this.emit('verification_sent', { email, token });
+      
+      return { 
+        success: true, 
+        message: 'Verification email sent successfully.',
+        expiresAt: new Date(Date.now() + (this.verificationExpiry * 60 * 60 * 1000)).toISOString()
+      };
+    } catch (err) {
+      logger.error('Failed to send verification email', { error: err.message, email });
+      return { success: false, error: 'Failed to send verification email' };
+    }
+  }
+
+  /**
+   * Verify email token
+   */
+  async verifyEmailToken(token) {
+    try {
+      const VerificationRecord = databaseManager.sequelize.model('VerificationRecord');
+      
+      const record = await VerificationRecord.findOne({
+        where: {
+          token: token,
+          verified: false,
+          expiresAt: {
+            [Sequelize.Op.gt]: new Date()
+          }
+        }
+      });
+
+      if (!record) {
+        return { success: false, error: 'Invalid or expired verification token' };
+      }
+
+      // Mark as verified
+      await record.update({
+        verified: true,
+        verifiedAt: new Date()
+      });
+
+      // Update member status
+      await databaseManager.Member.update(
+        { status: 'active', email_verified: true, email_verified_at: new Date() },
+        { where: { email: record.email } }
+      );
+
+      logger.info('Email verified successfully', { email: record.email });
+      this.emit('email_verified', { email: record.email });
+
+      return { success: true, message: 'Email verified successfully' };
+    } catch (err) {
+      logger.error('Failed to verify email token', { error: err.message, token });
+      return { success: false, error: 'Verification failed' };
+    }
+  }
+
+  /**
+   * Generate verification email template
+   */
+  generateVerificationEmailTemplate(email, memberName, verificationUrl) {
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    const name = memberName || 'Valued Member';
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Verification</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .verify-button { 
+      display: inline-block; 
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%); 
+      color: white; 
+      padding: 16px 32px; 
+      border-radius: 8px; 
+      text-decoration: none; 
+      font-weight: 600; 
+      font-size: 16px;
+      margin: 24px 0;
+    }
+    .verify-button:hover { background: linear-gradient(135deg, #047857 0%, #059669 100%); }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>âœ‰ï¸ Verify Your Email Address</h1>
+      <p>Welcome to Loan Management System</p>
+    </div>
+    <div class="body">
+      <h2>Dear ${name},</h2>
+      <p>Thank you for registering with the Loan Management System. To complete your registration and activate your account, please verify your email address.</p>
+      
+      <div style="text-align: center;">
+        <a href="${verificationUrl}" class="verify-button">Verify Email Address</a>
+      </div>
+      
+      <p style="text-align: center; color: #64748b; font-size: 14px;">
+        Or copy and paste this link into your browser:<br>
+        <strong style="word-break: break-all; color: #059669;">${verificationUrl}</strong>
+      </p>
+      
+      <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>âš ï¸ Important:</strong>
+        <ul style="margin: 12px 0; padding-left: 20px;">
+          <li>This verification link expires in ${this.verificationExpiry} hours</li>
+          <li>If you didn't create an account, please ignore this email</li>
+          <li>For security, your account will remain inactive until verified</li>
+        </ul>
+      </div>
+      
+      <p>If you have any questions or need assistance, please contact our support team.</p>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span><br>
+        <strong>Email:</strong> ${email}
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated message. Please do not reply to this email.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    logger.debug('Generated verification email', { trackingId, email });
+    return { html, subject: 'âœ‰ï¸ Verify Your Email Address - Loan Management System', trackingId };
+  }
+
+  /**
+   * Check if email is verified
+   */
+  async isEmailVerified(email) {
+    try {
+      const member = await databaseManager.getMemberByEmail(email);
+      return member && member.email_verified === true;
+    } catch (err) {
+      logger.error('Error checking email verification status', { error: err.message, email });
+      return false;
+    }
+  }
+
+  /**
+   * Cleanup expired verification records
+   */
+  async cleanupExpiredRecords() {
+    try {
+      const VerificationRecord = databaseManager.sequelize.model('VerificationRecord');
+      
+      const deleted = await VerificationRecord.destroy({
+        where: {
+          verified: false,
+          expiresAt: {
+            [Sequelize.Op.lt]: new Date()
+          }
+        }
+      });
+
+      if (deleted > 0) {
+        logger.info('Cleaned up expired verification records', { count: deleted });
+      }
+    } catch (err) {
+      logger.error('Failed to cleanup expired verification records', { error: err.message });
+    }
+  }
+}
+
+const emailVerificationService = new EmailVerificationService();
+
+// Contribution Reminder Service
+class ContributionReminderService extends EventEmitter {
+  constructor() {
+    super();
+    this.reminderSchedule = process.env.CONTRIBUTION_REMINDER_DAY || '1'; // Day of month (1-31)
+    this.reminderTime = process.env.CONTRIBUTION_REMINDER_TIME || '09:00';
+    this.gracePeriodDays = parseInt(process.env.GRACE_PERIOD_DAYS) || 7;
+  }
+
+  /**
+   * Initialize contribution reminder scheduling
+   */
+  async initialize() {
+    const cronExpression = `0 ${this.reminderTime.split(':')[1]} ${this.reminderTime.split(':')[0]} ${this.reminderSchedule} * *`;
+    
+    try {
+      const job = cron.schedule(cronExpression, async () => {
+        await this.sendMonthlyReminders();
+      }, {
+        scheduled: true,
+        timezone: process.env.DEFAULT_TIMEZONE || 'UTC'
+      });
+
+      logger.info('Contribution reminder service initialized', { 
+        schedule: this.reminderSchedule,
+        time: this.reminderTime 
+      });
+      
+      return true;
+    } catch (err) {
+      logger.error('Failed to initialize contribution reminder service', { error: err.message });
+      return false;
+    }
+  }
+
+  /**
+   * Send monthly contribution reminders
+   */
+  async sendMonthlyReminders() {
+    try {
+      if (!databaseManager.isConnectedToDatabase()) {
+        logger.error('Database not connected, skipping contribution reminders');
+        return;
+      }
+
+      const members = await databaseManager.getAllActiveMembers();
+      let sentCount = 0;
+      let failedCount = 0;
+
+      for (const member of members) {
+        try {
+          if (member.email_preferences?.contribution_reminders) {
+            const contributionData = await this.getMemberContributionData(member.id);
+            await this.sendContributionReminderEmail(member, contributionData);
+            sentCount++;
+          }
+        } catch (err) {
+          logger.error('Failed to send contribution reminder', { error: err.message, memberId: member.id });
+          failedCount++;
+        }
+      }
+
+      logger.info('Contribution reminders completed', { sentCount, failedCount, totalMembers: members.length });
+      this.emit('reminders_completed', { sentCount, failedCount });
+    } catch (err) {
+      logger.error('Failed to send monthly reminders', { error: err.message });
+    }
+  }
+
+  /**
+   * Get member contribution data
+   */
+  async getMemberContributionData(memberId) {
+    try {
+      // This would query your contribution records
+      // For now, return mock data
+      return {
+        totalContributions: 0,
+        lastContributionDate: null,
+        pendingAmount: 100, // Example monthly contribution
+        dueDate: new Date()
+      };
+    } catch (err) {
+      logger.error('Error fetching contribution data', { error: err.message, memberId });
+      return { totalContributions: 0, lastContributionDate: null, pendingAmount: 0, dueDate: new Date() };
+    }
+  }
+
+  /**
+   * Send contribution reminder email
+   */
+  async sendContributionReminderEmail(member, contributionData) {
+    try {
+      const { sendEmail } = require('./emailService');
+      const reminderEmail = this.generateContributionReminderEmail(member, contributionData);
+      
+      await sendEmail(member.email, reminderEmail.subject, reminderEmail.html);
+      
+      logger.info('Contribution reminder sent', { memberId: member.id, email: member.email });
+    } catch (err) {
+      logger.error('Failed to send contribution reminder email', { error: err.message, memberId: member.id });
+      throw err;
+    }
+  }
+
+  /**
+   * Generate contribution reminder email template
+   */
+  generateContributionReminderEmail(member, contributionData) {
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    const memberName = `${member.first_name} ${member.last_name}`;
+    const dueDate = new Date(contributionData.dueDate).toLocaleDateString();
+    const pendingAmount = parseFloat(contributionData.pendingAmount).toLocaleString();
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contribution Reminder</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .amount { font-size: 28px; font-weight: 700; color: #d97706; }
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>ðŸ’° Monthly Contribution Reminder</h1>
+      <p>Loan Management System</p>
+    </div>
+    <div class="body">
+      <h2>Dear ${memberName},</h2>
+      <p>This is a friendly reminder that your monthly contribution for the Loan Management System is due.</p>
+      
+      <div class="info-box">
+        <div style="margin-bottom: 16px;">
+          <strong>Amount Due:</strong>
+          <div class="amount">$${pendingAmount}</div>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <strong>Due Date:</strong><br>
+          ${dueDate}
+        </div>
+        
+        <div>
+          <strong>Grace Period:</strong><br>
+          ${this.gracePeriodDays} days after due date
+        </div>
+      </div>
+      
+      <p><strong>How to Pay:</strong></p>
+      <ol style="margin: 16px 0; padding-left: 20px;">
+        <li>Log in to your dashboard</li>
+        <li>Navigate to "Contributions" section</li>
+        <li>Select your preferred payment method</li>
+        <li>Complete the payment process</li>
+      </ol>
+      
+      <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>âš ï¸ Important:</strong>
+        <ul style="margin: 12px 0; padding-left: 20px;">
+          <li>Late payments may incur fees</li>
+          <li>Contributions help maintain the loan fund</li>
+          <li>Contact us if you need payment arrangements</li>
+        </ul>
+      </div>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span><br>
+        <strong>Member ID:</strong> #${member.id}
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated reminder. Email preferences can be updated in your dashboard.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    logger.debug('Generated contribution reminder email', { trackingId, memberId: member.id });
+    return { html, subject: `ðŸ’° Monthly Contribution Reminder - Due: ${dueDate}`, trackingId };
+  }
+
+  /**
+   * Send late payment reminder
+   */
+  async sendLatePaymentReminder(member, daysOverdue) {
+    try {
+      const { sendEmail } = require('./emailService');
+      const lateEmail = this.generateLatePaymentEmail(member, daysOverdue);
+      
+      await sendEmail(member.email, lateEmail.subject, lateEmail.html);
+      
+      logger.info('Late payment reminder sent', { memberId: member.id, daysOverdue });
+    } catch (err) {
+      logger.error('Failed to send late payment reminder', { error: err.message, memberId: member.id });
+    }
+  }
+
+  /**
+   * Generate late payment email
+   */
+  generateLatePaymentEmail(member, daysOverdue) {
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    const memberName = `${member.first_name} ${member.last_name}`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Late Payment Notice</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>âš ï¸ Late Payment Notice</h1>
+      <p>Action Required</p>
+    </div>
+    <div class="body">
+      <h2>Dear ${memberName},</h2>
+      <p>We noticed that your monthly contribution is ${daysOverdue} days overdue.</p>
+      
+      <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <strong>âš ï¸ Immediate Action Required:</strong>
+        <p style="margin: 12px 0;">Please make your payment as soon as possible to avoid additional fees and potential account restrictions.</p>
+      </div>
+      
+      <p>If you're experiencing financial difficulties, please contact our support team to discuss payment arrangements.</p>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span><br>
+        <strong>Days Overdue:</strong> ${daysOverdue}
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated notice. Please contact support for assistance.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    return { html, subject: `âš ï¸ Late Payment Notice - ${daysOverdue} Days Overdue`, trackingId };
+  }
+}
+
+const contributionReminderService = new ContributionReminderService();
+
+// Email Delivery Tracking Service
+class EmailTrackingService extends EventEmitter {
+  constructor() {
+    super();
+    this.trackingData = new Map();
+    this.deliveryStats = {
+      sent: 0,
+      delivered: 0,
+      opened: 0,
+      clicked: 0,
+      bounced: 0,
+      failed: 0
+    };
+  }
+
+  /**
+   * Track email send
+   */
+  trackEmailSend(emailId, recipient, subject, trackingId) {
+    const trackingData = {
+      emailId,
+      recipient,
+      subject,
+      trackingId,
+      sentAt: new Date().toISOString(),
+      status: 'sent',
+      events: []
+    };
+
+    this.trackingData.set(trackingId, trackingData);
+    this.deliveryStats.sent++;
+
+    logger.info('Email tracked as sent', { trackingId, recipient });
+    this.emit('email_sent', trackingData);
+
+    return trackingId;
+  }
+
+  /**
+   * Track email delivery
+   */
+  trackEmailDelivery(trackingId, deliveryData = {}) {
+    const tracking = this.trackingData.get(trackingId);
+    if (!tracking) {
+      logger.warn('Tracking ID not found for delivery tracking', { trackingId });
+      return;
+    }
+
+    tracking.status = 'delivered';
+    tracking.deliveredAt = new Date().toISOString();
+    tracking.events.push({
+      type: 'delivery',
+      timestamp: new Date().toISOString(),
+      data: deliveryData
+    });
+
+    this.deliveryStats.delivered++;
+    logger.info('Email tracked as delivered', { trackingId });
+    this.emit('email_delivered', tracking);
+  }
+
+  /**
+   * Track email open
+   */
+  trackEmailOpen(trackingId, userAgent = null, ipAddress = null) {
+    const tracking = this.trackingData.get(trackingId);
+    if (!tracking) {
+      logger.warn('Tracking ID not found for open tracking', { trackingId });
+      return;
+    }
+
+    tracking.events.push({
+      type: 'open',
+      timestamp: new Date().toISOString(),
+      userAgent,
+      ipAddress
+    });
+
+    this.deliveryStats.opened++;
+    logger.info('Email tracked as opened', { trackingId });
+    this.emit('email_opened', tracking);
+  }
+
+  /**
+   * Track email click
+   */
+  trackEmailClick(trackingId, linkUrl, userAgent = null, ipAddress = null) {
+    const tracking = this.trackingData.get(trackingId);
+    if (!tracking) {
+      logger.warn('Tracking ID not found for click tracking', { trackingId });
+      return;
+    }
+
+    tracking.events.push({
+      type: 'click',
+      timestamp: new Date().toISOString(),
+      linkUrl,
+      userAgent,
+      ipAddress
+    });
+
+    this.deliveryStats.clicked++;
+    logger.info('Email tracked as clicked', { trackingId, linkUrl });
+    this.emit('email_clicked', tracking);
+  }
+
+  /**
+   * Track email bounce
+   */
+  trackEmailBounce(trackingId, bounceType, bounceReason) {
+    const tracking = this.trackingData.get(trackingId);
+    if (!tracking) {
+      logger.warn('Tracking ID not found for bounce tracking', { trackingId });
+      return;
+    }
+
+    tracking.status = 'bounced';
+    tracking.bouncedAt = new Date().toISOString();
+    tracking.bounceType = bounceType;
+    tracking.bounceReason = bounceReason;
+    tracking.events.push({
+      type: 'bounce',
+      timestamp: new Date().toISOString(),
+      bounceType,
+      bounceReason
+    });
+
+    this.deliveryStats.bounced++;
+    logger.warn('Email tracked as bounced', { trackingId, bounceType, bounceReason });
+    this.emit('email_bounced', tracking);
+  }
+
+  /**
+   * Track email failure
+   */
+  trackEmailFailure(trackingId, error) {
+    const tracking = this.trackingData.get(trackingId);
+    if (!tracking) {
+      logger.warn('Tracking ID not found for failure tracking', { trackingId });
+      return;
+    }
+
+    tracking.status = 'failed';
+    tracking.failedAt = new Date().toISOString();
+    tracking.error = error;
+    tracking.events.push({
+      type: 'failure',
+      timestamp: new Date().toISOString(),
+      error
+    });
+
+    this.deliveryStats.failed++;
+    logger.error('Email tracked as failed', { trackingId, error });
+    this.emit('email_failed', tracking);
+  }
+
+  /**
+   * Get tracking data
+   */
+  getTrackingData(trackingId) {
+    return this.trackingData.get(trackingId);
+  }
+
+  /**
+   * Get delivery statistics
+   */
+  getDeliveryStats() {
+    return {
+      ...this.deliveryStats,
+      totalTracked: this.trackingData.size,
+      deliveryRate: this.deliveryStats.sent > 0 
+        ? ((this.deliveryStats.delivered / this.deliveryStats.sent) * 100).toFixed(2) + '%'
+        : '0%',
+      openRate: this.deliveryStats.delivered > 0
+        ? ((this.deliveryStats.opened / this.deliveryStats.delivered) * 100).toFixed(2) + '%'
+        : '0%',
+      clickRate: this.deliveryStats.opened > 0
+        ? ((this.deliveryStats.clicked / this.deliveryStats.opened) * 100).toFixed(2) + '%'
+        : '0%'
+    };
+  }
+
+  /**
+   * Cleanup old tracking data
+   */
+  cleanupOldTrackingData(daysToKeep = 30) {
+    const cutoffDate = new Date(Date.now() - (daysToKeep * 24 * 60 * 60 * 1000));
+    let cleanedCount = 0;
+
+    for (const [trackingId, tracking] of this.trackingData.entries()) {
+      if (new Date(tracking.sentAt) < cutoffDate) {
+        this.trackingData.delete(trackingId);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      logger.info('Cleaned up old tracking data', { count: cleanedCount });
+    }
+
+    return cleanedCount;
+  }
+
+  /**
+   * Generate tracking pixel for email opens
+   */
+  generateTrackingPixel(trackingId) {
+    return `${process.env.APP_URL || 'http://localhost:3000'}/track/open/${trackingId}`;
+  }
+
+  /**
+   * Generate tracking URL for links
+   */
+  generateTrackingUrl(trackingId, destinationUrl) {
+    return `${process.env.APP_URL || 'http://localhost:3000'}/track/click/${trackingId}?url=${encodeURIComponent(destinationUrl)}`;
+  }
+}
+
+const emailTrackingService = new EmailTrackingService();
+
+// Multi-Language Support Service
+class MultiLanguageService extends EventEmitter {
+  constructor() {
+    super();
+    this.defaultLanguage = process.env.DEFAULT_LANGUAGE || 'en';
+    this.translations = new Map();
+    this.loadTranslations();
+  }
+
+  /**
+   * Load translations
+   */
+  loadTranslations() {
+    // English translations
+    this.translations.set('en', {
+      greeting: {
+        morning: 'Good Morning',
+        afternoon: 'Good Afternoon',
+        evening: 'Good Evening'
+      },
+      verification: {
+        subject: 'Verify Your Email Address',
+        button: 'Verify Email Address',
+        message: 'Thank you for registering with the Loan Management System.'
+      },
+      contribution: {
+        subject: 'Monthly Contribution Reminder',
+        due: 'Amount Due',
+        dueDate: 'Due Date'
+      },
+      otp: {
+        subject: 'Password Reset OTP',
+        message: 'We received a request to reset your password.'
+      },
+      common: {
+        welcome: 'Welcome',
+        thankYou: 'Thank you',
+        regards: 'Best regards',
+        support: 'For support, contact us.'
+      }
+    });
+
+    // Spanish translations
+    this.translations.set('es', {
+      greeting: {
+        morning: 'Buenos DÃ­as',
+        afternoon: 'Buenas Tardes',
+        evening: 'Buenas Noches'
+      },
+      verification: {
+        subject: 'Verifique Su Correo ElectrÃ³nico',
+        button: 'Verificar Correo ElectrÃ³nico',
+        message: 'Gracias por registrarse en el Sistema de GestiÃ³n de PrÃ©stamos.'
+      },
+      contribution: {
+        subject: 'Recordatorio de ContribuciÃ³n Mensual',
+        due: 'Monto Debido',
+        dueDate: 'Fecha de Vencimiento'
+      },
+      otp: {
+        subject: 'OTP de Restablecimiento de ContraseÃ±a',
+        message: 'Recibimos una solicitud para restablecer su contraseÃ±a.'
+      },
+      common: {
+        welcome: 'Bienvenido',
+        thankYou: 'Gracias',
+        regards: 'Saludos cordiales',
+        support: 'Para soporte, contÃ¡ctenos.'
+      }
+    });
+
+    // French translations
+    this.translations.set('fr', {
+      greeting: {
+        morning: 'Bonjour',
+        afternoon: 'Bon aprÃ¨s-midi',
+        evening: 'Bonsoir'
+      },
+      verification: {
+        subject: 'VÃ©rifiez Votre Adresse Email',
+        button: 'VÃ©rifier Adresse Email',
+        message: 'Merci de vous Ãªtre inscrit au SystÃ¨me de Gestion de PrÃªts.'
+      },
+      contribution: {
+        subject: 'Rappel de Contribution Mensuelle',
+        due: 'Montant DÃ»',
+        dueDate: 'Date d\'Ã‰chÃ©ance'
+      },
+      otp: {
+        subject: 'OTP de RÃ©initialisation de Mot de Passe',
+        message: 'Nous avons reÃ§u une demande de rÃ©initialisation de votre mot de passe.'
+      },
+      common: {
+        welcome: 'Bienvenue',
+        thankYou: 'Merci',
+        regards: 'Cordialement',
+        support: 'Pour le support, contactez-nous.'
+      }
+    });
+
+    logger.info('Multi-language translations loaded', { languages: Array.from(this.translations.keys()) });
+  }
+
+  /**
+   * Get translation
+   */
+  getTranslation(language, key, fallback = null) {
+    const lang = this.translations.has(language) ? language : this.defaultLanguage;
+    const translation = this.translations.get(lang);
+    
+    const keys = key.split('.');
+    let value = translation;
+    
+    for (const k of keys) {
+      if (value && value[k]) {
+        value = value[k];
+      } else {
+        return fallback || key;
+      }
+    }
+    
+    return value;
+  }
+
+  /**
+   * Get available languages
+   */
+  getAvailableLanguages() {
+    return Array.from(this.translations.keys());
+  }
+
+  /**
+   * Add custom translation
+   */
+  addTranslation(language, key, value) {
+    if (!this.translations.has(language)) {
+      this.translations.set(language, {});
+    }
+    
+    const translation = this.translations.get(language);
+    const keys = key.split('.');
+    let obj = translation;
+    
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (!obj[keys[i]]) {
+        obj[keys[i]] = {};
+      }
+      obj = obj[keys[i]];
+    }
+    
+    obj[keys[keys.length - 1]] = value;
+    
+    logger.info('Custom translation added', { language, key });
+  }
+
+  /**
+   * Localize email template
+   */
+  localizeEmail(template, language, variables = {}) {
+    let localized = template;
+    
+    // Replace variables
+    for (const [key, value] of Object.entries(variables)) {
+      localized = localized.replace(new RegExp(`{{${key}}}`, 'g'), value);
+    }
+    
+    // Replace translation keys
+    const translationRegex = /\{\{t:(.*?)\}\}/g;
+    localized = localized.replace(translationRegex, (match, key) => {
+      return this.getTranslation(language, key, key);
+    });
+    
+    return localized;
+  }
+
+  /**
+   * Detect language from email or user data
+   */
+  detectLanguage(member) {
+    // Check member's language preference
+    if (member.language_preference) {
+      return member.language_preference;
+    }
+    
+    // Detect from email domain (basic heuristic)
+    const emailDomain = member.email.split('@')[1]?.toLowerCase();
+    const domainLanguages = {
+      'es': ['es', 'mx', 'ar', 'cl', 'co', 'pe'],
+      'fr': ['fr', 'be', 'ch', 'ca'],
+      'de': ['de', 'at', 'ch'],
+      'pt': ['pt', 'br']
+    };
+    
+    for (const [lang, domains] of Object.entries(domainLanguages)) {
+      if (domains.some(d => emailDomain.endsWith('.' + d))) {
+        return lang;
+      }
+    }
+    
+    return this.defaultLanguage;
+  }
+}
+
+const multiLanguageService = new MultiLanguageService();
+
+// PDF Generation Service for Attachments
+class PDFAttachmentService extends EventEmitter {
+  constructor() {
+    super();
+  }
+
+  /**
+   * Generate loan statement PDF
+   */
+  async generateLoanStatementPDF(loanData, memberData) {
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ margin: 50 });
+        const chunks = [];
+
+        doc.on('data', chunk => chunks.push(chunk));
+        doc.on('end', () => {
+          const pdfBuffer = Buffer.concat(chunks);
+          resolve(pdfBuffer);
+        });
+
+        // Add content
+        doc.fontSize(20).text('Loan Statement', { align: 'center' });
+        doc.moveDown();
+        
+        doc.fontSize(12).text(`Member: ${memberData.first_name} ${memberData.last_name}`);
+        doc.text(`Email: ${memberData.email}`);
+        doc.text(`Date: ${new Date().toLocaleDateString()}`);
+        doc.moveDown();
+        
+        doc.fontSize(14).text('Loan Details', { underline: true });
+        doc.moveDown();
+        
+        doc.fontSize(12).text(`Loan ID: #LN-${loanData.id}`);
+        doc.text(`Amount: $${parseFloat(loanData.amount).toLocaleString()}`);
+        doc.text(`Purpose: ${loanData.purpose || 'N/A'}`);
+        doc.text(`Status: ${loanData.status.toUpperCase()}`);
+        doc.text(`Applied Date: ${new Date(loanData.requested_date).toLocaleDateString()}`);
+        
+        if (loanData.status === 'approved') {
+          doc.text(`Approved Date: ${new Date(loanData.approved_date).toLocaleDateString()}`);
+        }
+
+        doc.moveDown();
+        doc.fontSize(10).text('This is an automatically generated document.', { align: 'center' });
+        
+        doc.end();
+      } catch (err) {
+        logger.error('Failed to generate loan statement PDF', { error: err.message });
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Generate contribution receipt PDF
+   */
+  async generateContributionReceiptPDF(contributionData, memberData) {
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ margin: 50 });
+        const chunks = [];
+
+        doc.on('data', chunk => chunks.push(chunk));
+        doc.on('end', () => {
+          const pdfBuffer = Buffer.concat(chunks);
+          resolve(pdfBuffer);
+        });
+
+        doc.fontSize(20).text('Contribution Receipt', { align: 'center' });
+        doc.moveDown();
+        
+        doc.fontSize(12).text(`Member: ${memberData.first_name} ${memberData.last_name}`);
+        doc.text(`Email: ${memberData.email}`);
+        doc.text(`Date: ${new Date().toLocaleDateString()}`);
+        doc.moveDown();
+        
+        doc.fontSize(14).text('Contribution Details', { underline: true });
+        doc.moveDown();
+        
+        doc.fontSize(12).text(`Receipt ID: #RC-${contributionData.id}`);
+        doc.text(`Amount: $${parseFloat(contributionData.amount).toLocaleString()}`);
+        doc.text(`Contribution Date: ${new Date(contributionData.date).toLocaleDateString()}`);
+        doc.text(`Payment Method: ${contributionData.payment_method}`);
+        
+        doc.moveDown();
+        doc.fontSize(10).text('Thank you for your contribution!', { align: 'center' });
+        
+        doc.end();
+      } catch (err) {
+        logger.error('Failed to generate contribution receipt PDF', { error: err.message });
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Generate meeting agenda PDF
+   */
+  async generateMeetingAgendaPDF(meetingData) {
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ margin: 50 });
+        const chunks = [];
+
+        doc.on('data', chunk => chunks.push(chunk));
+        doc.on('end', () => {
+          const pdfBuffer = Buffer.concat(chunks);
+          resolve(pdfBuffer);
+        });
+
+        doc.fontSize(20).text('Meeting Agenda', { align: 'center' });
+        doc.moveDown();
+        
+        doc.fontSize(16).text(meetingData.title, { align: 'center' });
+        doc.moveDown();
+        
+        doc.fontSize(12).text(`Date: ${new Date(meetingData.scheduled_date).toLocaleDateString()}`);
+        doc.text(`Time: ${meetingData.scheduled_time}`);
+        doc.text(`Location: ${meetingData.location || 'TBD'}`);
+        doc.moveDown();
+        
+        doc.fontSize(14).text('Agenda', { underline: true });
+        doc.moveDown();
+        
+        doc.fontSize(12).text('1. Call to Order');
+        doc.text('2. Approval of Previous Minutes');
+        doc.text('3. Treasurer\'s Report');
+        doc.text('4. Loan Applications Review');
+        doc.text('5. Member Contributions Update');
+        doc.text('6. Any Other Business');
+        doc.text('7. Adjournment');
+        
+        doc.moveDown();
+        doc.fontSize(10).text('Please attend on time.', { align: 'center' });
+        
+        doc.end();
+      } catch (err) {
+        logger.error('Failed to generate meeting agenda PDF', { error: err.message });
+        reject(err);
+      }
+    });
+  }
+}
+
+const pdfAttachmentService = new PDFAttachmentService();
+
+// SMS Fallback Service for Critical Notifications
+class SMSFallbackService extends EventEmitter {
+  constructor() {
+    super();
+    this.twilioClient = null;
+    this.smsEnabled = false;
+    this.smsPriorities = ['critical', 'emergency', 'urgent'];
+    this.smsStats = {
+      sent: 0,
+      failed: 0,
+      delivered: 0
+    };
+  }
+
+  /**
+   * Initialize SMS service
+   */
+  async initialize() {
+    try {
+      if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+        logger.warn('SMS service not configured - missing Twilio credentials');
+        return false;
+      }
+
+      this.twilioClient = twilio(
+        process.env.TWILIO_ACCOUNT_SID,
+        process.env.TWILIO_AUTH_TOKEN
+      );
+
+      this.smsEnabled = true;
+      logger.info('SMS fallback service initialized');
+      return true;
+    } catch (err) {
+      logger.error('Failed to initialize SMS service', { error: err.message });
+      return false;
+    }
+  }
+
+  /**
+   * Send SMS message
+   */
+  async sendSMS(phoneNumber, message, priority = 'normal') {
+    try {
+      if (!this.smsEnabled) {
+        logger.warn('SMS service not enabled');
+        return { success: false, error: 'SMS service not enabled' };
+      }
+
+      if (!this.smsPriorities.includes(priority)) {
+        logger.warn('SMS priority not allowed', { priority });
+        return { success: false, error: 'SMS priority not allowed' };
+      }
+
+      const response = await this.twilioClient.messages.create({
+        body: message,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phoneNumber
+      });
+
+      this.smsStats.sent++;
+      logger.info('SMS sent successfully', { phoneNumber, sid: response.sid });
+      this.emit('sms_sent', { phoneNumber, sid: response.sid, priority });
+
+      return { success: true, sid: response.sid };
+    } catch (err) {
+      this.smsStats.failed++;
+      logger.error('Failed to send SMS', { error: err.message, phoneNumber });
+      this.emit('sms_failed', { phoneNumber, error: err.message });
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Send OTP via SMS
+   */
+  async sendOTPSMS(phoneNumber, otp, expiresAt) {
+    const message = `Your Loan Management System OTP is: ${otp}. Valid for 10 minutes. Never share this code. If you didn't request this, ignore this message.`;
+    return await this.sendSMS(phoneNumber, message, 'urgent');
+  }
+
+  /**
+   * Send emergency notification via SMS
+   */
+  async sendEmergencySMS(phoneNumber, message) {
+    const smsMessage = `EMERGENCY: ${message}. Action required immediately. Loan Management System.`;
+    return await this.sendSMS(phoneNumber, smsMessage, 'emergency');
+  }
+
+  /**
+   * Get SMS statistics
+   */
+  getSMSStats() {
+    return {
+      ...this.smsStats,
+      enabled: this.smsEnabled,
+      deliveryRate: this.smsStats.sent > 0
+        ? ((this.smsStats.delivered / this.smsStats.sent) * 100).toFixed(2) + '%'
+        : '0%'
+    };
+  }
+
+  /**
+   * Format phone number
+   */
+  formatPhoneNumber(phoneNumber) {
+    // Remove all non-numeric characters
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    
+    // Add country code if missing (assuming US/Canada by default)
+    if (cleaned.length === 10) {
+      return '+1' + cleaned;
+    }
+    
+    return '+' + cleaned;
+  }
+}
+
+const smsFallbackService = new SMSFallbackService();
+
+// Redis Caching Service
+class RedisCacheService extends EventEmitter {
+  constructor() {
+    super();
+    this.redis = null;
+    this.isConnected = false;
+    this.defaultTTL = 3600; // 1 hour default
+  }
+
+  /**
+   * Initialize Redis connection
+   */
+  async initialize() {
+    try {
+      if (!process.env.REDIS_HOST || !process.env.REDIS_PORT) {
+        logger.warn('Redis not configured - caching disabled');
+        return false;
+      }
+
+      this.redis = new Redis({
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT) || 6379,
+        password: process.env.REDIS_PASSWORD || undefined,
+        db: parseInt(process.env.REDIS_DB) || 0,
+        retryStrategy: (times) => {
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+        }
+      });
+
+      this.redis.on('connect', () => {
+        this.isConnected = true;
+        logger.info('Redis connected successfully');
+        this.emit('connected');
+      });
+
+      this.redis.on('error', (err) => {
+        this.isConnected = false;
+        logger.error('Redis connection error', { error: err.message });
+        this.emit('error', err);
+      });
+
+      // Test connection
+      await this.redis.ping();
+      
+      return true;
+    } catch (err) {
+      logger.error('Failed to initialize Redis', { error: err.message });
+      return false;
+    }
+  }
+
+  /**
+   * Set cache value
+   */
+  async set(key, value, ttl = this.defaultTTL) {
+    try {
+      if (!this.isConnected) {
+        logger.debug('Redis not connected, cache set skipped', { key });
+        return false;
+      }
+
+      const serialized = JSON.stringify(value);
+      await this.redis.setex(key, ttl, serialized);
+      
+      logger.debug('Cache set', { key, ttl });
+      return true;
+    } catch (err) {
+      logger.error('Failed to set cache', { error: err.message, key });
+      return false;
+    }
+  }
+
+  /**
+   * Get cache value
+   */
+  async get(key) {
+    try {
+      if (!this.isConnected) {
+        return null;
+      }
+
+      const value = await this.redis.get(key);
+      if (!value) {
+        return null;
+      }
+
+      return JSON.parse(value);
+    } catch (err) {
+      logger.error('Failed to get cache', { error: err.message, key });
+      return null;
+    }
+  }
+
+  /**
+   * Delete cache value
+   */
+  async delete(key) {
+    try {
+      if (!this.isConnected) {
+        return false;
+      }
+
+      await this.redis.del(key);
+      logger.debug('Cache deleted', { key });
+      return true;
+    } catch (err) {
+      logger.error('Failed to delete cache', { error: err.message, key });
+      return false;
+    }
+  }
+
+  /**
+   * Clear all cache
+   */
+  async clear() {
+    try {
+      if (!this.isConnected) {
+        return false;
+      }
+
+      await this.redis.flushdb();
+      logger.info('Cache cleared');
+      return true;
+    } catch (err) {
+      logger.error('Failed to clear cache', { error: err.message });
+      return false;
+    }
+  }
+
+  /**
+   * Get or set pattern (cache-aside)
+   */
+  async getOrSet(key, fetchFunction, ttl = this.defaultTTL) {
+    try {
+      // Try to get from cache
+      const cached = await this.get(key);
+      if (cached !== null) {
+        return cached;
+      }
+
+      // Fetch from source
+      const value = await fetchFunction();
+      
+      // Set in cache
+      await this.set(key, value, ttl);
+      
+      return value;
+    } catch (err) {
+      logger.error('Failed to get or set cache', { error: err.message, key });
+      // Return fresh value on cache failure
+      return await fetchFunction();
+    }
+  }
+
+  /**
+   * Increment counter
+   */
+  async increment(key, amount = 1) {
+    try {
+      if (!this.isConnected) {
+        return 0;
+      }
+
+      return await this.redis.incrby(key, amount);
+    } catch (err) {
+      logger.error('Failed to increment counter', { error: err.message, key });
+      return 0;
+    }
+  }
+
+  /**
+   * Get cache statistics
+   */
+  async getStats() {
+    try {
+      if (!this.isConnected) {
+        return { connected: false };
+      }
+
+      const info = await this.redis.info('stats');
+      const keyspace = await this.redis.info('keyspace');
+      
+      return {
+        connected: true,
+        info: this.parseRedisInfo(info),
+        keyspace: this.parseRedisInfo(keyspace)
+      };
+    } catch (err) {
+      logger.error('Failed to get Redis stats', { error: err.message });
+      return { connected: false, error: err.message };
+    }
+  }
+
+  /**
+   * Parse Redis INFO output
+   */
+  parseRedisInfo(info) {
+    const lines = info.split('\r\n');
+    const result = {};
+    
+    for (const line of lines) {
+      if (line && !line.startsWith('#')) {
+        const [key, value] = line.split(':');
+        if (key && value) {
+          result[key] = isNaN(value) ? value : parseFloat(value);
+        }
+      }
+    }
+    
+    return result;
+  }
+
+  /**
+   * Disconnect Redis
+   */
+  async disconnect() {
+    if (this.redis) {
+      await this.redis.quit();
+      this.isConnected = false;
+      logger.info('Redis disconnected');
+    }
+  }
+}
+
+const redisCacheService = new RedisCacheService();
+
+// Webhook Service for External Integrations
+class WebhookService extends EventEmitter {
+  constructor() {
+    super();
+    this.webhooks = new Map();
+    this.retryAttempts = 3;
+    this.retryDelay = 1000; // 1 second
+  }
+
+  /**
+   * Register webhook
+   */
+  registerWebhook(event, url, secret = null) {
+    if (!this.webhooks.has(event)) {
+      this.webhooks.set(event, []);
+    }
+
+    const webhook = {
+      url,
+      secret,
+      active: true,
+      createdAt: new Date().toISOString()
+    };
+
+    this.webhooks.get(event).push(webhook);
+    logger.info('Webhook registered', { event, url });
+    this.emit('webhook_registered', { event, url });
+
+    return webhook;
+  }
+
+  /**
+   * Trigger webhook
+   */
+  async triggerWebhook(event, payload) {
+    try {
+      const eventWebhooks = this.webhooks.get(event);
+      if (!eventWebhooks || eventWebhooks.length === 0) {
+        logger.debug('No webhooks registered for event', { event });
+        return { triggered: 0, succeeded: 0, failed: 0 };
+      }
+
+      let triggered = 0;
+      let succeeded = 0;
+      let failed = 0;
+
+      for (const webhook of eventWebhooks) {
+        if (!webhook.active) continue;
+
+        triggered++;
+        const success = await this.sendWebhook(webhook, event, payload);
+        
+        if (success) {
+          succeeded++;
+        } else {
+          failed++;
+        }
+      }
+
+      logger.info('Webhooks triggered', { event, triggered, succeeded, failed });
+      this.emit('webhooks_triggered', { event, triggered, succeeded, failed });
+
+      return { triggered, succeeded, failed };
+    } catch (err) {
+      logger.error('Failed to trigger webhooks', { error: err.message, event });
+      return { triggered: 0, succeeded: 0, failed: 0 };
+    }
+  }
+
+  /**
+   * Send webhook with retry logic
+   */
+  async sendWebhook(webhook, event, payload, attempt = 1) {
+    try {
+      const fetch = require('node-fetch');
+      
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-Webhook-Event': event,
+        'X-Webhook-ID': crypto.randomBytes(16).toString('hex'),
+        'X-Webhook-Timestamp': new Date().toISOString()
+      };
+
+      // Add signature if secret is provided
+      if (webhook.secret) {
+        const signature = this.generateSignature(webhook.secret, payload);
+        headers['X-Webhook-Signature'] = signature;
+      }
+
+      const response = await fetch(webhook.url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        logger.info('Webhook delivered successfully', { url: webhook.url, event });
+        this.emit('webhook_delivered', { url: webhook.url, event });
+        return true;
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (err) {
+      logger.error('Webhook delivery failed', { 
+        error: err.message, 
+        url: webhook.url, 
+        event, 
+        attempt 
+      });
+
+      // Retry logic
+      if (attempt < this.retryAttempts) {
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
+        return await this.sendWebhook(webhook, event, payload, attempt + 1);
+      }
+
+      this.emit('webhook_failed', { url: webhook.url, event, error: err.message });
+      return false;
+    }
+  }
+
+  /**
+   * Generate webhook signature
+   */
+  generateSignature(secret, payload) {
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(JSON.stringify(payload));
+    return hmac.digest('hex');
+  }
+
+  /**
+   * Verify webhook signature
+   */
+  verifySignature(secret, payload, signature) {
+    const expectedSignature = this.generateSignature(secret, payload);
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSignature),
+      Buffer.from(signature)
+    );
+  }
+
+  /**
+   * Deactivate webhook
+   */
+  deactivateWebhook(event, url) {
+    const eventWebhooks = this.webhooks.get(event);
+    if (!eventWebhooks) return false;
+
+    const webhook = eventWebhooks.find(w => w.url === url);
+    if (webhook) {
+      webhook.active = false;
+      logger.info('Webhook deactivated', { event, url });
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Get webhooks for event
+   */
+  getWebhooks(event) {
+    return this.webhooks.get(event) || [];
+  }
+
+  /**
+   * Get all webhooks
+   */
+  getAllWebhooks() {
+    const allWebhooks = {};
+    for (const [event, hooks] of this.webhooks.entries()) {
+      allWebhooks[event] = hooks;
+    }
+    return allWebhooks;
+  }
+}
+
+const webhookService = new WebhookService();
+
+// Enhanced Analytics and Monitoring Service
+class AnalyticsService extends EventEmitter {
+  constructor() {
+    super();
+    this.metrics = new Map();
+    this.aggregatedMetrics = {
+      emails: { sent: 0, delivered: 0, opened: 0, clicked: 0, failed: 0 },
+      otps: { generated: 0, verified: 0, failed: 0 },
+      contributions: { reminders_sent: 0, payments_received: 0 },
+      performance: { avg_response_time: 0, total_requests: 0 }
+    };
+    this.startTime = Date.now();
+  }
+
+  /**
+   * Record metric
+   */
+  recordMetric(category, action, value = 1, metadata = {}) {
+    const key = `${category}.${action}`;
+    const timestamp = new Date().toISOString();
+
+    if (!this.metrics.has(key)) {
+      this.metrics.set(key, {
+        count: 0,
+        total: 0,
+        min: Infinity,
+        max: -Infinity,
+        avg: 0,
+        history: []
+      });
+    }
+
+    const metric = this.metrics.get(key);
+    metric.count++;
+    metric.total += value;
+    metric.min = Math.min(metric.min, value);
+    metric.max = Math.max(metric.max, value);
+    metric.avg = metric.total / metric.count;
+
+    // Keep last 100 data points
+    metric.history.push({ timestamp, value, metadata });
+    if (metric.history.length > 100) {
+      metric.history.shift();
+    }
+
+    // Update aggregated metrics
+    if (this.aggregatedMetrics[category]) {
+      if (this.aggregatedMetrics[category][action] !== undefined) {
+        this.aggregatedMetrics[category][action] += value;
+      }
+    }
+
+    logger.debug('Metric recorded', { key, value, metadata });
+    this.emit('metric_recorded', { key, value, metadata });
+  }
+
+  /**
+   * Get metric
+   */
+  getMetric(category, action) {
+    const key = `${category}.${action}`;
+    return this.metrics.get(key);
+  }
+
+  /**
+   * Get all metrics
+   */
+  getAllMetrics() {
+    const metrics = {};
+    for (const [key, value] of this.metrics.entries()) {
+      metrics[key] = {
+        count: value.count,
+        total: value.total,
+        min: value.min,
+        max: value.max,
+        avg: value.avg.toFixed(2)
+      };
+    }
+    return metrics;
+  }
+
+  /**
+   * Get aggregated metrics
+   */
+  getAggregatedMetrics() {
+    return {
+      ...this.aggregatedMetrics,
+      uptime: Date.now() - this.startTime,
+      startTime: new Date(this.startTime).toISOString(),
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Get metrics for time range
+   */
+  getMetricsForTimeRange(startTime, endTime) {
+    const rangeMetrics = {};
+
+    for (const [key, metric] of this.metrics.entries()) {
+      const filteredHistory = metric.history.filter(
+        h => new Date(h.timestamp) >= new Date(startTime) && new Date(h.timestamp) <= new Date(endTime)
+      );
+
+      if (filteredHistory.length > 0) {
+        rangeMetrics[key] = {
+          count: filteredHistory.length,
+          total: filteredHistory.reduce((sum, h) => sum + h.value, 0),
+          avg: (filteredHistory.reduce((sum, h) => sum + h.value, 0) / filteredHistory.length).toFixed(2),
+          data: filteredHistory
+        };
+      }
+    }
+
+    return rangeMetrics;
+  }
+
+  /**
+   * Generate analytics report
+   */
+  generateReport(timeRange = '24h') {
+    const endTime = new Date();
+    const startTime = new Date(endTime - (24 * 60 * 60 * 1000)); // 24 hours ago
+
+    const report = {
+      timeRange,
+      period: {
+        start: startTime.toISOString(),
+        end: endTime.toISOString()
+      },
+      aggregated: this.getAggregatedMetrics(),
+      metrics: this.getMetricsForTimeRange(startTime, endTime),
+      insights: this.generateInsights()
+    };
+
+    return report;
+  }
+
+  /**
+   * Generate insights from metrics
+   */
+  generateInsights() {
+    const insights = [];
+    const aggregated = this.getAggregatedMetrics();
+
+    // Email delivery rate
+    if (aggregated.emails.sent > 0) {
+      const deliveryRate = (aggregated.emails.delivered / aggregated.emails.sent) * 100;
+      if (deliveryRate < 95) {
+        insights.push({
+          type: 'warning',
+          message: `Email delivery rate is ${deliveryRate.toFixed(2)}%, below 95% threshold`
+        });
+      } else {
+        insights.push({
+          type: 'success',
+          message: `Email delivery rate is healthy at ${deliveryRate.toFixed(2)}%`
+        });
+      }
+    }
+
+    // OTP verification rate
+    if (aggregated.otps.generated > 0) {
+      const verificationRate = (aggregated.otps.verified / aggregated.otps.generated) * 100;
+      if (verificationRate < 80) {
+        insights.push({
+          type: 'warning',
+          message: `OTP verification rate is ${verificationRate.toFixed(2)}%, below 80% threshold`
+        });
+      }
+    }
+
+    // System uptime
+    const uptimeHours = aggregated.uptime / (1000 * 60 * 60);
+    insights.push({
+      type: 'info',
+      message: `System uptime: ${uptimeHours.toFixed(2)} hours`
+    });
+
+    return insights;
+  }
+
+  /**
+   * Reset metrics
+   */
+  resetMetrics() {
+    this.metrics.clear();
+    this.aggregatedMetrics = {
+      emails: { sent: 0, delivered: 0, opened: 0, clicked: 0, failed: 0 },
+      otps: { generated: 0, verified: 0, failed: 0 },
+      contributions: { reminders_sent: 0, payments_received: 0 },
+      performance: { avg_response_time: 0, total_requests: 0 }
+    };
+    this.startTime = Date.now();
+    
+    logger.info('Metrics reset');
+    this.emit('metrics_reset');
+  }
+
+  /**
+   * Export metrics to JSON
+   */
+  exportMetrics() {
+    return JSON.stringify({
+      aggregated: this.getAggregatedMetrics(),
+      metrics: this.getAllMetrics(),
+      timestamp: new Date().toISOString()
+    }, null, 2);
+  }
+}
+
+const analyticsService = new AnalyticsService();
 
 // Scheduled email system with timezone awareness
 class ScheduledEmailService extends EventEmitter {
@@ -3211,7 +5081,31 @@ async function startEmailReplyService() {
     setInterval(() => {
       secureOTPService.cleanupExpiredOTPs();
     }, 3600000);
+    
+    // Initialize contribution reminder service
+    await contributionReminderService.initialize();
+    
+    // Initialize email verification cleanup (daily)
+    setInterval(() => {
+      emailVerificationService.cleanupExpiredRecords();
+    }, 86400000);
+    
+    // Initialize email tracking cleanup (daily)
+    setInterval(() => {
+      emailTrackingService.cleanupOldTrackingData(30);
+    }, 86400000);
   }
+  
+  // Initialize Redis cache if configured
+  const redisConnected = await redisCacheService.initialize();
+  
+  // Initialize SMS service if configured
+  const smsConnected = await smsFallbackService.initialize();
+  
+  // Register default webhooks
+  webhookService.registerWebhook('email.sent', process.env.WEBHOOK_EMAIL_SENT_URL);
+  webhookService.registerWebhook('otp.verified', process.env.WEBHOOK_OTP_VERIFIED_URL);
+  webhookService.registerWebhook('payment.received', process.env.WEBHOOK_PAYMENT_RECEIVED_URL);
   
   const success = initImap();
   if (!success) {
@@ -3384,8 +5278,35 @@ module.exports = {
   // Dashboard integration
   dashboardEmailService,
   
-  // NEW: Secure OTP Service
+  // Secure OTP Service
   secureOTPService,
+  
+  // NEW: Email Verification Service
+  emailVerificationService,
+  
+  // NEW: Contribution Reminder Service
+  contributionReminderService,
+  
+  // NEW: Email Tracking Service
+  emailTrackingService,
+  
+  // NEW: Multi-Language Service
+  multiLanguageService,
+  
+  // NEW: PDF Attachment Service
+  pdfAttachmentService,
+  
+  // NEW: SMS Fallback Service
+  smsFallbackService,
+  
+  // NEW: Redis Cache Service
+  redisCacheService,
+  
+  // NEW: Webhook Service
+  webhookService,
+  
+  // NEW: Analytics Service
+  analyticsService,
   
   // New email generation functions
   generateLoanApprovalEmail,
