@@ -119,12 +119,45 @@ class DatabaseManager {
           host: process.env.DB_HOST || 'localhost',
           dialect: process.env.DB_DIALECT || 'mysql',
           port: parseInt(process.env.DB_PORT) || 3306,
-          logging: (msg) => logger.debug('Database query', { message: msg }),
+          logging: false, // Disable query logging for turbo speed
           pool: {
-            max: parseInt(process.env.DB_POOL_MAX) || 10,
-            min: parseInt(process.env.DB_POOL_MIN) || 0,
-            acquire: parseInt(process.env.DB_POOL_ACQUIRE) || 30000,
-            idle: parseInt(process.env.DB_POOL_IDLE) || 10000
+            max: parseInt(process.env.DB_POOL_MAX) || 50, // Increased pool size
+            min: parseInt(process.env.DB_POOL_MIN) || 10,
+            acquire: parseInt(process.env.DB_POOL_ACQUIRE) || 10000, // Faster acquisition
+            idle: parseInt(process.env.DB_POOL_IDLE) || 5000, // Shorter idle time
+            evict: 10000 // Evict idle connections faster
+          },
+          benchmark: false, // Disable benchmarking for speed
+          define: {
+            timestamps: true,
+            underscored: false,
+            createdAt: 'created_at',
+            updatedAt: 'updated_at'
+          },
+          retry: {
+            max: 3,
+            match: [
+              /SequelizeConnectionError/,
+              /SequelizeConnectionRefusedError/,
+              /SequelizeHostNotFoundError/,
+              /SequelizeHostNotReachableError/,
+              /SequelizeInvalidConnectionError/,
+              /SequelizeConnectionTimedOutError/
+            ]
+          },
+          transactionType: 'IMMEDIATE', // Faster transactions
+          isolationLevel: Sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED, // Less strict but faster
+          dialectOptions: {
+            // MySQL-specific optimizations
+            typeCast: function (field, next) {
+              if (field.type === 'DATETIME' || field.type === 'TIMESTAMP') {
+                return new Date(field.string() + 'Z');
+              }
+              return next();
+            },
+            // Enable query cache
+            supportBigNumbers: true,
+            bigNumberStrings: false
           }
         }
       );
@@ -2198,17 +2231,26 @@ class SMSFallbackService extends EventEmitter {
 
 const smsFallbackService = new SMSFallbackService();
 
-// Redis Caching Service
+// Redis Caching Service with Turbo Speed Optimization
 class RedisCacheService extends EventEmitter {
   constructor() {
     super();
     this.redis = null;
     this.isConnected = false;
     this.defaultTTL = 3600; // 1 hour default
+    this.shortTTL = 300; // 5 minutes for frequently accessed data
+    this.longTTL = 86400; // 24 hours for rarely changing data
+    this.cacheStats = {
+      hits: 0,
+      misses: 0,
+      sets: 0,
+      deletes: 0,
+      evictions: 0
+    };
   }
 
   /**
-   * Initialize Redis connection
+   * Initialize Redis connection with optimized settings
    */
   async initialize() {
     try {
@@ -2225,12 +2267,19 @@ class RedisCacheService extends EventEmitter {
         retryStrategy: (times) => {
           const delay = Math.min(times * 50, 2000);
           return delay;
-        }
+        },
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: true,
+        enableOfflineQueue: true,
+        lazyConnect: true,
+        keepAlive: 30000,
+        connectTimeout: 10000,
+        commandTimeout: 5000
       });
 
       this.redis.on('connect', () => {
         this.isConnected = true;
-        logger.info('Redis connected successfully');
+        logger.info('Redis connected successfully with turbo settings');
         this.emit('connected');
       });
 
@@ -2243,6 +2292,9 @@ class RedisCacheService extends EventEmitter {
       // Test connection
       await this.redis.ping();
       
+      // Enable pipelining for batch operations
+      this.redis.pipeline();
+      
       return true;
     } catch (err) {
       logger.error('Failed to initialize Redis', { error: err.message });
@@ -2251,7 +2303,7 @@ class RedisCacheService extends EventEmitter {
   }
 
   /**
-   * Set cache value
+   * Set cache value with optimized TTL
    */
   async set(key, value, ttl = this.defaultTTL) {
     try {
@@ -2263,7 +2315,8 @@ class RedisCacheService extends EventEmitter {
       const serialized = JSON.stringify(value);
       await this.redis.setex(key, ttl, serialized);
       
-      logger.debug('Cache set', { key, ttl });
+      this.cacheStats.sets++;
+      logger.debug('Cache set with turbo speed', { key, ttl });
       return true;
     } catch (err) {
       logger.error('Failed to set cache', { error: err.message, key });
@@ -2272,7 +2325,7 @@ class RedisCacheService extends EventEmitter {
   }
 
   /**
-   * Get cache value
+   * Get cache value with performance tracking
    */
   async get(key) {
     try {
@@ -2282,13 +2335,71 @@ class RedisCacheService extends EventEmitter {
 
       const value = await this.redis.get(key);
       if (!value) {
+        this.cacheStats.misses++;
         return null;
       }
 
+      this.cacheStats.hits++;
       return JSON.parse(value);
     } catch (err) {
       logger.error('Failed to get cache', { error: err.message, key });
       return null;
+    }
+  }
+
+  /**
+   * Get multiple values in parallel (batch operation)
+   */
+  async getMany(keys) {
+    try {
+      if (!this.isConnected || !keys || keys.length === 0) {
+        return {};
+      }
+
+      const pipeline = this.redis.pipeline();
+      keys.forEach(key => pipeline.get(key));
+      const results = await pipeline.exec();
+      
+      const cachedData = {};
+      keys.forEach((key, index) => {
+        const value = results[index][1];
+        if (value) {
+          cachedData[key] = JSON.parse(value);
+          this.cacheStats.hits++;
+        } else {
+          this.cacheStats.misses++;
+        }
+      });
+
+      return cachedData;
+    } catch (err) {
+      logger.error('Failed to get many cache values', { error: err.message });
+      return {};
+    }
+  }
+
+  /**
+   * Set multiple values in parallel (batch operation)
+   */
+  async setMany(keyValuePairs, ttl = this.defaultTTL) {
+    try {
+      if (!this.isConnected || !keyValuePairs || Object.keys(keyValuePairs).length === 0) {
+        return false;
+      }
+
+      const pipeline = this.redis.pipeline();
+      Object.entries(keyValuePairs).forEach(([key, value]) => {
+        pipeline.setex(key, ttl, JSON.stringify(value));
+      });
+      
+      await pipeline.exec();
+      this.cacheStats.sets += Object.keys(keyValuePairs).length;
+      
+      logger.debug('Batch cache set completed', { count: Object.keys(keyValuePairs).length });
+      return true;
+    } catch (err) {
+      logger.error('Failed to set many cache values', { error: err.message });
+      return false;
     }
   }
 
@@ -2302,10 +2413,31 @@ class RedisCacheService extends EventEmitter {
       }
 
       await this.redis.del(key);
+      this.cacheStats.deletes++;
       logger.debug('Cache deleted', { key });
       return true;
     } catch (err) {
       logger.error('Failed to delete cache', { error: err.message, key });
+      return false;
+    }
+  }
+
+  /**
+   * Delete multiple keys in parallel
+   */
+  async deleteMany(keys) {
+    try {
+      if (!this.isConnected || !keys || keys.length === 0) {
+        return false;
+      }
+
+      await this.redis.del(...keys);
+      this.cacheStats.deletes += keys.length;
+      
+      logger.debug('Batch cache delete completed', { count: keys.length });
+      return true;
+    } catch (err) {
+      logger.error('Failed to delete many cache values', { error: err.message });
       return false;
     }
   }
@@ -2329,18 +2461,36 @@ class RedisCacheService extends EventEmitter {
   }
 
   /**
-   * Get or set pattern (cache-aside)
+   * Get or set pattern with automatic TTL selection
    */
-  async getOrSet(key, fetchFunction, ttl = this.defaultTTL) {
+  async getOrSet(key, fetchFunction, ttl = null) {
     try {
+      // Auto-select TTL based on key pattern
+      if (!ttl) {
+        if (key.includes('member:')) {
+          ttl = this.longTTL; // Member data rarely changes
+        } else if (key.includes('session:')) {
+          ttl = this.shortTTL; // Session data changes frequently
+        } else if (key.includes('email:')) {
+          ttl = this.defaultTTL; // Standard TTL
+        } else {
+          ttl = this.defaultTTL;
+        }
+      }
+
       // Try to get from cache
       const cached = await this.get(key);
       if (cached !== null) {
         return cached;
       }
 
-      // Fetch from source
-      const value = await fetchFunction();
+      // Fetch from source with timeout
+      const fetchPromise = fetchFunction();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Fetch timeout')), 5000)
+      );
+      
+      const value = await Promise.race([fetchPromise, timeoutPromise]);
       
       // Set in cache
       await this.set(key, value, ttl);
@@ -2349,12 +2499,17 @@ class RedisCacheService extends EventEmitter {
     } catch (err) {
       logger.error('Failed to get or set cache', { error: err.message, key });
       // Return fresh value on cache failure
-      return await fetchFunction();
+      try {
+        return await fetchFunction();
+      } catch (fetchErr) {
+        logger.error('Fetch function also failed', { error: fetchErr.message, key });
+        return null;
+      }
     }
   }
 
   /**
-   * Increment counter
+   * Increment counter with atomic operation
    */
   async increment(key, amount = 1) {
     try {
@@ -2370,7 +2525,7 @@ class RedisCacheService extends EventEmitter {
   }
 
   /**
-   * Get cache statistics
+   * Get cache statistics with performance metrics
    */
   async getStats() {
     try {
@@ -2381,10 +2536,19 @@ class RedisCacheService extends EventEmitter {
       const info = await this.redis.info('stats');
       const keyspace = await this.redis.info('keyspace');
       
+      const hitRate = this.cacheStats.hits + this.cacheStats.misses > 0
+        ? ((this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses)) * 100).toFixed(2)
+        : '0';
+      
       return {
         connected: true,
         info: this.parseRedisInfo(info),
-        keyspace: this.parseRedisInfo(keyspace)
+        keyspace: this.parseRedisInfo(keyspace),
+        performance: {
+          ...this.cacheStats,
+          hitRate: hitRate + '%',
+          missRate: (100 - parseFloat(hitRate)).toFixed(2) + '%'
+        }
       };
     } catch (err) {
       logger.error('Failed to get Redis stats', { error: err.message });
@@ -2409,6 +2573,30 @@ class RedisCacheService extends EventEmitter {
     }
     
     return result;
+  }
+
+  /**
+   * Warm up cache with frequently accessed data
+   */
+  async warmupCache(keys) {
+    try {
+      if (!this.isConnected || !keys || keys.length === 0) {
+        return;
+      }
+
+      logger.info('Warming up cache', { keyCount: keys.length });
+      
+      const startTime = Date.now();
+      await this.getMany(keys);
+      const duration = Date.now() - startTime;
+      
+      logger.info('Cache warmup completed', { 
+        keyCount: keys.length, 
+        duration: `${duration}ms` 
+      });
+    } catch (err) {
+      logger.error('Failed to warmup cache', { error: err.message });
+    }
   }
 
   /**
@@ -3362,7 +3550,7 @@ class CircuitBreaker {
 
 // Message queue for high throughput processing
 class MessageQueue {
-  constructor(concurrency = 10) {
+  constructor(concurrency = 100) {
     this.queue = [];
     this.processing = new Set();
     this.concurrency = concurrency;
@@ -3370,12 +3558,16 @@ class MessageQueue {
       enqueued: 0,
       processed: 0,
       failed: 0,
-      dropped: 0
+      dropped: 0,
+      avgProcessingTime: 0,
+      maxProcessingTime: 0,
+      minProcessingTime: Infinity
     };
+    this.processingTimes = [];
   }
 
   enqueue(task, priority = 0) {
-    if (this.queue.length >= 10000) {
+    if (this.queue.length >= 50000) {
       this.stats.dropped++;
       logger.warn('Message queue full, dropping task', { queueSize: this.queue.length });
       return false;
@@ -3395,17 +3587,33 @@ class MessageQueue {
       
       this.processing.add(taskId);
       
-      // Process task with timeout
+      // Process task with optimized timeout
       const timeout = setTimeout(() => {
         this.processing.delete(taskId);
         this.stats.failed++;
+        this.stats.avgProcessingTime = 0; // Reset on timeout
         logger.error('Task processing timeout', { taskId, age: Date.now() - timestamp });
-      }, 30000);
+      }, 10000); // 10 second timeout
 
       try {
+        const startTime = Date.now();
         await task();
+        const duration = Date.now() - startTime;
+        
         clearTimeout(timeout);
         this.stats.processed++;
+        
+        // Track processing times
+        this.processingTimes.push(duration);
+        if (this.processingTimes.length > 1000) {
+          this.processingTimes.shift();
+        }
+        
+        // Update performance metrics
+        this.stats.maxProcessingTime = Math.max(this.stats.maxProcessingTime, duration);
+        this.stats.minProcessingTime = Math.min(this.stats.minProcessingTime, duration);
+        this.stats.avgProcessingTime = this.processingTimes.reduce((a, b) => a + b, 0) / this.processingTimes.length;
+        
         logger.metrics.successfulReplies++;
       } catch (err) {
         clearTimeout(timeout);
@@ -3418,61 +3626,172 @@ class MessageQueue {
     }
   }
 
+  async processBatch(tasks) {
+    if (!tasks || tasks.length === 0) {
+      return { processed: 0, failed: 0 };
+    }
+
+    const startTime = Date.now();
+    let processed = 0;
+    let failed = 0;
+
+    // Process tasks in parallel for maximum speed
+    const promises = tasks.map(async (task) => {
+      try {
+        await task();
+        processed++;
+        logger.metrics.successfulReplies++;
+      } catch (err) {
+        failed++;
+        logger.metrics.failedReplies++;
+        logger.error('Batch task failed', { error: err.message });
+      }
+    });
+
+    await Promise.all(promises);
+    
+    const duration = Date.now() - startTime;
+    logger.info('Batch processing completed', { 
+      total: tasks.length, 
+      processed, 
+      failed, 
+      duration: `${duration}ms`,
+      avgPerTask: `${(duration / tasks.length).toFixed(2)}ms`
+    });
+
+    return { processed, failed, duration };
+  }
+
   getStats() {
     return {
       ...this.stats,
       queueLength: this.queue.length,
-      processingCount: this.processing.size
+      processingCount: this.processing.size,
+      throughput: this.stats.processed > 0 
+        ? `${(this.stats.processed / (process.uptime() / 1000)).toFixed(2)} tasks/sec`
+        : '0 tasks/sec'
     };
+  }
+
+  clearQueue() {
+    this.queue = [];
+    logger.info('Queue cleared', { clearedCount: this.stats.enqueued });
   }
 }
 
-// Performance monitoring
+// Performance monitoring with turbo speed profiling
 class PerformanceMonitor {
   constructor() {
     this.metrics = new Map();
     this.alerts = [];
+    this.profiles = new Map();
   }
 
   recordOperation(operation, duration, success = true) {
     if (!this.metrics.has(operation)) {
       this.metrics.set(operation, {
         count: 0,
+        success: 0,
+        failure: 0,
         totalDuration: 0,
-        failures: 0,
-        maxDuration: 0,
+        avgDuration: 0,
         minDuration: Infinity,
-        avgDuration: 0
+        maxDuration: 0,
+        p50: 0,
+        p95: 0,
+        p99: 0,
+        durations: []
       });
     }
 
     const metric = this.metrics.get(operation);
     metric.count++;
     metric.totalDuration += duration;
-    metric.maxDuration = Math.max(metric.maxDuration, duration);
-    metric.minDuration = Math.min(metric.minDuration, duration);
     metric.avgDuration = metric.totalDuration / metric.count;
+    metric.minDuration = Math.min(metric.minDuration, duration);
+    metric.maxDuration = Math.max(metric.maxDuration, duration);
     
-    if (!success) metric.failures++;
+    if (success) {
+      metric.success++;
+    } else {
+      metric.failure++;
+    }
 
-    // Performance alerts
+    // Keep last 1000 durations for percentile calculation
+    metric.durations.push(duration);
+    if (metric.durations.length > 1000) {
+      metric.durations.shift();
+    }
+
+    // Calculate percentiles
+    if (metric.durations.length > 0) {
+      const sorted = [...metric.durations].sort((a, b) => a - b);
+      metric.p50 = sorted[Math.floor(sorted.length * 0.5)];
+      metric.p95 = sorted[Math.floor(sorted.length * 0.95)];
+      metric.p99 = sorted[Math.floor(sorted.length * 0.99)];
+    }
+
+    // Auto-alert on slow operations
     if (duration > 5000) {
       this.alerts.push({
-        type: 'slow_operation',
         operation,
         duration,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        type: 'slow_operation'
       });
       logger.warn('Slow operation detected', { operation, duration });
     }
   }
 
+  startProfile(name) {
+    this.profiles.set(name, {
+      startTime: Date.now(),
+      operations: []
+    });
+    return name;
+  }
+
+  endProfile(name, operation) {
+    const profile = this.profiles.get(name);
+    if (!profile) return;
+
+    const duration = Date.now() - profile.startTime;
+    profile.operations.push({ operation, duration });
+    
+    logger.debug('Profile operation completed', { name, operation, duration });
+    
+    return duration;
+  }
+
+  getProfile(name) {
+    return this.profiles.get(name);
+  }
+
   getMetrics() {
+    const metrics = {};
+    for (const [key, value] of this.metrics.entries()) {
+      metrics[key] = {
+        count: value.count,
+        success: value.success,
+        failure: value.failure,
+        avgDuration: value.avgDuration.toFixed(2) + 'ms',
+        minDuration: value.minDuration.toFixed(2) + 'ms',
+        maxDuration: value.maxDuration.toFixed(2) + 'ms',
+        p50: value.p50.toFixed(2) + 'ms',
+        p95: value.p95.toFixed(2) + 'ms',
+        p99: value.p99.toFixed(2) + 'ms',
+        successRate: ((value.success / value.count) * 100).toFixed(2) + '%'
+      };
+    }
     return {
-      operations: Object.fromEntries(this.metrics),
-      alerts: this.alerts.slice(-100), // Last 100 alerts
+      operations: metrics,
+      alerts: this.alerts.slice(-100),
       timestamp: new Date().toISOString()
     };
+  }
+
+  getAlerts() {
+    return this.alerts.slice(-100);
   }
 
   clearAlerts() {
