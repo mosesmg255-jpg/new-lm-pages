@@ -228,6 +228,27 @@ app.post('/api/dashboard/loan/approve', [
   }
 });
 
+// Member Approval Endpoints
+app.post('/api/dashboard/member/approve', [
+  body('memberId').isInt(),
+  body('adminId').isInt(),
+  body('approved').isBoolean(),
+  body('denialReason').optional().isString()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { memberId, adminId, approved, denialReason } = req.body;
+    const result = await emailService.dashboardEmailService.processMemberApproval(memberId, adminId, approved, denialReason);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // SMS Fallback Endpoints
 app.post('/api/sms/send', [
   body('phoneNumber').isString(),
