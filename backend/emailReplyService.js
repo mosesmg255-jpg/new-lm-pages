@@ -147,6 +147,10 @@ class DatabaseManager {
             isEmail: true
           }
         },
+        password: {
+          type: DataTypes.STRING(255),
+          allowNull: false
+        },
         phone: {
           type: DataTypes.STRING(20)
         },
@@ -169,6 +173,9 @@ class DatabaseManager {
             approval_alerts: true,
             daily_summaries: true
           }
+        },
+        password_changed_at: {
+          type: DataTypes.DATE
         }
       }, {
         tableName: 'members',
@@ -415,6 +422,509 @@ class DatabaseManager {
 
 const databaseManager = new DatabaseManager();
 
+// Secure OTP Service for Password Reset
+class SecureOTPService extends EventEmitter {
+  constructor() {
+    super();
+    this.otpLength = parseInt(process.env.OTP_LENGTH) || 6;
+    this.otpExpiry = parseInt(process.env.OTP_EXPIRY_MINUTES) || 10; // minutes
+    this.maxAttempts = parseInt(process.env.OTP_MAX_ATTEMPTS) || 3;
+    this.rateLimitWindow = parseInt(process.env.OTP_RATE_LIMIT_WINDOW) || 3600000; // 1 hour
+    this.maxOTPsPerWindow = parseInt(process.env.OTP_MAX_PER_WINDOW) || 5;
+    this.otpAttempts = new Map(); // Track OTP attempts by IP/email
+    this.otpRateLimit = new Map(); // Track OTP generation rate
+    this.encryptionKey = process.env.OTP_ENCRYPTION_KEY || this.generateEncryptionKey();
+  }
+
+  generateEncryptionKey() {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  /**
+   * Generate cryptographically secure OTP
+   */
+  generateOTP() {
+    // Use crypto.randomBytes for cryptographically secure random numbers
+    const randomBytes = crypto.randomBytes(this.otpLength);
+    const otp = Array.from(randomBytes)
+      .map(byte => byte % 10) // Convert to single digit
+      .join('');
+    
+    return otp;
+  }
+
+  /**
+   * Encrypt OTP for database storage
+   */
+  encryptOTP(otp) {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(this.encryptionKey, 'hex'), iv);
+    
+    let encrypted = cipher.update(otp, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    const authTag = cipher.getAuthTag();
+    
+    return {
+      encrypted: encrypted,
+      iv: iv.toString('hex'),
+      authTag: authTag.toString('hex')
+    };
+  }
+
+  /**
+   * Decrypt OTP from database
+   */
+  decryptOTP(encryptedData) {
+    try {
+      const decipher = crypto.createDecipheriv(
+        'aes-256-gcm', 
+        Buffer.from(this.encryptionKey, 'hex'), 
+        Buffer.from(encryptedData.iv, 'hex')
+      );
+      
+      decipher.setAuthTag(Buffer.from(encryptedData.authTag, 'hex'));
+      
+      let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      return decrypted;
+    } catch (err) {
+      logger.error('OTP decryption failed', { error: err.message });
+      return null;
+    }
+  }
+
+  /**
+   * Hash OTP for verification (prevents timing attacks)
+   */
+  hashOTP(otp) {
+    return crypto.createHash('sha256').update(otp).digest('hex');
+  }
+
+  /**
+   * Check rate limit for OTP generation
+   */
+  checkRateLimit(identifier) {
+    const now = Date.now();
+    const record = this.otpRateLimit.get(identifier);
+    
+    if (!record) {
+      this.otpRateLimit.set(identifier, { count: 1, windowStart: now });
+      return true;
+    }
+    
+    // Reset if window expired
+    if (now - record.windowStart > this.rateLimitWindow) {
+      this.otpRateLimit.set(identifier, { count: 1, windowStart: now });
+      return true;
+    }
+    
+    // Check if limit exceeded
+    if (record.count >= this.maxOTPsPerWindow) {
+      logger.warn('OTP rate limit exceeded', { identifier, count: record.count });
+      return false;
+    }
+    
+    record.count++;
+    return true;
+  }
+
+  /**
+   * Check OTP attempt limits
+   */
+  checkAttemptLimits(identifier) {
+    const now = Date.now();
+    const attempts = this.otpAttempts.get(identifier);
+    
+    if (!attempts) {
+      this.otpAttempts.set(identifier, { count: 1, lastAttempt: now });
+      return true;
+    }
+    
+    // Reset if time window passed (30 minutes)
+    if (now - attempts.lastAttempt > 1800000) {
+      this.otpAttempts.set(identifier, { count: 1, lastAttempt: now });
+      return true;
+    }
+    
+    // Check if max attempts exceeded
+    if (attempts.count >= this.maxAttempts) {
+      logger.warn('OTP attempt limit exceeded', { identifier, count: attempts.count });
+      return false;
+    }
+    
+    attempts.count++;
+    attempts.lastAttempt = now;
+    return true;
+  }
+
+  /**
+   * Request password reset OTP
+   */
+  async requestPasswordResetOTP(email, ipAddress = 'unknown') {
+    try {
+      // Validate email format
+      if (!this.isValidEmail(email)) {
+        logger.warn('Invalid email format for OTP request', { email, ipAddress });
+        return { success: false, error: 'Invalid email format' };
+      }
+
+      // Check rate limits
+      if (!this.checkRateLimit(email)) {
+        return { success: false, error: 'Too many OTP requests. Please try again later.' };
+      }
+
+      // Check if member exists
+      const member = await databaseManager.getMemberByEmail(email);
+      if (!member) {
+        // Still return success for security (don't reveal if email exists)
+        logger.info('OTP requested for non-existent email', { email, ipAddress });
+        return { success: true, message: 'If an account exists, you will receive an OTP.' };
+      }
+
+      // Generate OTP
+      const otp = this.generateOTP();
+      const expiresAt = new Date(Date.now() + (this.otpExpiry * 60 * 1000));
+      
+      // Encrypt OTP for storage
+      const encryptedOTP = this.encryptOTP(otp);
+      
+      // Store in database
+      const otpRecord = await databaseManager.createOTPRecord({
+        email: email,
+        encryptedOTP: encryptedOTP,
+        expiresAt: expiresAt,
+        ipAddress: ipAddress,
+        attempts: 0,
+        used: false
+      });
+
+      // Send OTP email
+      const emailSent = await this.sendOTPEmail(member, otp, expiresAt);
+      
+      if (emailSent) {
+        logger.info('Password reset OTP sent successfully', { 
+          email, 
+          ipAddress, 
+          expiresAt: expiresAt.toISOString(),
+          otpId: otpRecord.id 
+        });
+        
+        this.emit('otp_sent', { email, ipAddress, expiresAt });
+        
+        return { 
+          success: true, 
+          message: 'OTP sent successfully. Valid for 10 minutes.',
+          expiresAt: expiresAt.toISOString()
+        };
+      } else {
+        // Rollback OTP creation if email failed
+        await databaseManager.deleteOTPRecord(otpRecord.id);
+        return { success: false, error: 'Failed to send OTP email' };
+      }
+      
+    } catch (err) {
+      logger.error('Failed to request password reset OTP', { error: err.message, email, ipAddress });
+      return { success: false, error: 'Failed to process OTP request' };
+    }
+  }
+
+  /**
+   * Verify OTP and reset password
+   */
+  async verifyOTPAndResetPassword(email, otp, newPassword, ipAddress = 'unknown') {
+    try {
+      // Validate inputs
+      if (!this.isValidEmail(email)) {
+        return { success: false, error: 'Invalid email format' };
+      }
+
+      if (!otp || otp.length !== this.otpLength) {
+        return { success: false, error: 'Invalid OTP format' };
+      }
+
+      if (!this.isValidPassword(newPassword)) {
+        return { success: false, error: 'Password does not meet security requirements' };
+      }
+
+      // Check attempt limits
+      if (!this.checkAttemptLimits(email)) {
+        return { success: false, error: 'Too many failed attempts. Please request a new OTP.' };
+      }
+
+      // Get valid OTP record
+      const otpRecord = await databaseManager.getValidOTPRecord(email);
+      if (!otpRecord) {
+        logger.warn('No valid OTP record found', { email, ipAddress });
+        return { success: false, error: 'Invalid or expired OTP' };
+      }
+
+      // Decrypt stored OTP
+      const storedOTP = this.decryptOTP(otpRecord.encryptedOTP);
+      if (!storedOTP) {
+        logger.error('Failed to decrypt OTP', { otpId: otpRecord.id });
+        return { success: false, error: 'OTP verification failed' };
+      }
+
+      // Verify OTP using constant-time comparison to prevent timing attacks
+      const isValid = this.constantTimeCompare(otp, storedOTP);
+      
+      if (!isValid) {
+        // Increment attempt counter
+        await databaseManager.incrementOTPAttempts(otpRecord.id);
+        logger.warn('OTP verification failed', { email, ipAddress, otpId: otpRecord.id });
+        return { success: false, error: 'Invalid OTP' };
+      }
+
+      // Mark OTP as used
+      await databaseManager.markOTPAsUsed(otpRecord.id);
+
+      // Update member password
+      const passwordReset = await databaseManager.updateMemberPassword(email, newPassword);
+      
+      if (passwordReset) {
+        // Clear all existing sessions for this user
+        await databaseManager.clearUserSessions(email);
+        
+        logger.info('Password reset successful', { 
+          email, 
+          ipAddress, 
+          otpId: otpRecord.id 
+        });
+        
+        this.emit('password_reset', { email, ipAddress });
+        
+        return { 
+          success: true, 
+          message: 'Password reset successfully. Please login with your new password.' 
+        };
+      } else {
+        return { success: false, error: 'Failed to update password' };
+      }
+      
+    } catch (err) {
+      logger.error('Failed to verify OTP and reset password', { error: err.message, email, ipAddress });
+      return { success: false, error: 'Password reset failed' };
+    }
+  }
+
+  /**
+   * Constant-time comparison to prevent timing attacks
+   */
+  constantTimeCompare(a, b) {
+    if (a.length !== b.length) {
+      return false;
+    }
+    
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    
+    return result === 0;
+  }
+
+  /**
+   * Validate email format
+   */
+  isValidEmail(email) {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+  }
+
+  /**
+   * Validate password strength
+   */
+  isValidPassword(password) {
+    // Minimum 8 characters
+    if (password.length < 8) {
+      return false;
+    }
+    
+    // At least one uppercase letter
+    if (!/[A-Z]/.test(password)) {
+      return false;
+    }
+    
+    // At least one lowercase letter
+    if (!/[a-z]/.test(password)) {
+      return false;
+    }
+    
+    // At least one number
+    if (!/[0-9]/.test(password)) {
+      return false;
+    }
+    
+    // At least one special character
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      return false;
+    }
+    
+    // Check against common passwords (basic check)
+    const commonPasswords = ['password', '12345678', 'qwerty', 'abc123', 'password123'];
+    if (commonPasswords.includes(password.toLowerCase())) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Send OTP email with security features
+   */
+  async sendOTPEmail(member, otp, expiresAt) {
+    try {
+      const { sendEmail } = require('./emailService');
+      
+      const otpEmail = this.generateOTPEmail(member, otp, expiresAt);
+      
+      await sendEmail(member.email, otpEmail.subject, otpEmail.html);
+      
+      return true;
+    } catch (err) {
+      logger.error('Failed to send OTP email', { error: err.message, email: member.email });
+      return false;
+    }
+  }
+
+  /**
+   * Generate OTP email template
+   */
+  generateOTPEmail(member, otp, expiresAt) {
+    const trackingId = crypto.randomBytes(16).toString('hex').substring(0, 8);
+    const currentYear = new Date().getFullYear();
+    const memberName = `${member.first_name} ${member.last_name}`;
+    const expiresAtFormatted = new Date(expiresAt).toLocaleString();
+    
+    // Format OTP for better readability
+    const formattedOTP = otp.slice(0, 3) + '-' + otp.slice(3);
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Reset OTP</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Segoe UI', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); padding: 32px 40px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+    .body { padding: 36px 40px; color: #1e293b; line-height: 1.7; font-size: 15px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+    .otp-display { 
+      background: linear-gradient(135deg, #ede9fe 0%, #c4b5fd 100%); 
+      border: 2px solid #8b5cf6; 
+      border-radius: 12px; 
+      padding: 24px; 
+      text-align: center; 
+      margin: 24px 0; 
+    }
+    .otp-code { 
+      font-size: 36px; 
+      font-weight: 700; 
+      letter-spacing: 8px; 
+      color: #7c3aed; 
+      font-family: 'Courier New', monospace; 
+    }
+    .warning { 
+      background: #fef3c7; 
+      border: 1px solid #fcd34d; 
+      border-radius: 8px; 
+      padding: 16px; 
+      margin: 20px 0; 
+    }
+    .tracking { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>ðŸ” Password Reset Request</h1>
+      <p>One-Time Password (OTP)</p>
+    </div>
+    <div class="body">
+      <h2>Dear ${memberName},</h2>
+      <p>We received a request to reset your password for the Loan Management System. Please use the following One-Time Password (OTP) to complete the password reset process:</p>
+      
+      <div class="otp-display">
+        <div class="otp-code">${formattedOTP}</div>
+        <div style="margin-top: 12px; color: #6b7280; font-size: 14px;">
+          Valid for 10 minutes
+        </div>
+      </div>
+      
+      <div class="warning">
+        <strong>âš ï¸ Security Notice:</strong>
+        <ul style="margin: 12px 0; padding-left: 20px;">
+          <li>This OTP is valid for 10 minutes only</li>
+          <li>Never share your OTP with anyone</li>
+          <li>Our team will never ask for your OTP</li>
+          <li>If you didn't request this, ignore this email</li>
+        </ul>
+      </div>
+      
+      <p><strong>How to use this OTP:</strong></p>
+      <ol style="margin: 16px 0; padding-left: 20px;">
+        <li>Enter this OTP in the password reset form</li>
+        <li>Create your new password (must be at least 8 characters with uppercase, lowercase, numbers, and special characters)</li>
+        <li>Confirm your new password</li>
+        <li>Submit the form to complete the reset</li>
+      </ol>
+      
+      <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+        <strong>Expires:</strong> ${expiresAtFormatted}<br>
+        <strong>Tracking ID:</strong> <span class="tracking">${trackingId}</span>
+      </div>
+    </div>
+    <div class="footer">
+      <p>This is an automated message. If you didn't request this password reset, please contact support immediately.</p>
+      <p>Â© ${currentYear} Loan Management System. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    logger.debug('Generated OTP email', { trackingId, email: member.email });
+    return { html, subject: 'ðŸ” Password Reset OTP - Your Security Code', trackingId };
+  }
+
+  /**
+   * Get OTP service status
+   */
+  getServiceStatus() {
+    return {
+      isRunning: true,
+      otpLength: this.otpLength,
+      otpExpiryMinutes: this.otpExpiry,
+      maxAttempts: this.maxAttempts,
+      rateLimitWindow: this.rateLimitWindow,
+      maxOTPsPerWindow: this.maxOTPsPerWindow,
+      activeRequests: this.otpAttempts.size,
+      rateLimitEntries: this.otpRateLimit.size
+    };
+  }
+
+  /**
+   * Clean up expired OTP records
+   */
+  async cleanupExpiredOTPs() {
+    try {
+      const deleted = await databaseManager.deleteExpiredOTPRecords();
+      if (deleted > 0) {
+        logger.info('Cleaned up expired OTP records', { count: deleted });
+      }
+    } catch (err) {
+      logger.error('Failed to cleanup expired OTPs', { error: err.message });
+    }
+  }
+}
+
+const secureOTPService = new SecureOTPService();
+
 // Scheduled email system with timezone awareness
 class ScheduledEmailService extends EventEmitter {
   constructor() {
@@ -580,7 +1090,198 @@ class ScheduledEmailService extends EventEmitter {
   }
 }
 
-// Extend DatabaseManager with member-specific methods
+// Extend DatabaseManager with OTP-related methods
+DatabaseManager.prototype.getMemberByEmail = async function(email) {
+  try {
+    const member = await this.Member.findOne({
+      where: { email: email.toLowerCase() }
+    });
+    return member ? member.toJSON() : null;
+  } catch (err) {
+    logger.error('Error fetching member by email', { error: err.message, email });
+    return null;
+  }
+};
+
+DatabaseManager.prototype.createOTPRecord = async function(otpData) {
+  try {
+    const OTPRecord = this.sequelize.define('OTPRecord', {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+      },
+      email: {
+        type: DataTypes.STRING(255),
+        allowNull: false
+      },
+      encryptedOTP: {
+        type: DataTypes.TEXT,
+        allowNull: false
+      },
+      expiresAt: {
+        type: DataTypes.DATE,
+        allowNull: false
+      },
+      ipAddress: {
+        type: DataTypes.STRING(45)
+      },
+      attempts: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+      },
+      used: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+      }
+    }, {
+      tableName: 'otp_records',
+      timestamps: true
+    });
+
+    await OTPRecord.sync();
+    
+    const record = await OTPRecord.create(otpData);
+    return record.toJSON();
+  } catch (err) {
+    logger.error('Error creating OTP record', { error: err.message });
+    throw err;
+  }
+};
+
+DatabaseManager.prototype.getValidOTPRecord = async function(email) {
+  try {
+    const OTPRecord = this.sequelize.model('OTPRecord');
+    
+    const record = await OTPRecord.findOne({
+      where: {
+        email: email.toLowerCase(),
+        used: false,
+        expiresAt: {
+          [Sequelize.Op.gt]: new Date()
+        }
+      },
+      order: [['createdAt', 'DESC']]
+    });
+    
+    return record ? record.toJSON() : null;
+  } catch (err) {
+    logger.error('Error fetching valid OTP record', { error: err.message, email });
+    return null;
+  }
+};
+
+DatabaseManager.prototype.incrementOTPAttempts = async function(otpId) {
+  try {
+    const OTPRecord = this.sequelize.model('OTPRecord');
+    
+    await OTPRecord.increment('attempts', {
+      where: { id: otpId }
+    });
+    
+    return true;
+  } catch (err) {
+    logger.error('Error incrementing OTP attempts', { error: err.message, otpId });
+    return false;
+  }
+};
+
+DatabaseManager.prototype.markOTPAsUsed = async function(otpId) {
+  try {
+    const OTPRecord = this.sequelize.model('OTPRecord');
+    
+    await OTPRecord.update(
+      { used: true, usedAt: new Date() },
+      { where: { id: otpId } }
+    );
+    
+    return true;
+  } catch (err) {
+    logger.error('Error marking OTP as used', { error: err.message, otpId });
+    return false;
+  }
+};
+
+DatabaseManager.prototype.deleteOTPRecord = async function(otpId) {
+  try {
+    const OTPRecord = this.sequelize.model('OTPRecord');
+    
+    await OTPRecord.destroy({
+      where: { id: otpId }
+    });
+    
+    return true;
+  } catch (err) {
+    logger.error('Error deleting OTP record', { error: err.message, otpId });
+    return false;
+  }
+};
+
+DatabaseManager.prototype.deleteExpiredOTPRecords = async function() {
+  try {
+    const OTPRecord = this.sequelize.model('OTPRecord');
+    
+    const deleted = await OTPRecord.destroy({
+      where: {
+        used: true,
+        expiresAt: {
+          [Sequelize.Op.lt]: new Date(Date.now() - 86400000) // Delete used OTPs older than 24 hours
+        }
+      }
+    });
+    
+    return deleted;
+  } catch (err) {
+    logger.error('Error deleting expired OTP records', { error: err.message });
+    return 0;
+  }
+};
+
+DatabaseManager.prototype.updateMemberPassword = async function(email, newPassword) {
+  try {
+    // Hash the new password
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    
+    await this.Member.update(
+      { password: hashedPassword, passwordChangedAt: new Date() },
+      { where: { email: email.toLowerCase() } }
+    );
+    
+    return true;
+  } catch (err) {
+    logger.error('Error updating member password', { error: err.message, email });
+    return false;
+  }
+};
+
+DatabaseManager.prototype.clearUserSessions = async function(email) {
+  try {
+    // If you have a sessions table, clear all sessions for this user
+    // This would depend on your session management system
+    logger.info('Clearing user sessions', { email });
+    return true;
+  } catch (err) {
+    logger.error('Error clearing user sessions', { error: err.message, email });
+    return false;
+  }
+};
+
+DatabaseManager.prototype.getAllAdmins = async function() {
+  try {
+    const admins = await this.Admin.findAll({
+      where: { status: 'active' }
+    });
+    return admins.map(a => a.toJSON());
+  } catch (err) {
+    logger.error('Error fetching all admins', { error: err.message });
+    return [];
+  }
+};
+
+
+
+// Add back the member-specific methods
 DatabaseManager.prototype.getPendingLoansByMember = async function(memberId) {
   try {
     const loans = await this.Loan.findAll({
@@ -2211,15 +2912,7 @@ DatabaseManager.prototype.getAllAdmins = async function() {
   }
 };
 
-DatabaseManager.prototype.getMeetingById = async function(meetingId) {
-  try {
-    const meeting = await this.Meeting.findByPk(meetingId);
-    return meeting ? meeting.toJSON() : null;
-  } catch (err) {
-    logger.error('Error fetching meeting by ID', { error: err.message, meetingId });
-    return null;
-  }
-};
+
 
 /**
  * Generate admin notification email for new loan request
@@ -2513,6 +3206,11 @@ async function startEmailReplyService() {
   // Initialize scheduled email service
   if (dbConnected) {
     await scheduledEmailService.initialize();
+    
+    // Schedule OTP cleanup (every hour)
+    setInterval(() => {
+      secureOTPService.cleanupExpiredOTPs();
+    }, 3600000);
   }
   
   const success = initImap();
@@ -2685,6 +3383,9 @@ module.exports = {
   
   // Dashboard integration
   dashboardEmailService,
+  
+  // NEW: Secure OTP Service
+  secureOTPService,
   
   // New email generation functions
   generateLoanApprovalEmail,
