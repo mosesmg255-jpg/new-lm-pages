@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentication Test Report</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .test-item {
+      margin-bottom: 20px;
+      padding: 15px;
+      border-left: 4px solid #ddd;
+      background: #f9f9f9;
+    }
+    .test-item.passed {
+      border-left-color: #4caf50;
+      background: #e8f5e9;
+    }
+    .test-item.failed {
+      border-left-color: #f44336;
+      background: #ffebee;
+    }
+    .test-item.pending {
+      border-left-color: #ff9800;
+      background: #fff3e0;
+    }
+    .test-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .test-result {
+      margin-top: 10px;
+      padding: 10px;
+      background: white;
+      border-radius: 5px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    .summary {
+      margin-top: 30px;
+      padding: 20px;
+      background: #e3f2fd;
+      border-radius: 10px;
+      border-left: 4px solid #2196f3;
+    }
+    .run-tests-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .run-tests-btn:hover {
+      background: #5568d3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Authentication System Test Report</h1>
+    <button class="run-tests-btn" onclick="runAllTests()">Run All Tests</button>
+    
+    <div id="testResults">
+      <div class="test-item pending">
+        <div class="test-title">Test 1: API Connectivity</div>
+        <div class="test-result">Pending...</div>
+      </div>
+      
+      <div class="test-item pending">
+        <div class="test-title">Test 2: Admin Login</div>
+        <div class="test-result">Pending...</div>
+      </div>
+      
+      <div class="test-item pending">
+        <div class="test-title">Test 3: Member Login</div>
+        <div class="test-result">Pending...</div>
+      </div>
+      
+      <div class="test-item pending">
+        <div class="test-title">Test 4: Member Registration</div>
+        <div class="test-result">Pending...</div>
+      </div>
+      
+      <div class="test-item pending">
+        <div class="test-title">Test 5: Get Approved Members</div>
+        <div class="test-result">Pending...</div>
+      </div>
+      
+      <div class="test-item pending">
+        <div class="test-title">Test 6: Session Storage</div>
+        <div class="test-result">Pending...</div>
+      </div>
+    </div>
+    
+    <div class="summary" id="summary" style="display: none;">
+      <h2>Test Summary</h2>
+      <div id="summaryContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'https://new-lm-pages.onrender.com/api';
+
+    function updateTestResult(testId, passed, result) {
+      const testItem = document.getElementById(testId);
+      testItem.className = 'test-item ' + (passed ? 'passed' : 'failed');
+      testItem.querySelector('.test-result').textContent = result;
+    }
+
+    async function runAllTests() {
+      const results = {};
+      
+      // Test 1: API Connectivity
+      try {
+        const response = await fetch(`${API}/debug`);
+        const data = await response.json();
+        updateTestResult('test1', true, 'âœ… API Connected: ' + JSON.stringify(data, null, 2));
+        results.apiConnectivity = true;
+      } catch (error) {
+        updateTestResult('test1', false, 'âŒ API Connection Failed: ' + error.message);
+        results.apiConnectivity = false;
+      }
+      
+      // Test 2: Admin Login
+      try {
+        const response = await fetch(`${API}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: 'admin@eldorethama.com',
+            password: 'admin123'
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          localStorage.setItem('adminToken', data.token);
+          localStorage.setItem('adminUser', JSON.stringify(data.user));
+          updateTestResult('test2', true, 'âœ… Admin Login Success: ' + JSON.stringify(data, null, 2));
+          results.adminLogin = true;
+        } else {
+          updateTestResult('test2', false, 'âŒ Admin Login Failed: ' + data.message);
+          results.adminLogin = false;
+        }
+      } catch (error) {
+        updateTestResult('test2', false, 'âŒ Admin Login Error: ' + error.message);
+        results.adminLogin = false;
+      }
+      
+      // Test 3: Member Login
+      try {
+        const response = await fetch(`${API}/auth/member/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            identity: 'member1',
+            password: 'password123'
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          localStorage.setItem('memberToken', data.token);
+          localStorage.setItem('memberUser', JSON.stringify(data.user));
+          updateTestResult('test3', true, 'âœ… Member Login Success: ' + JSON.stringify(data, null, 2));
+          results.memberLogin = true;
+        } else {
+          updateTestResult('test3', false, 'âŒ Member Login Failed: ' + data.message);
+          results.memberLogin = false;
+        }
+      } catch (error) {
+        updateTestResult('test3', false, 'âŒ Member Login Error: ' + error.message);
+        results.memberLogin = false;
+      }
+      
+      // Test 4: Member Registration
+      try {
+        const response = await fetch(`${API}/auth/member/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Test User',
+            email: 'test' + Date.now() + '@example.com',
+            phone: '254700123456',
+            password: 'password123',
+            pin: '1234'
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          updateTestResult('test4', true, 'âœ… Member Registration Success: ' + JSON.stringify(data, null, 2));
+          results.memberRegistration = true;
+        } else {
+          updateTestResult('test4', false, 'âŒ Member Registration Failed: ' + data.message);
+          results.memberRegistration = false;
+        }
+      } catch (error) {
+        updateTestResult('test4', false, 'âŒ Member Registration Error: ' + error.message);
+        results.memberRegistration = false;
+      }
+      
+      // Test 5: Get Approved Members
+      try {
+        const response = await fetch(`${API}/members/approved`);
+        const data = await response.json();
+        if (data.success) {
+          updateTestResult('test5', true, 'âœ… Get Approved Members Success: ' + JSON.stringify(data, null, 2));
+          results.approvedMembers = true;
+        } else {
+          updateTestResult('test5', false, 'âŒ Get Approved Members Failed: ' + data.message);
+          results.approvedMembers = false;
+        }
+      } catch (error) {
+        updateTestResult('test5', false, 'âŒ Get Approved Members Error: ' + error.message);
+        results.approvedMembers = false;
+      }
+      
+      // Test 6: Session Storage
+      try {
+        const adminToken = localStorage.getItem('adminToken');
+        const adminUser = localStorage.getItem('adminUser');
+        const memberToken = localStorage.getItem('memberToken');
+        const memberUser = localStorage.getItem('memberUser');
+        
+        const sessionData = {
+          adminToken: adminToken ? 'Exists' : 'Not Found',
+          adminUser: adminUser ? 'Exists' : 'Not Found',
+          memberToken: results.memberLogin ? 'Exists' : 'Not Found',
+          memberUser: results.memberLogin ? 'Exists' : 'Not Found'
+        };
+        
+        updateTestResult('test6', true, 'âœ… Session Storage: ' + JSON.stringify(sessionData, null, 2));
+        results.sessionStorage = true;
+      } catch (error) {
+        updateTestResult('test6', false, 'âŒ Session Storage Error: ' + error.message);
+        results.sessionStorage = false;
+      }
+      
+      // Show summary
+      const summaryDiv = document.getElementById('summary');
+      const summaryContent = document.getElementById('summaryContent');
+      summaryDiv.style.display = 'block';
+      
+      const passedCount = Object.values(results).filter(r => r).length;
+      const totalCount = Object.keys(results).length;
+      
+      summaryContent.innerHTML = `
+        <p><strong>Total Tests:</strong> ${totalCount}</p>
+        <p><strong>Passed:</strong> ${passedCount}</p>
+        <p><strong>Failed:</strong> ${totalCount - passedCount}</p>
+        <p><strong>Success Rate:</strong> ${Math.round((passedCount / totalCount) * 100)}%</p>
+        <p><strong>Status:</strong> ${passedCount === totalCount ? 'ðŸŽ‰ ALL TESTS PASSED' : 'âš ï¸ SOME TESTS FAILED'}</p>
+      `;
+    }
+
+    // Auto-run tests on page load
+    window.addEventListener('load', function() {
+      setTimeout(runAllTests, 1000);
+    });
+  </script>
+</body>
+</html>
