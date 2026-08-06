@@ -7,48 +7,58 @@ const API = window.API || 'https://new-lm-pages.onrender.com/api';
 
 // Show section function for navigation
 function showSection(sectionId) {
-  // Hide all sections
-  const sections = document.querySelectorAll('.section');
-  sections.forEach(section => {
-    section.style.display = 'none';
-  });
-  
-  // Show selected section
-  const targetSection = document.getElementById(sectionId);
-  if (targetSection) {
-    targetSection.style.display = 'block';
-  }
-  
-  // Update active state in navigation
-  const navButtons = document.querySelectorAll('.nav-btn-node');
-  navButtons.forEach(btn => {
-    btn.classList.remove('active');
-  });
-  
-  // Find and activate the clicked button
-  const activeButton = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
-  if (activeButton) {
-    activeButton.classList.add('active');
-  }
-  
-  // Special handling for meeting center
-  if (sectionId === 'meetingCenter') {
-    console.log('Meeting Center section activated');
+  try {
+    // Hide all sections
+    const sections = document.querySelectorAll('.section');
+    sections.forEach(section => {
+      section.style.display = 'none';
+    });
+    
+    // Show selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+      targetSection.style.display = 'block';
+    }
+    
+    // Update active state in navigation
+    const navButtons = document.querySelectorAll('.nav-btn-node');
+    navButtons.forEach(btn => {
+      btn.classList.remove('active');
+    });
+    
+    // Find and activate the clicked button
+    const activeButton = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
+    if (activeButton) {
+      activeButton.classList.add('active');
+    }
+    
+    // Special handling for meeting center
+    if (sectionId === 'meetingCenter') {
+      console.log('Meeting Center section activated');
+    }
+  } catch (error) {
+    console.error('Error showing section:', error);
   }
 }
 
 function toggleMeetingDropdown(dropdownId) {
-  const dropdown = document.getElementById(dropdownId);
-  const allDropdowns = ['shareDropdown', 'menuDropdown', 'moreDropdown'];
-  
-  allDropdowns.forEach(d => {
-    if (d !== dropdownId) {
-      const el = document.getElementById(d);
-      if (el) el.style.display = 'none';
+  try {
+    const dropdown = document.getElementById(dropdownId);
+    const allDropdowns = ['shareDropdown', 'menuDropdown', 'moreDropdown'];
+    
+    allDropdowns.forEach(d => {
+      if (d !== dropdownId) {
+        const el = document.getElementById(d);
+        if (el) el.style.display = 'none';
+      }
+    });
+    
+    if (dropdown) {
+      dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
     }
-  });
-  
-  dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+  } catch (error) {
+    console.error('Error toggling dropdown:', error);
+  }
 }
 
 // Member select event listener - only add if element exists
