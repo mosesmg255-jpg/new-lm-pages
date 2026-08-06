@@ -2,6 +2,9 @@
 let meetingFeatures = [];
 let deletedMeetingFeatures = [];
 
+// API Configuration
+const API = window.API || 'https://new-lm-pages.onrender.com/api';
+
 // Show section function for navigation
 function showSection(sectionId) {
   // Hide all sections
@@ -26,6 +29,11 @@ function showSection(sectionId) {
   const activeButton = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
   if (activeButton) {
     activeButton.classList.add('active');
+  }
+  
+  // Special handling for meeting center
+  if (sectionId === 'meetingCenter') {
+    console.log('Meeting Center section activated');
   }
 }
 
@@ -59,25 +67,43 @@ if (memberSelect) {
 
 function loadApprovedMembersForShare() {
   const memberList = document.getElementById('shareMemberList');
-  memberList.innerHTML = '';
+  if (!memberList) return;
   
-  // Load approved members from your existing system
-  fetch(API + '/members/approved', {
-    headers: { 'Authorization': 'Bearer ' + (adminSession.token || '') }
+  memberList.innerHTML = '<div style="text-align: center; padding: 20px; color: #00e0ff;">Loading members...</div>';
+  
+  // Load approved members from API
+  fetch(`${API}/members/approved`, {
+    headers: { 
+      'Content-Type': 'application/json'
+    }
   })
-  .then(res => res.json())
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return res.json();
+  })
   .then(data => {
+    memberList.innerHTML = '';
+    
     if (data.members && data.members.length > 0) {
       data.members.forEach(member => {
         const item = document.createElement('div');
         item.style.cssText = 'display: flex; align-items: center; padding: 8px; border-bottom: 1px solid rgba(0,224,255,0.2); transition: background 0.2s;';
-        item.innerHTML = '<input type="checkbox" class="member-checkbox" id="shareMember_' + member.id + '" style="margin-right: 10px;"><label for="shareMember_' + member.id + '" style="flex: 1; font-size: 14px; color: #fff;">' + member.first_name + ' ' + member.last_name + '</label><span style="font-size: 12px; padding: 4px 8px; border-radius: 12px; background: rgba(76,175,80,0.2); color: #4caf50;">Approved</span>';
+        item.innerHTML = `
+          <input type="checkbox" class="member-checkbox" id="shareMember_${member.id}" style="margin-right: 10px;">
+          <label for="shareMember_${member.id}" style="flex: 1; font-size: 14px; color: #fff;">${member.first_name} ${member.last_name}</label>
+          <span style="font-size: 12px; padding: 4px 8px; border-radius: 12px; background: rgba(76,175,80,0.2); color: #4caf50;">Approved</span>
+        `;
         memberList.appendChild(item);
       });
+    } else {
+      memberList.innerHTML = '<div style="text-align: center; padding: 20px; color: #b0bec5;">No approved members found</div>';
     }
   })
   .catch(err => {
     console.error('Error loading approved members:', err);
+    memberList.innerHTML = '<div style="text-align: center; padding: 20px; color: #f44336;">Error loading members. Please try again.</div>';
   });
 }
 
@@ -111,8 +137,36 @@ function submitMeetingLink() {
     return;
   }
 
-  alert('Meeting link sent to ' + selectedMembers.length + ' members successfully!');
-  toggleMeetingDropdown('shareDropdown');
+  // Send meeting link to selected members via API
+  fetch(`${API}/meeting/send-link`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      members: selectedMembers,
+      meetingLink: meetingLink.value
+    })
+  })
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return res.json();
+  })
+  .then(data => {
+    if (data.success) {
+      alert(`Meeting link sent to ${selectedMembers.length} members successfully!`);
+      toggleMeetingDropdown('shareDropdown');
+      meetingLink.value = '';
+    } else {
+      alert('Failed to send meeting link: ' + (data.message || 'Unknown error'));
+    }
+  })
+  .catch(err => {
+    console.error('Error sending meeting link:', err);
+    alert('Error sending meeting link. Please try again.');
+  });
 }
 
 function downloadMinute() {
