@@ -19,9 +19,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false // Disable CSP for testing
+}));
 app.use(cors({
-  origin: ['https://new-lm-pages.onrender.com', 'http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -49,7 +51,27 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: '1.0.0'
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT
+  });
+});
+
+// Debug endpoint to test all endpoints
+app.get('/api/debug', (req, res) => {
+  res.json({
+    message: 'Debug endpoint working',
+    timestamp: new Date().toISOString(),
+    availableEndpoints: [
+      'GET /health',
+      'POST /api/auth/login',
+      'POST /api/auth/member/login',
+      'POST /api/auth/member/register',
+      'POST /api/auth/logout',
+      'GET /api/auth/verify',
+      'GET /api/members/approved',
+      'POST /api/meeting/send-link'
+    ]
   });
 });
 
