@@ -261,10 +261,14 @@
 
     // Check if already logged in
     window.addEventListener('load', function() {
-      const token = localStorage.getItem('adminToken');
-      if (token) {
-        // Redirect to home page if already logged in
-        window.location.href = 'home.html';
+      try {
+        const token = localStorage.getItem('adminToken');
+        if (token) {
+          // Redirect to home page if already logged in
+          window.location.href = 'home.html';
+        }
+      } catch (error) {
+        console.error('Error checking login status:', error);
       }
     });
   </script>
