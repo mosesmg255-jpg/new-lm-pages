@@ -1,103 +1,272 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <script src="utils/security.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Money Management System - Login</title>
-
-  <!-- Link to external CSS for login page styling -->
-  <link rel="stylesheet" href="style/login.css">
+  <title>Admin Login | Eldoret Chama Table-Banking Portal</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+      max-width: 450px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .login-header {
+      margin-bottom: 30px;
+    }
+
+    .login-header h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .login-header p {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .login-icon {
+      font-size: 60px;
+      color: #667eea;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .login-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .login-btn:active {
+      transform: translateY(0);
+    }
+
+    .error-message {
+      background: #fee;
+      color: #c33;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .success-message {
+      background: #efe;
+      color: #3c3;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .loading i {
+      animation: spin 1s linear infinite;
+      font-size: 24px;
+      color: #667eea;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .footer-text {
+      margin-top: 30px;
+      color: #666;
+      font-size: 12px;
+    }
+
+    .footer-text a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    .footer-text a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
-
 <body>
   <div class="login-container">
-    <div class="left-panel">
-      <p class="LMS">LOAN MANAGEMENT SYSTEM</p>
+    <div class="login-icon">
+      <i class="fas fa-shield-alt"></i>
     </div>
-    <div class="right-panel">
-      <div class="logo">
-        <h1>BEST MANAGEMENT SYSTEM</h1>
+    
+    <div class="login-header">
+      <h1>Admin Portal Login</h1>
+      <p>Eldoret Chama Table-Banking Management System</p>
+    </div>
+
+    <div class="error-message" id="errorMessage"></div>
+    <div class="success-message" id="successMessage"></div>
+
+    <form id="loginForm" onsubmit="handleAdminLogin(event)">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" required placeholder="admin@eldorethama.com" autocomplete="email">
       </div>
 
-      <!-- Form points directly to local login.php -->
-      <form action="/api/auth/login" method="POST">
-        <div class="form-inputs">
-          <label for="email">Email or Username</label>
-          <input type="text" id="email" name="identifier" autocomplete="username" placeholder="Email or Username"
-            required>
-
-          <label for="password">Password</label>
-          <div style="position: relative;">
-            <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Password"
-              required style="width:100%; box-sizing:border-box; padding-right: 40px;">
-            <i class="fas fa-eye" style="position:absolute; right:10px; top:12px; color:#aaa; cursor:pointer;"
-              onclick="togglePasswordVisibility('password', this)"></i>
-          </div>
-
-          <button type="submit" class="btn btn-login">LOGIN</button>
-        </div>
-      </form>
-
-      <!-- Functional interaction buttons handled by login.js -->
-      <button type="button" class="btn btn-create" onclick="goToCreateAccount()">CREATE ACCOUNT</button>
-      <button type="button" class="btn btn-exit" onclick="showRecoveryUI(event)"
-        style="background: #ff9800; border-color: #ff9800; color: #fff;">FORGOT PASSWORD / RECOVER ACCOUNT</button>
-
-      <!-- Password Recovery Modal (Hidden by default) -->
-      <div id="recoveryModal" style="display: none; margin-top: 20px; border-top: 2px solid #ccc; padding-top: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <h3 style="margin: 0; color: #fff;">Secure Account Recovery</h3>
-          <button type="button" onclick="hideRecoveryUI()"
-            style="background: none; border: none; cursor: pointer; font-size: 16px; color: #ccc;"></button>
-        </div>
-
-        <div id="recoveryStep1">
-          <p style="font-size: 13px; margin-bottom: 10px; color: #ccc;">Enter your registered email address to verify
-            identity.</p>
-          <div class="form-inputs" style="margin-bottom: 10px;">
-                        <input type="email" id="recoveryEmail" name="email" autocomplete="email" required placeholder="Enter your account email"
-              style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; background: rgba(255,255,255,0.12); color: #fff;">
-            <button type="button" id="btnRequestReset" class="btn" onclick="requestPasswordReset(event)"
-              style="width: 100%; margin-top: 10px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; font-weight: 600;">Send
-              Password Reset Link</button>
-          </div>
-
-        </div>
-
-        <div id="recoveryStep3" style="display: none;">
-          <p style="color: green; font-size: 13px; margin-bottom: 10px;">Token verified. Enter new password.</p>
-          <div class="form-inputs">
-            <div style="position: relative; margin-bottom: 10px;">
-              <input type="password" id="recoveryNewPassword" required placeholder="Enter new password"
-                style="width: 100%; padding: 10px; padding-right: 40px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; background: rgba(255,255,255,0.12); color: #fff; box-sizing:border-box;">
-              <i class="fas fa-eye" style="position:absolute; right:10px; top:12px; color:#aaa; cursor:pointer;"
-                onclick="togglePasswordVisibility('recoveryNewPassword', this)"></i>
-            </div>
-            <button type="button" class="btn btn-create" onclick="submitAIVerifiedRecovery(event)"
-              style="width: 100%;">Update Password</button>
-          </div>
-        </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required placeholder="Enter your password" autocomplete="current-password">
       </div>
 
+      <button type="submit" class="login-btn" id="loginBtn">
+        <i class="fas fa-sign-in-alt"></i> Sign In
+      </button>
+    </form>
+
+    <div class="loading" id="loadingIndicator">
+      <i class="fas fa-spinner"></i>
+      <p>Authenticating...</p>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <script>
-      (function () {
-        emailjs.init({ publicKey: "TlH6osvAnSZ29aZ0W" });
-      })();
-    </script>
-    <script src="js/login.js"></script>
-    <script>
-      history.pushState(null, '', location.href);
-      history.pushState(null, '', location.href);
-      window.addEventListener('popstate', () => {
-        history.pushState(null, '', location.href);
-      });
-    </script>
+
+    <div class="footer-text">
+      <p>Eldoret Chama Table-Banking Portal v1.0</p>
+      <p><a href="#" onclick="window.location.href='member.html'">Member Portal</a></p>
+    </div>
+  </div>
+
+  <script>
+    const API = 'https://new-lm-pages.onrender.com/api';
+
+    async function handleAdminLogin(event) {
+      event.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const loginBtn = document.getElementById('loginBtn');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const errorMessage = document.getElementById('errorMessage');
+      const successMessage = document.getElementById('successMessage');
+
+      // Reset messages
+      errorMessage.style.display = 'none';
+      successMessage.style.display = 'none';
+
+      // Show loading
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing In...';
+      loadingIndicator.style.display = 'block';
+
+      try {
+        const response = await fetch(`${API}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Store session
+          localStorage.setItem('adminToken', data.token);
+          localStorage.setItem('adminUser', JSON.stringify(data.user));
+
+          // Show success message
+          successMessage.textContent = 'Login successful! Redirecting...';
+          successMessage.style.display = 'block';
+
+          // Redirect to home page
+          setTimeout(() => {
+            window.location.href = 'home.html';
+          }, 1500);
+        } else {
+          // Show error message
+          errorMessage.textContent = data.message || 'Login failed. Please check your credentials.';
+          errorMessage.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        errorMessage.textContent = 'Connection error. Please check your internet connection and try again.';
+        errorMessage.style.display = 'block';
+      } finally {
+        // Hide loading
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+        loadingIndicator.style.display = 'none';
+      }
+    }
+
+    // Check if already logged in
+    window.addEventListener('load', function() {
+      const token = localStorage.getItem('adminToken');
+      if (token) {
+        // Redirect to home page if already logged in
+        window.location.href = 'home.html';
+      }
+    });
+  </script>
 </body>
-
 </html>
