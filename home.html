@@ -7,6 +7,34 @@
   <script src="utils/sessionTimeout.js"></script>
   <script src="utils/sessionTimeout.js"></script>
   <script src="meeting-center-scripts.js"></script>
+  <script>
+    // API Configuration for Render deployment
+    const API = 'https://new-lm-pages.onrender.com/api';
+    
+    // Admin session for authentication
+    let adminSession = {
+      token: localStorage.getItem('adminToken') || null,
+      user: JSON.parse(localStorage.getItem('adminUser') || 'null')
+    };
+    
+    // Check if user is authenticated
+    function checkAuth() {
+      if (!adminSession.token) {
+        // Redirect to login if not authenticated
+        window.location.href = 'login.html';
+        return false;
+      }
+      return true;
+    }
+    
+    // Logout function
+    function adminLogout() {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
+      adminSession = { token: null, user: null };
+      window.location.href = 'login.html';
+    }
+  </script>
   <meta charset="UTF-8">
   <title>Eldoret Chama Table-Banking Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
