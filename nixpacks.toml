@@ -1,11 +1,14 @@
-[phases.build]
-nixPkgs = ["nodejs-24_x"]
+[phases.setup]
+nixPkgs = ["nodejs-18_x"]
 
 [phases.build]
-cmds = ["npm install"]
+cmds = ["npm install --production"]
 
-[phases.start]
-cmd = "npm start"
+[start]
+cmd = "node server-simple.js"
 
 [variables]
 NODE_ENV = "production"
+PORT = "3000"
+ADMIN_EMAIL = "admin@eldorethama.com"
+ADMIN_PASSWORD = "admin123"
