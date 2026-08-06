@@ -1,0 +1,25 @@
+services:
+  # Web Service
+  - type: web
+    name: new-lm-pages-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # Static Site (optional - for HTML files)
+  - type: site
+    name: new-lm-pages-static
+    plan: free
+    buildCommand: npm install
+    publishDir: .
+    envVars:
+      - key: NODE_ENV
+        value: production
