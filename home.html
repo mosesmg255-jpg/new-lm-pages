@@ -19,21 +19,37 @@
     
     // Check if user is authenticated
     function checkAuth() {
-      if (!adminSession.token) {
-        // Redirect to login if not authenticated
+      try {
+        if (!adminSession.token) {
+          // Redirect to login if not authenticated
+          window.location.href = 'login.html';
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error('Auth check error:', error);
         window.location.href = 'login.html';
         return false;
       }
-      return true;
     }
     
     // Logout function
     function adminLogout() {
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
-      adminSession = { token: null, user: null };
-      window.location.href = 'login.html';
+      try {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        adminSession = { token: null, user: null };
+        window.location.href = 'login.html';
+      } catch (error) {
+        console.error('Logout error:', error);
+        window.location.href = 'login.html';
+      }
     }
+    
+    // Verify admin session on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      checkAuth();
+    });
   </script>
   <meta charset="UTF-8">
   <title>Eldoret Chama Table-Banking Portal</title>
