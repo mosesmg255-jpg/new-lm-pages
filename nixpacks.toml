@@ -1,0 +1,11 @@
+[phases.build]
+nixPkgs = ["nodejs-24_x"]
+
+[phases.build]
+cmds = ["npm install"]
+
+[phases.start]
+cmd = "npm start"
+
+[variables]
+NODE_ENV = "production"
