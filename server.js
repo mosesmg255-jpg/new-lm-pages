@@ -20,7 +20,12 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: ['https://new-lm-pages.onrender.com', 'http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(compression({ level: 6, threshold: 1024 })); // Turbo compression
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -63,6 +68,195 @@ app.get('/api/email/status', async (req, res) => {
       otp: otpStatus,
       tracking: trackingStats,
       analytics: analytics
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Login endpoint for admin authentication
+app.post('/api/auth/login', [
+  body('email').isEmail().normalizeEmail(),
+  body('password').isString().isLength({ min: 1 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { email, password } = req.body;
+    
+    // Mock authentication - replace with actual database authentication
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@eldorethama.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    
+    if (email === adminEmail && password === adminPassword) {
+      const token = Buffer.from(`${email}:${Date.now()}`).toString('base64');
+      res.json({
+        success: true,
+        token: token,
+        user: {
+          email: email,
+          role: 'admin',
+          name: 'Administrator'
+        },
+        message: 'Login successful'
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Verify token endpoint
+app.get('/api/auth/verify', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ valid: false, message: 'No token provided' });
+    }
+    
+    // Mock token verification - replace with actual JWT verification
+    const decoded = Buffer.from(token, 'base64').toString('utf-8');
+    const [email] = decoded.split(':');
+    
+    if (email) {
+      res.json({
+        valid: true,
+        user: {
+          email: email,
+          role: 'admin',
+          name: 'Administrator'
+        }
+      });
+    } else {
+      res.status(401).json({ valid: false, message: 'Invalid token' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Logout endpoint
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      message: 'Logout successful'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Member Login endpoint
+app.post('/api/auth/member/login', [
+  body('identity').isString(),
+  body('password').isString().isLength({ min: 1 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { identity, password } = req.body;
+    
+    // Mock member authentication - replace with actual database authentication
+    // Check if identity matches email or username
+    const mockMembers = [
+      { id: 1, email: 'member1@example.com', username: 'member1', password: 'password123', name: 'John Doe', status: 'approved' },
+      { id: 2, email: 'member2@example.com', username: 'member2', password: 'password123', name: 'Jane Smith', status: 'approved' }
+    ];
+    
+    const member = mockMembers.find(m => 
+      (m.email === identity || m.username === identity) && m.password === password
+    );
+    
+    if (member) {
+      if (member.status !== 'approved') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your account is pending admin approval'
+        });
+      }
+      
+      const token = Buffer.from(`${member.id}:${member.email}:${Date.now()}`).toString('base64');
+      res.json({
+        success: true,
+        token: token,
+        user: {
+          id: member.id,
+          email: member.email,
+          name: member.name,
+          username: member.username,
+          role: 'member'
+        },
+        message: 'Login successful'
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Member Registration endpoint
+app.post('/api/auth/member/register', [
+  body('name').isString().isLength({ min: 2 }),
+  body('email').isEmail().normalizeEmail(),
+  body('phone').isString().isLength({ min: 10 }),
+  body('password').isString().isLength({ min: 6 }),
+  body('pin').isString().isLength({ min: 4, max: 6 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { name, email, phone, password, pin } = req.body;
+    
+    // Mock member registration - replace with actual database storage
+    const newMember = {
+      id: Date.now(),
+      name: name,
+      email: email,
+      phone: phone,
+      password: password,
+      pin: pin,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    
+    // Send registration notification to admin via email service
+    try {
+      // Mock email notification - replace with actual email service call
+      console.log('Registration notification sent to admin for:', newMember.email);
+    } catch (emailError) {
+      console.error('Failed to send registration notification:', emailError);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Registration successful. Your account is pending admin approval.',
+      member: {
+        id: newMember.id,
+        name: newMember.name,
+        email: newMember.email,
+        status: newMember.status
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -439,6 +633,97 @@ app.post('/api/track/open/:trackingId', [
     const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
     res.setHeader('Content-Type', 'image/gif');
     res.send(pixel);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Member Management Endpoints
+app.get('/api/members/approved', async (req, res) => {
+  try {
+    // Mock approved members data - replace with actual database query
+    const approvedMembers = [
+      { id: 1, first_name: 'John', last_name: 'Doe', email: 'john@example.com' },
+      { id: 2, first_name: 'Jane', last_name: 'Smith', email: 'jane@example.com' },
+      { id: 3, first_name: 'Michael', last_name: 'Johnson', email: 'michael@example.com' }
+    ];
+    
+    res.json({ success: true, members: approvedMembers });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Meeting Link Sending Endpoint
+app.post('/api/meeting/send-link', [
+  body('members').isArray(),
+  body('meetingLink').isURL()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  try {
+    const { members, meetingLink } = req.body;
+    
+    // Mock email sending - replace with actual email service
+    const results = members.map(memberId => ({
+      memberId,
+      status: 'sent',
+      timestamp: new Date().toISOString()
+    }));
+    
+    res.json({
+      success: true,
+      message: `Meeting link sent to ${members.length} members`,
+      results
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Meeting Data Storage Endpoint
+app.post('/api/meeting/save', async (req, res) => {
+  try {
+    const meetingData = req.body;
+    
+    // Mock saving meeting data - replace with actual database storage
+    const savedMeeting = {
+      id: Date.now(),
+      ...meetingData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    res.json({
+      success: true,
+      meeting: savedMeeting,
+      message: 'Meeting data saved successfully'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Meeting Data Retrieval Endpoint
+app.get('/api/meeting/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Mock retrieving meeting data - replace with actual database query
+    const meetingData = {
+      id: parseInt(id),
+      title: 'Sample Meeting',
+      createdAt: new Date().toISOString(),
+      // ... other meeting fields
+    };
+    
+    res.json({
+      success: true,
+      meeting: meetingData
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
