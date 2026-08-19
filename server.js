@@ -32,6 +32,9 @@ app.use(compression({ level: 6, threshold: 1024 })); // Turbo compression
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve static files
+app.use(express.static(__dirname));
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
