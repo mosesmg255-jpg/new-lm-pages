@@ -3,8 +3,8 @@ services:
     name: new-lm-pages-api
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: node server-minimal.js
+    buildCommand: echo "No build needed"
+    startCommand: node server-basic.js
     envVars:
       - key: NODE_ENV
         value: production
