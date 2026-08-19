@@ -1,5 +1,4 @@
 services:
-  # Web Service
   - type: web
     name: new-lm-pages-api
     env: node
@@ -11,14 +10,7 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: ADMIN_EMAIL
-        value: admin@eldorethama.com
-      - key: ADMIN_PASSWORD
-        value: admin123
-      - key: RENDER_EXTERNAL_PORT
-        value: 10000
     healthCheckPath: /health
-    autoDeploy: true
 
   # Static Site (optional - for HTML files)
   - type: site
