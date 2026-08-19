@@ -310,7 +310,7 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`ðŸš€ Simple API Server running on http://localhost:${PORT}`);
   console.log(`ðŸ“Š Health check: http://localhost:${PORT}/health`);
   console.log(`ðŸ”§ API endpoints: http://localhost:${PORT}/api/`);
