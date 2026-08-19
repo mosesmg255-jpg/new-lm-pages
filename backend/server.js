@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { OpenAI } = require('openai');
 const os = require('os');
 
 const dotenv = require('dotenv');
@@ -12,9 +11,19 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
+// Optional OpenAI integration - only load if dependency is available and API key is provided
+let openai = null;
+try {
+  if (process.env.OPENAI_API_KEY) {
+    const { OpenAI } = require('openai');
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    console.log('[SERVER] OpenAI integration enabled');
+  } else {
+    console.log('[SERVER] OpenAI integration disabled (no API key)');
+  }
+} catch (err) {
+  console.log('[SERVER] OpenAI integration disabled (dependency not available)');
+}
 
 const securityScanner = require('./securityScanner');
 const { log } = require('./logger');
@@ -26,29 +35,36 @@ app.use(helmet({
 }));
 
 // --- CORS ---
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://localhost:4000',
-  'http://127.0.0.1:4000',
-  'https://project2026-64ro.onrender.com',
-  'https://new-lm-pages.onrender.com',
-  'https://mosesmg255-jpg.github.io'
-].join(','))
-  .split(',').map(s => s.trim());
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 
+  'http://localhost:3000,http://127.0.0.1:3000,http://localhost:4000,http://127.0.0.1:4000,' +
+  'https://project2026-64ro.onrender.com,https://new-lm-pages.onrender.com,https://mosesmg255-jpg.github.io'
+).split(',').map(s => s.trim()).filter(s => s.length > 0);
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || ALLOWED_ORIGINS.includes(origin) || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
-      callback(null, true);
-    } else {
-      callback(null, false); // Block gracefully without throwing an unhandled Exception
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
     }
+    
+    // Allow localhost for development
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // Check against configured origins
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Block unapproved origins
+    console.warn('[CORS] Blocked origin:', origin);
+    callback(null, false);
   },
   credentials: true
 }));
 
-// Clean 403 response for blocked CORS
+// Clean 403 response for blocked CORS (redundant with CORS middleware but kept for explicit rejection)
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && !ALLOWED_ORIGINS.includes(origin) && !origin.startsWith('http://localhost') && !origin.startsWith('http://127.0.0.1')) {
@@ -118,20 +134,34 @@ app.use('/api/settings/verify-admin-password', authLimiter);
 app.use(express.static(path.join(__dirname, '..')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const PORT = process.env.PORT || 4000;
-// Railway injects a custom IPv6 HOST that causes EADDRNOTAVAIL in some Node versions, so we force 0.0.0.0
-const HOST = '0.0.0.0';
+const PORT = Number(process.env.PORT) || 4000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 const { sequelize } = require('./models');
 
-// --- Enhanced Health Check ---
+// --- Liveness Check (process alive) ---
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: require('../package.json').version,
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT,
+    host: HOST
+  });
+});
+
+// --- Enhanced Health Check (dependencies) ---
 app.get('/api/health', async (req, res) => {
   const health = {
     ok: true,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     memory: process.memoryUsage(),
-    db: 'disconnected'
+    db: 'disconnected',
+    openai: openai ? 'enabled' : 'disabled',
+    schedulers: process.env.ENABLE_SCHEDULERS === 'true' ? 'enabled' : 'disabled'
   };
   try {
     await sequelize.authenticate();
@@ -210,7 +240,19 @@ app.get('/api/diag', (req, res) => {
     message: 'API router is responding',
     timestamp: new Date().toISOString(),
     routes_mounted: true,
-    available_routes: ['/auth', '/members', '/loans', '/repayments', '/contributions', '/expenses', '/logs', '/verifications', '/treasurer', '/automation', '/corporate', '/safeguard', '/settings', '/minutes', '/messages', '/live-updates', '/checkins', '/badges', '/savings-goals']
+    available_routes: ['/auth', '/members', '/loans', '/repayments', '/contributions', '/expenses', '/logs', '/verifications', '/treasurer', '/automation', '/corporate', '/safeguard', '/settings', '/minutes', '/messages', '/live-updates', '/checkins', '/badges', '/savings-goals'],
+    configuration: {
+      port: PORT,
+      host: HOST,
+      node_env: process.env.NODE_ENV || 'development',
+      cors_origins: ALLOWED_ORIGINS,
+      openai_enabled: !!openai,
+      schedulers_enabled: process.env.ENABLE_SCHEDULERS === 'true'
+    },
+    git_info: {
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.RENDER_GIT_COMMIT || 'unknown',
+      branch: process.env.VERCEL_GIT_COMMIT_REF || process.env.RENDER_GIT_BRANCH || 'unknown'
+    }
   });
 });
 
@@ -278,28 +320,39 @@ async function startServer() {
     }
   }
 
-  // Start email scheduler (daily repayment reminders, overdue alerts)
-  try {
-    const { startEmailScheduler } = require('./emailScheduler');
-    startEmailScheduler();
-  } catch (schedulerErr) {
-    console.warn('[server] Email scheduler failed to start:', schedulerErr.message);
-  }
+  // Start schedulers only if explicitly enabled (for multi-run safety)
+  if (process.env.ENABLE_SCHEDULERS === 'true') {
+    console.log('[SERVER] Schedulers enabled (ENABLE_SCHEDULERS=true)');
+    
+    // Start email scheduler (daily repayment reminders, overdue alerts)
+    try {
+      const { startEmailScheduler } = require('./emailScheduler');
+      startEmailScheduler();
+      console.log('[SERVER] Email scheduler started');
+    } catch (schedulerErr) {
+      console.warn('[server] Email scheduler failed to start:', schedulerErr.message);
+    }
 
-  // Start loan reminder scheduler
-  try {
-    const { startLoanSchedulers } = require('./schedulers/loanReminderScheduler');
-    startLoanSchedulers();
-  } catch (schedulerErr) {
-    console.warn('[server] Loan reminder scheduler failed to start:', schedulerErr.message);
-  }
+    // Start loan reminder scheduler
+    try {
+      const { startLoanSchedulers } = require('./schedulers/loanReminderScheduler');
+      startLoanSchedulers();
+      console.log('[SERVER] Loan reminder scheduler started');
+    } catch (schedulerErr) {
+      console.warn('[server] Loan reminder scheduler failed to start:', schedulerErr.message);
+    }
 
-  // Start automatic email reply service
-  try {
-    const { startEmailReplyService } = require('./emailReplyService');
-    startEmailReplyService();
-  } catch (replyErr) {
-    console.warn('[server] Email reply service failed to start:', replyErr.message);
+    // Start automatic email reply service
+    try {
+      const { startEmailReplyService } = require('./emailReplyService');
+      startEmailReplyService();
+      console.log('[SERVER] Email reply service started');
+    } catch (replyErr) {
+      console.warn('[server] Email reply service failed to start:', replyErr.message);
+    }
+  } else {
+    console.log('[SERVER] Schedulers disabled (ENABLE_SCHEDULERS not set to true)');
+    console.log('[SERVER] This instance will run web API only without background jobs');
   }
 }
 

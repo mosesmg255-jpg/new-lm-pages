@@ -37,7 +37,8 @@
     "pdfkit": "^0.13.0",
     "twilio": "^4.19.3",
     "node-fetch": "^2.7.0",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "openai": "^4.20.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
