@@ -5,12 +5,16 @@ services:
     env: node
     plan: free
     buildCommand: npm install
-    startCommand: node server.js
+    startCommand: node server-simple.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: ADMIN_EMAIL
+        value: admin@eldorethama.com
+      - key: ADMIN_PASSWORD
+        value: admin123
     healthCheckPath: /health
     autoDeploy: true
 

@@ -13,7 +13,7 @@ const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const { body, validationResult, param } = require('express-validator');
 
-const emailService = require('./emailReplyService');
+const emailService = require('./backend/emailReplyService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
