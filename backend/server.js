@@ -25,8 +25,22 @@ try {
   console.log('[SERVER] OpenAI integration disabled (dependency not available)');
 }
 
-const securityScanner = require('./securityScanner');
-const { log } = require('./logger');
+// Optional security scanner and logger - load gracefully if available
+let securityScanner = null;
+let log = null;
+try {
+  securityScanner = require('./securityScanner');
+} catch (err) {
+  console.log('[SERVER] Security scanner not available');
+}
+
+try {
+  const logger = require('./logger');
+  log = logger.log;
+} catch (err) {
+  console.log('[SERVER] Logger not available, using console.log');
+  log = (level, info) => console.log(`[${level}]`, info);
+}
 
 // --- Security Headers ---
 app.use(helmet({
@@ -79,7 +93,9 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' })); // support nativ
 app.use(express.urlencoded({ extended: false, limit: '1mb' })); // support native HTML form POSTs
 
 // --- WAF ---
-app.use(securityScanner);
+if (securityScanner) {
+  app.use(securityScanner);
+}
 
 // --- Request Logger ---
 app.use((req, res, next) => {
@@ -137,7 +153,14 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-const { sequelize } = require('./models');
+// Optional database models - load gracefully if database is configured
+let sequelize = null;
+try {
+  const models = require('./models');
+  sequelize = models.sequelize;
+} catch (err) {
+  console.log('[SERVER] Database models not available, running without database');
+}
 
 // --- Liveness Check (process alive) ---
 app.get('/health', (req, res) => {
@@ -159,17 +182,21 @@ app.get('/api/health', async (req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     memory: process.memoryUsage(),
-    db: 'disconnected',
+    db: sequelize ? 'disconnected' : 'not_configured',
     openai: openai ? 'enabled' : 'disabled',
     schedulers: process.env.ENABLE_SCHEDULERS === 'true' ? 'enabled' : 'disabled'
   };
-  try {
-    await sequelize.authenticate();
-    health.db = 'connected';
-  } catch (err) {
-    health.db = 'error: ' + err.message;
-    health.ok = false;
+  
+  if (sequelize) {
+    try {
+      await sequelize.authenticate();
+      health.db = 'connected';
+    } catch (err) {
+      health.db = 'error: ' + err.message;
+      health.ok = false;
+    }
   }
+  
   const statusCode = health.ok ? 200 : 503;
   res.status(statusCode).json(health);
 });
@@ -273,51 +300,70 @@ app.use((err, req, res, next) => {
 });
 
 async function startServer() {
-  const dbInfo = sequelize.connectionDetails || {};
   let dbConnected = false;
-  console.log(
-    `MySQL target: ${dbInfo.user || 'root'}@${dbInfo.host || '127.0.0.1'}:${dbInfo.port || 3306}/${dbInfo.database || 'loanmanagement'}`
-  );
+  
+  if (sequelize) {
+    const dbInfo = sequelize.connectionDetails || {};
+    console.log(
+      `MySQL target: ${dbInfo.user || 'root'}@${dbInfo.host || '127.0.0.1'}:${dbInfo.port || 3306}/${dbInfo.database || 'loanmanagement'}`
+    );
 
-  // Start the HTTP server immediately so Render's health check passes during DB connect
-  server = app.listen(PORT, HOST, () => {
-    const localHost = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
-    console.log(`\nLM backend listening on port ${PORT}`);
-    console.log(`Static files served from: ${path.join(__dirname, '..')}\n`);
-    console.log('--- Available Localhost URLs ---');
-    console.log(`  http://${localHost}:${PORT}/home.html          (Admin Panel)`);
-    console.log(`  http://${localHost}:${PORT}/member.html        (Member Portal)`);
-    console.log(`  http://${localHost}:${PORT}/login.html         (Admin Login)`);
-    console.log(`  http://${localHost}:${PORT}/landingpage.html   (Landing Page)`);
-    console.log(`  http://${localHost}:${PORT}/createaccount.html (Create Account)`);
-    console.log(`  http://${localHost}:${PORT}/api/health          (Health Check)`);
-    console.log(`--------------------------------\n`);
-  });
+    // Start the HTTP server immediately so Render's health check passes during DB connect
+    server = app.listen(PORT, HOST, () => {
+      const localHost = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+      console.log(`\nLM backend listening on port ${PORT}`);
+      console.log(`Static files served from: ${path.join(__dirname, '..')}\n`);
+      console.log('--- Available Localhost URLs ---');
+      console.log(`  http://${localHost}:${PORT}/home.html          (Admin Panel)`);
+      console.log(`  http://${localHost}:${PORT}/member.html        (Member Portal)`);
+      console.log(`  http://${localHost}:${PORT}/login.html         (Admin Login)`);
+      console.log(`  http://${localHost}:${PORT}/landingpage.html   (Landing Page)`);
+      console.log(`  http://${localHost}:${PORT}/createaccount.html (Create Account)`);
+      console.log(`  http://${localHost}:${PORT}/api/health          (Health Check)`);
+      console.log(`--------------------------------\n`);
+    });
 
-  for (let i = 1; i <= 5; i++) {
-    try {
-      await sequelize.authenticate();
-      console.log('MySQL connected');
-      dbConnected = true;
-      break;
-    } catch (err) {
-      console.error(`MySQL connection attempt ${i}/5 failed:`, err.message);
-      if (i < 5) await new Promise(res => setTimeout(res, 2000));
+    for (let i = 1; i <= 5; i++) {
+      try {
+        await sequelize.authenticate();
+        console.log('MySQL connected');
+        dbConnected = true;
+        break;
+      } catch (err) {
+        console.error(`MySQL connection attempt ${i}/5 failed:`, err.message);
+        if (i < 5) await new Promise(res => setTimeout(res, 2000));
+      }
     }
-  }
 
-  if (!dbConnected) {
-    console.error('MySQL is not connected. Start MySQL and confirm backend/.env points to 127.0.0.1:3306.');
-    console.error('The web server will still start on localhost so static pages can load.');
-  }
-
-  if (dbConnected) {
-    try {
-      await sequelize.sync();
-      console.log('MySQL tables synced');
-    } catch (err) {
-      console.error('MySQL sync error:', err.message);
+    if (!dbConnected) {
+      console.error('MySQL is not connected. Start MySQL and confirm backend/.env points to 127.0.0.1:3306.');
+      console.error('The web server will still start on localhost so static pages can load.');
     }
+
+    if (dbConnected) {
+      try {
+        await sequelize.sync();
+        console.log('MySQL tables synced');
+      } catch (err) {
+        console.error('MySQL sync error:', err.message);
+      }
+    }
+  } else {
+    // Start server without database
+    server = app.listen(PORT, HOST, () => {
+      const localHost = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+      console.log(`\nLM backend listening on port ${PORT} (without database)`);
+      console.log(`Static files served from: ${path.join(__dirname, '..')}\n`);
+      console.log('--- Available Localhost URLs ---');
+      console.log(`  http://${localHost}:${PORT}/home.html          (Admin Panel)`);
+      console.log(`  http://${localHost}:${PORT}/member.html        (Member Portal)`);
+      console.log(`  http://${localHost}:${PORT}/login.html         (Admin Login)`);
+      console.log(`  http://${localHost}:${PORT}/landingpage.html   (Landing Page)`);
+      console.log(`  http://${localHost}:${PORT}/createaccount.html (Create Account)`);
+      console.log(`  http://${localHost}:${PORT}/api/health          (Health Check)`);
+      console.log(`--------------------------------\n`);
+      console.log('Note: Database not configured. API endpoints that require database will return errors.');
+    });
   }
 
   // Start schedulers only if explicitly enabled (for multi-run safety)
@@ -362,12 +408,16 @@ function gracefulShutdown(signal) {
   if (server) {
     server.close(() => {
       console.log('[SHUTDOWN] HTTP server closed.');
-      sequelize.close().then(() => {
-        console.log('[SHUTDOWN] Database connections closed.');
+      if (sequelize) {
+        sequelize.close().then(() => {
+          console.log('[SHUTDOWN] Database connections closed.');
+          process.exit(0);
+        }).catch(() => {
+          process.exit(0);
+        });
+      } else {
         process.exit(0);
-      }).catch(() => {
-        process.exit(0);
-      });
+      }
     });
   } else {
     process.exit(0);
